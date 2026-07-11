@@ -1,0 +1,33 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "opencode/deepseek-v4-flash-free",
+  "small_model": "opencode/deepseek-v4-flash-free",
+  "agent": {
+    "build": {
+      "model": "opencode/deepseek-v4-flash-free",
+      "maxTokens": 30000,
+      "description": "Agente por defecto para codificar y ejecutar"
+    },
+    "plan": {
+      "model": "opencode/deepseek-v4-flash-free",
+      "maxTokens": 10000,
+      "description": "Agente de planificación (solo lectura)"
+    },
+    "task": {
+      "model": "opencode/deepseek-v4-flash-free",
+      "maxTokens": 5000,
+      "description": "Agente ligero para tareas rápidas"
+    }
+  },
+  "compaction": {
+    "auto": true,
+    "prune": true,
+    "reserved": 10000
+  },
+  "skills": {
+    "paths": [
+      ".opencode/skills"
+    ]
+  },
+  "autoupdate": true
+}
