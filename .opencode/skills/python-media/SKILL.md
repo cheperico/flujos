@@ -9,7 +9,7 @@ description: Python para procesamiento multimedia — librerías estándar y de 
 Este skill cubre el uso de Python en el proyecto **Flujos** para scripting de
 procesamiento, análisis, transformación y carga de archivos multimedia.
 
-## Librerías recomendadas
+## Librerías disponibles
 
 | Librería | Propósito | Instalación |
 |----------|-----------|-------------|
@@ -20,6 +20,7 @@ procesamiento, análisis, transformación y carga de archivos multimedia.
 | `subprocess` | Llamar ffmpeg, exiftool | built-in |
 | `Pillow` | Lectura de imágenes, metadatos EXIF | `pip install Pillow` |
 | `mutagen` | Metadatos de audio | `pip install mutagen` |
+| `faster_whisper` | Transcripción de audio a texto | `pip install faster-whisper` |
 | `tqdm` | Barras de progreso | `pip install tqdm` |
 | `rich` | Logging y tablas en consola | `pip install rich` |
 | `pydantic` | Validación de schemas | `pip install pydantic` |
@@ -101,7 +102,63 @@ def _fecha_iso(timestamp):
     return datetime.fromtimestamp(timestamp).isoformat()
 ```
 
-### 4. Wrapper para llamar herramientas externas
+### 4. Transcripción de audio con faster-whisper
+```python
+from faster_whisper import WhisperModel
+
+# Cargar modelo (elige tamaño según hardware)
+# "tiny"   ~1 GB VRAM, rápido, menos preciso
+# "base"   ~1 GB VRAM
+# "small"  ~2 GB VRAM, balance calidad/velocidad
+# "medium" ~5 GB VRAM
+# "large"  ~10 GB VRAM, mejor precisión
+def transcribir_audio(ruta_audio, modelo="base", device="auto"):
+    """
+    Transcribe un archivo de audio a texto.
+    device: "cpu", "cuda" o "auto" (detecta GPU si hay)
+    """
+    model = WhisperModel(modelo, device=device, compute_type="int8")
+    segments, info = model.transcribe(ruta_audio, beam_size=5)
+
+    print(f"Idioma detectado: {info.language} (prob: {info.language_probability:.2f})")
+
+    resultado = []
+    for segment in segments:
+        resultado.append({
+            "inicio": segment.start,
+            "fin": segment.end,
+            "texto": segment.text.strip()
+        })
+    return resultado
+
+# Uso básico
+# segmentos = transcribir_audio("audio.wav", modelo="small")
+# for seg in segmentos:
+#     print(f"[{seg['inicio']:.1f}s -> {seg['fin']:.1f}s] {seg['texto']}")
+```
+
+### 5. Transcripción con timestamps a SRT
+```python
+def segmentos_a_srt(segmentos, archivo_srt):
+    """Convierte segmentos de faster-whisper a formato SRT."""
+    def _formatear(seg):
+        h = int(seg["inicio"] // 3600)
+        m = int((seg["inicio"] % 3600) // 60)
+        s = seg["inicio"] % 60
+        return f"{h:02d}:{m:02d}:{s:06.3f}"
+
+    with open(archivo_srt, "w", encoding="utf-8") as f:
+        for i, seg in enumerate(segmentos, 1):
+            inicio = _formatear(seg)
+            fin = seg["fin"]
+            h = int(fin // 3600)
+            m = int((fin % 3600) // 60)
+            s = fin % 60
+            fin_fmt = f"{h:02d}:{m:02d}:{s:06.3f}"
+            f.write(f"{i}\n{inicio} --> {fin_fmt}\n{seg['texto']}\n\n")
+```
+
+### 6. Wrapper para llamar herramientas externas
 ```python
 import subprocess, json, shutil
 

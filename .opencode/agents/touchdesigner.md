@@ -14,6 +14,7 @@ permission:
   grep: allow
   webfetch: allow
   todowrite: allow
+  external_directory: ask
 ---
 
 # Experto en TouchDesigner
