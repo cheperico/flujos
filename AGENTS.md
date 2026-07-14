@@ -49,7 +49,8 @@ motor principal.
     │   ├── orquestador.md     # Agente primario (orquestador)
     │   ├── touchdesigner.md   # Subagente TouchDesigner
     │   ├── gis.md             # Subagente GIS
-    │   └── ollama.md          # Subagente Ollama
+    │   ├── gis.md             # Subagente GIS
+    │   └── ia-media.md        # Subagente IA para medios
     └── skills/                # Skills reutilizables
         ├── sqlite/
         │   └── SKILL.md       # Base de datos SQLite
@@ -57,9 +58,9 @@ motor principal.
         │   └── SKILL.md       # Transcodificación y análisis
         ├── exiftools/
         │   └── SKILL.md       # Metadatos EXIF/IPTC/XMP
-        ├── ollama/
-        │   └── SKILL.md       # Modelos de IA locales
-        ├── python-media/
+        ├── ia-media/
+        │   └── SKILL.md       # Procesamiento de medios con IA
+        └── python-media/
         │   └── SKILL.md       # Python para multimedia
         └── ia-media/
             └── SKILL.md       # Procesamiento de medios con IA
@@ -88,10 +89,10 @@ scripts/
 
 | Agente | Tipo | Rol |
 |--------|------|-----|
-| `@orquestador` | primary | Orquestador principal — planea, delega, sintetiza |
+| `@orquestador` | primary (default) | Orquestador principal — agente predeterminado para todas las sesiones |
 | `@touchdesigner` | subagent | Experto en TouchDesigner — operadores, redes, Python/TD, OSC, MIDI, NDI, Spout |
 | `@gis` | subagent | Experto en GIS — geolocalización de medios, conversión de coordenadas, cálculos de distancia y ubicación relativa |
-| `@ollama` | subagent | Experto en Ollama — modelos LLM locales, inferencia multimodal, embeddings, selección de modelos |
+| `@ia-media` | subagent | Experto en IA para medios — visión (Ollama), transcripción (faster-whisper), análisis de imágenes y videos, selección inteligente |
 
 ## Skills
 
@@ -100,9 +101,14 @@ scripts/
 | `sqlite` | Base de datos embebida para metadatos de medios, configuración y almacenamiento local |
 | `ffmpeg` | Transcodificación, análisis y extracción de metadata de archivos multimedia |
 | `exiftools` | Lectura de metadatos EXIF, IPTC, XMP en imágenes, videos y audios |
-| `ollama` | Modelos de IA locales para análisis de imágenes, texto, embeddings |
-| `python-media` | Scripting Python para procesamiento, ETL y automatización de pipelines de medios |
 | `ia-media` | Procesamiento de medios con IA — transcripción (faster-whisper), análisis de imágenes y videos (Ollama visión), selección inteligente de imágenes |
+| `python-media` | Scripting Python para procesamiento, ETL y automatización de pipelines de medios |
+
+## Documentos de diseño
+
+| Documento | Descripción |
+|-----------|-------------|
+| `docs/limpieza_tandas_resultados.md` | Comparativa de 4 estrategias de limpieza de tandas (temporal, pHash, tags, embeddings). Decantó por embeddings como favorita. |
 
 ## Reglas
 

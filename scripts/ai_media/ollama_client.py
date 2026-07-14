@@ -122,7 +122,6 @@ class OllamaVision:
                     }
                 ],
                 options={"temperature": temperatura},
-                timeout=self.timeout,
             )
             texto = response["message"]["content"].strip()
             logger.debug("Respuesta obtenida (%d caracteres)", len(texto))
@@ -199,7 +198,6 @@ class OllamaTexto:
                 model=self.modelo,
                 messages=messages,
                 options={"temperature": temperatura},
-                timeout=self.timeout,
             )
             return response["message"]["content"].strip()
         except Exception as e:

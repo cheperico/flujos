@@ -60,6 +60,11 @@ CREATE TABLE IF NOT EXISTS media_metadata (
     UNIQUE(media_id, key)
 );
 
+CREATE TABLE IF NOT EXISTS config (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
 -- Índices
 CREATE INDEX IF NOT EXISTS idx_media_content_hash ON media(content_hash);
 CREATE INDEX IF NOT EXISTS idx_media_type ON media(type);

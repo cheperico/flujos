@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Optional
 
 from scripts.ai_media.ollama_client import OllamaVision
+from scripts.ai_media.proxy import obtener_proxy
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,7 @@ def extraer_keywords(
     ruta_imagen: str,
     modelo: str = "moondream:latest",
     temperatura: float = 0.2,
+    usar_proxy: bool = True,
 ) -> list[str]:
     """
     Analiza una imagen y devuelve 5-7 palabras clave en español.
@@ -64,6 +66,7 @@ def extraer_keywords(
         ruta_imagen: Ruta al archivo de imagen.
         modelo: Modelo de visión a usar. Por defecto moondream (rápido y liviano).
         temperatura: Control de creatividad. Bajo para keywords predecibles.
+        usar_proxy: Si True, usa proxy redimensionado a 2MP para acelerar.
 
     Returns:
         Lista de palabras clave (strings).
@@ -72,10 +75,11 @@ def extraer_keywords(
         FileNotFoundError: Si la imagen no existe.
         ValueError: Si no se pudieron extraer keywords.
     """
+    ruta_proxy = obtener_proxy(ruta_imagen, usar_proxy=usar_proxy)
     cliente = OllamaVision(modelo=modelo)
 
     respuesta = cliente.analizar_imagen(
-        ruta_imagen,
+        ruta_proxy,
         prompt=PROMPT_KEYWORDS,
         temperatura=temperatura,
     )
@@ -99,6 +103,7 @@ def extraer_keywords_batch(
     rutas_imagenes: list[str],
     modelo: str = "moondream:latest",
     temperatura: float = 0.2,
+    usar_proxy: bool = True,
 ) -> list[dict]:
     """
     Analiza múltiples imágenes y extrae keywords de cada una.
@@ -107,29 +112,38 @@ def extraer_keywords_batch(
         rutas_imagenes: Lista de rutas a imágenes.
         modelo: Modelo de visión.
         temperatura: Control de creatividad.
+        usar_proxy: Si True, usa proxies redimensionados.
 
     Returns:
         Lista de dicts con {"ruta", "keywords", "error"}.
     """
+    # Aplicar proxies y mantener mapeo ruta_original -> ruta_proxy
+    if usar_proxy:
+        rutas_proxy = [(r, obtener_proxy(r)) for r in rutas_imagenes]
+    else:
+        rutas_proxy = [(r, r) for r in rutas_imagenes]
+
+    rutas_proxy_solo = [p for _, p in rutas_proxy]
+
     cliente = OllamaVision(modelo=modelo)
     resultados_vision = cliente.analizar_imagenes(
-        rutas_imagenes,
+        rutas_proxy_solo,
         prompt=PROMPT_KEYWORDS,
         temperatura=temperatura,
     )
 
     resultados = []
-    for item in resultados_vision:
+    for (ruta_orig, _), item in zip(rutas_proxy, resultados_vision):
         if item["error"]:
             resultados.append({
-                "ruta": item["ruta"],
+                "ruta": ruta_orig,
                 "keywords": [],
                 "error": item["error"],
             })
         else:
             keywords = _parsear_keywords(item["respuesta"])
             resultados.append({
-                "ruta": item["ruta"],
+                "ruta": ruta_orig,
                 "keywords": keywords,
                 "error": None,
             })
@@ -141,6 +155,7 @@ def describir_imagen(
     ruta_imagen: str,
     modelo: str = "qwen2.5vl:latest",
     temperatura: float = 0.3,
+    usar_proxy: bool = True,
 ) -> str:
     """
     Genera una descripción en lenguaje natural de una imagen.
@@ -149,17 +164,20 @@ def describir_imagen(
         ruta_imagen: Ruta al archivo de imagen.
         modelo: Modelo de visión (por defecto qwen2.5vl para mejor calidad).
         temperatura: Control de creatividad.
+        usar_proxy: Si True, usa proxy redimensionado.
 
     Returns:
         Descripción textual de la imagen.
     """
+    ruta_proxy = obtener_proxy(ruta_imagen, usar_proxy=usar_proxy)
     cliente = OllamaVision(modelo=modelo)
-    return cliente.analizar_imagen(ruta_imagen, PROMPT_DESCRIBIR, temperatura)
+    return cliente.analizar_imagen(ruta_proxy, PROMPT_DESCRIBIR, temperatura)
 
 
 def clasificar_imagen(
     ruta_imagen: str,
     modelo: str = "moondream:latest",
+    usar_proxy: bool = True,
 ) -> str:
     """
     Clasifica una imagen en una categoría predefinida.
@@ -167,12 +185,14 @@ def clasificar_imagen(
     Args:
         ruta_imagen: Ruta al archivo de imagen.
         modelo: Modelo de visión.
+        usar_proxy: Si True, usa proxy redimensionado.
 
     Returns:
         Nombre de la categoría.
     """
+    ruta_proxy = obtener_proxy(ruta_imagen, usar_proxy=usar_proxy)
     cliente = OllamaVision(modelo=modelo)
-    return cliente.analizar_imagen(ruta_imagen, PROMPT_CLASIFICAR, temperatura=0.1)
+    return cliente.analizar_imagen(ruta_proxy, PROMPT_CLASIFICAR, temperatura=0.1)
 
 
 def _parsear_keywords(respuesta: str) -> list[str]:

@@ -1,0 +1,433 @@
+#!/usr/bin/env python3
+"""
+Flujos - Punto de entrada unificado
+
+Uso:
+  python flujos.py                                  -> Menu interactivo
+  python flujos.py --tui                            -> Menu interactivo
+  python flujos.py ingest --root D:/Medios ...      -> Ingestar medios
+  python flujos.py query --distinct author --count   -> Consultar DB
+  python flujos.py relocate --new-root E:/Medios     -> Relocalizar archivos
+  python flujos.py check-db                          -> Inspeccionar DB
+  python flujos.py check-gps                         -> Revisar GPS en archivos
+  python flujos.py --help | --ayuda | -h             -> Esta ayuda
+"""
+
+import argparse
+import io
+import os
+import sqlite3
+import subprocess
+import sys
+
+# Forzar UTF-8 en consola Windows para poder usar caracteres Unicode
+if sys.platform == "win32":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+
+# Asegurar que scripts/ este en el path para imports relativos
+_scripts_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts")
+if _scripts_dir not in sys.path:
+    sys.path.insert(0, _scripts_dir)
+
+
+# ── Ayuda ────────────────────────────────────────────────────────────────────
+
+AYUDA = """
+███████╗██╗     ██╗   ██╗     ██╗ ██████╗ ███████╗
+██╔════╝██║     ██║   ██║     ██║██╔═══██╗██╔════╝
+█████╗  ██║     ██║   ██║     ██║██║   ██║███████╗
+██╔══╝  ██║     ██║   ██║██   ██║██║   ██║╚════██║
+██║     ███████╗╚██████╔╝╚█████╔╝╚██████╔╝███████║
+╚═╝     ╚══════╝ ╚═════╝  ╚════╝  ╚═════╝ ╚══════╝
+
+  Buenos Aires -> Tucuman                           
+
+USO:
+  python flujos.py <comando> [opciones]
+
+COMANDOS:
+
+  ingest      Ingerir medios desde una carpeta a la base de datos.
+              Ej: python flujos.py ingest --root D:/Medios --verbose
+
+  query       Consultar y explorar la base de datos.
+              Ej: python flujos.py query --distinct author --count
+
+  relocate    Actualizar rutas absolutas cuando los archivos se mudan.
+              Ej: python flujos.py relocate --new-root E:/Medios
+
+  check-db    Mostrar todos los registros de la base de datos.
+
+  check-gps   Revisar que archivos tienen GPS en el sistema de archivos.
+
+  --tui       Menu interactivo (tambien sin argumentos).
+
+  --help, --ayuda, -h   Esta ayuda.
+
+Si no se pasa ningun comando, arranca el menu interactivo.
+"""
+
+
+# ── TUI ──────────────────────────────────────────────────────────────────────
+
+def limpiar_pantalla():
+    os.system("cls" if sys.platform == "win32" else "clear")
+
+
+def pausa():
+    input("\n  Presiona Enter para continuar...")
+
+
+def mostrar_bienvenida():
+    limpiar_pantalla()
+    print("███████╗██╗     ██╗   ██╗     ██╗ ██████╗ ███████╗")
+    print("██╔════╝██║     ██║   ██║     ██║██╔═══██╗██╔════╝")
+    print("█████╗  ██║     ██║   ██║     ██║██║   ██║███████╗")
+    print("██╔══╝  ██║     ██║   ██║██   ██║██║   ██║╚════██║")
+    print("██║     ███████╗╚██████╔╝╚█████╔╝╚██████╔╝███████║")
+    print("╚═╝     ╚══════╝ ╚═════╝  ╚════╝  ╚═════╝ ╚══════╝")
+    print()
+    print("  Buenos Aires -> Tucuman")
+    print()
+
+
+def leer_db() -> str:
+    """Resuelve la ruta a la DB por defecto."""
+    return os.path.join(os.path.dirname(__file__), "db", "flujos.db")
+
+
+def resumen_db(conn) -> str:
+    """Devuelve un resumen con los totales de la DB."""
+    total = conn.execute("SELECT COUNT(*) FROM media").fetchone()[0]
+    imagenes = conn.execute("SELECT COUNT(*) FROM media WHERE type='image'").fetchone()[0]
+    videos = conn.execute("SELECT COUNT(*) FROM media WHERE type='video'").fetchone()[0]
+    audios = conn.execute("SELECT COUNT(*) FROM media WHERE type='audio'").fetchone()[0]
+    textos = conn.execute("SELECT COUNT(*) FROM media WHERE type='text'").fetchone()[0]
+    otros = total - imagenes - videos - audios - textos
+    con_gps = conn.execute("SELECT COUNT(*) FROM media WHERE latitude IS NOT NULL").fetchone()[0]
+    sin_gps = conn.execute("SELECT COUNT(*) FROM media WHERE latitude IS NULL").fetchone()[0]
+    con_color = conn.execute("SELECT COUNT(*) FROM media WHERE color_1_hex IS NOT NULL").fetchone()[0]
+    sin_color = total - con_color
+    autores = conn.execute("SELECT COUNT(DISTINCT author) FROM media WHERE author IS NOT NULL").fetchone()[0]
+    return (
+        f"  Total:      {total:>6d}\n"
+        f"  Imagenes:   {imagenes:>6d}\n"
+        f"  Videos:     {videos:>6d}\n"
+        f"  Audios:     {audios:>6d}\n"
+        f"  Textos:     {textos:>6d}\n"
+        f"  Otros:      {otros:>6d}\n"
+        f"  Con GPS:    {con_gps:>6d}\n"
+        f"  Sin GPS:    {sin_gps:>6d}\n"
+        f"  Con color:  {con_color:>6d}\n"
+        f"  Sin color:  {sin_color:>6d}\n"
+        f"  Autores:    {autores:>6d}"
+    )
+
+
+def opcion_ingresar():
+    """Menu para configurar y ejecutar ingesta."""
+    limpiar_pantalla()
+    print("=== INGESTAR MEDIOS ===\n")
+
+    root = input("  Carpeta raiz a escanear: ").strip()
+    if not root:
+        print("  Cancelado.")
+        pausa()
+        return
+    if not os.path.isdir(root):
+        print(f"  Error: la carpeta '{root}' no existe.")
+        pausa()
+        return
+
+    verbose = input("  ?Modo verbose? (s/N): ").strip().lower() == "s"
+    dry_run = input("  ?Solo previsualizar (dry-run)? (s/N): ").strip().lower() == "s"
+
+    print("\n  Ejecutando ingesta...\n")
+
+    from scripts import ingest
+    ingest.main(["--root", root] +
+                (["--verbose"] if verbose else []) +
+                (["--dry-run"] if dry_run else []))
+
+    pausa()
+
+
+def opcion_consultar():
+    """Menu para consultas comunes."""
+    limpiar_pantalla()
+    print("=== CONSULTAR BASE DE DATOS ===\n")
+
+    from scripts import query
+
+    print("  1) Ver resumen de la DB")
+    print("  2) Listar tipos de medio")
+    print("  3) Listar autores")
+    print("  4) Listar carpetas")
+    print("  5) Listar colores")
+    print("  6) Buscar texto")
+    print("  7) Consulta libre (escribo el flag)")
+    print("  0) Volver\n")
+
+    opc = input("  Opcion: ").strip()
+
+    if opc == "1":
+        query.main(["--columns"])
+    elif opc == "2":
+        query.main(["--distinct", "type", "--count"])
+    elif opc == "3":
+        query.main(["--distinct", "author", "--count"])
+    elif opc == "4":
+        query.main(["--distinct", "carpeta", "--count"])
+    elif opc == "5":
+        query.main(["--distinct", "color_1_name_basic", "--count", "--where",
+                     "color_1_name_basic IS NOT NULL"])
+    elif opc == "6":
+        texto = input("  Texto a buscar: ").strip()
+        if texto:
+            query.main(["--search", texto])
+    elif opc == "7":
+        flags = input("  Flags (ej: --distinct type --count): ").strip()
+        if flags:
+            query.main(flags.split())
+    elif opc == "0":
+        return
+
+    pausa()
+
+
+def opcion_relocalizar():
+    """Menu para relocalizar medios."""
+    limpiar_pantalla()
+    print("=== RELOCALIZAR MEDIOS ===\n")
+
+    # Mostrar root actual
+    db_path = leer_db()
+    if os.path.isfile(db_path):
+        conn = sqlite3.connect(db_path)
+        try:
+            cur = conn.execute("SELECT value FROM config WHERE key = 'ingest_root'")
+            row = cur.fetchone()
+            if row:
+                print(f"  Raiz actual en DB: {row[0]}")
+        except sqlite3.OperationalError:
+            pass
+        conn.close()
+
+    new_root = input("  Nueva raiz: ").strip()
+    if not new_root:
+        print("  Cancelado.")
+        pausa()
+        return
+
+    if not os.path.isdir(new_root):
+        r = input(f"  La carpeta '{new_root}' no existe. ?Continuar de todos modos? (s/N): ").strip().lower()
+        if r != "s":
+            print("  Cancelado.")
+            pausa()
+            return
+
+    dry_run = input("  ?Solo previsualizar (dry-run)? (s/N): ").strip().lower() == "s"
+
+    from scripts import relocate
+    relocate.main(["--new-root", new_root] + (["--dry-run"] if dry_run else []))
+
+    pausa()
+
+
+def opcion_check_db():
+    limpiar_pantalla()
+    print("=== INSPECCION DE BASE DE DATOS ===\n")
+    db_path = leer_db()
+    if not os.path.isfile(db_path):
+        print("  No se encuentra la base de datos.")
+        pausa()
+        return
+
+    conn = sqlite3.connect(db_path)
+    try:
+        print(resumen_db(conn))
+    except sqlite3.OperationalError as e:
+        print(f"  Error: {e}")
+    conn.close()
+
+    print("\n  Ultimos registros:")
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.execute(
+            "SELECT id, filename_original, type, author, timestamp_utc FROM media ORDER BY id DESC LIMIT 5"
+        )
+        for row in cursor:
+            print(f"  #{row[0]:>6d} [{row[2]:6s}] {row[1]} - {row[3] or '?'}")
+        conn.close()
+    except sqlite3.OperationalError as e:
+        print(f"  Error: {e}")
+
+    pausa()
+
+
+def opcion_check_gps():
+    limpiar_pantalla()
+    print("=== REVISAR GPS EN ARCHIVOS ===\n")
+    db_path = leer_db()
+    if not os.path.isfile(db_path):
+        print("  No se encuentra la base de datos.")
+        pausa()
+        return
+
+    conn = sqlite3.connect(db_path)
+    try:
+        cursor = conn.execute(
+            "SELECT filepath_absoluto FROM media WHERE type='image' AND latitude IS NULL ORDER BY RANDOM() LIMIT 5"
+        )
+        sin_gps = cursor.fetchall()
+        if sin_gps:
+            print("  Muestras de imagenes sin GPS en DB (5 al azar):")
+            print()
+            for (fp,) in sin_gps:
+                print(f"    {fp}")
+        else:
+            print("  No hay imagenes sin GPS en la DB.")
+    except sqlite3.OperationalError as e:
+        print(f"  Error: {e}")
+    conn.close()
+
+    print()
+    print("  Para un analisis completo, usa: python scripts/check_gps.py")
+    pausa()
+
+
+def opcion_ayuda():
+    """Submenu de ayuda con detalle por comando."""
+    while True:
+        limpiar_pantalla()
+        print("============ AYUDA ============\n")
+        print("  Elija un comando para ver su ayuda detallada:\n")
+        print("  1) Ayuda general")
+        print("  2) ingest  - Ingestion de medios")
+        print("  3) query   - Consultas a la base de datos")
+        print("  4) relocate - Relocalizar medios")
+        print("  5) check-db / check-gps")
+        print("  0) Volver\n")
+
+        opc = input("  Opcion: ").strip()
+
+        if opc == "1":
+            limpiar_pantalla()
+            print(AYUDA)
+            pausa()
+        elif opc == "2":
+            import ingest
+            ingest.main(["--help"])
+            pausa()
+        elif opc == "3":
+            import query
+            query.main(["--help"])
+            pausa()
+        elif opc == "4":
+            import relocate
+            relocate.main(["--help"])
+            pausa()
+        elif opc == "5":
+            limpiar_pantalla()
+            print("============ CHECK-DB ============\n")
+            print("  Inspecciona todos los registros de la base de datos.")
+            print("  Uso: python flujos.py check-db\n")
+            print("============ CHECK-GPS ============\n")
+            print("  Revisa que archivos tienen GPS en el sistema de archivos.")
+            print("  Uso: python flujos.py check-gps\n")
+            print("  Para un analisis completo: python scripts/check_gps.py")
+            pausa()
+        elif opc == "0":
+            break
+        else:
+            print("  Opcion invalida.")
+            pausa()
+
+
+def tui():
+    """Menu interactivo principal."""
+    while True:
+        mostrar_bienvenida()
+
+        db_path = leer_db()
+        if os.path.isfile(db_path):
+            conn = sqlite3.connect(db_path)
+            try:
+                print(resumen_db(conn) + "\n")
+            except sqlite3.OperationalError:
+                print("  (Base de datos vacia o sin schema)\n")
+            conn.close()
+        else:
+            print("  (Base de datos no encontrada - ejecuta 'ingest' primero)\n")
+
+        print("  1) Ingestionar medios")
+        print("  2) Consultar base de datos")
+        print("  3) Relocalizar medios")
+        print("  4) Ver inspeccion de DB")
+        print("  5) Revisar GPS")
+        print("  6) Ayuda")
+        print("  0) Salir\n")
+
+        opc = input("  Opcion: ").strip()
+
+        if opc == "1":
+            opcion_ingresar()
+        elif opc == "2":
+            opcion_consultar()
+        elif opc == "3":
+            opcion_relocalizar()
+        elif opc == "4":
+            opcion_check_db()
+        elif opc == "5":
+            opcion_check_gps()
+        elif opc == "6":
+            opcion_ayuda()
+        elif opc == "0":
+            limpiar_pantalla()
+            print("  Chau.")
+            break
+        else:
+            print("  Opcion invalida.")
+            pausa()
+
+
+# ── Entry point ──────────────────────────────────────────────────────────────
+
+def main():
+    if len(sys.argv) == 1 or (len(sys.argv) == 2 and sys.argv[1] in ("--tui", "--interactive")):
+        tui()
+        return
+
+    if sys.argv[1] in ("--help", "--ayuda", "-h"):
+        print(AYUDA)
+        return
+
+    comando = sys.argv[1]
+    resto = sys.argv[2:]
+
+    if comando == "ingest":
+        from scripts import ingest
+        ingest.main(resto)
+
+    elif comando == "query":
+        from scripts import query
+        query.main(resto)
+
+    elif comando == "relocate":
+        from scripts import relocate
+        relocate.main(resto)
+
+    elif comando == "check-db":
+        opcion_check_db()
+
+    elif comando == "check-gps":
+        opcion_check_gps()
+
+    else:
+        print(f"Comando desconocido: {comando}")
+        print(AYUDA)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

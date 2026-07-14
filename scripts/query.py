@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-query.py — Consulta y explora la base de datos de medios.
+query.py - Consulta y explora la base de datos de medios.
 
 Uso:
     # Listar columnas y keys disponibles
@@ -222,7 +222,7 @@ def search_text(conn, text: str, limit: int = 30):
             print()
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Consulta y explora la base de datos de medios",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -246,7 +246,7 @@ Ejemplos:
     parser.add_argument("--search", metavar="TEXTO", help="Buscar texto en toda la DB")
     parser.add_argument("--limit", type=int, default=30, help="Límite de resultados (default: 30)")
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     db_path = get_db_path(args.db)
     conn = connect(db_path)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ingest.py — Escanea una carpeta de medios, extrae metadatos y los ingiere en la DB.
+ingest.py - Escanea una carpeta de medios, extrae metadatos y los ingiere en la DB.
 
 Uso:
     python scripts/ingest.py --root D:/Flujos
@@ -11,14 +11,14 @@ Flujo:
     2. Por cada archivo:
        a. Calcula fingerprint rápido (tamaño + fecha modificación)
           o SHA-256 completo si se usa --full-hash
-       b. Si file_hash ya existe en DB → SKIP
+       b. Si file_hash ya existe en DB -> SKIP
        c. Detecta tipo por extensión
        d. Extrae metadatos según tipo:
           - Imagen: exiftool (EXIF: GPS, fecha, cámara, colores)
           - Video: ffprobe + XML sidecar SONY si existe
           - Audio: ffprobe
        e. Calcula content_hash (contenido puro, sin metadatos)
-       f. Detecta si content_hash ya existe con distinto file_hash → NOTIFICA
+       f. Detecta si content_hash ya existe con distinto file_hash -> NOTIFICA
        g. Inserta en DB
 """
 
@@ -170,9 +170,7 @@ def run_exiftool(exiftool_path: str, filepath: str) -> dict:
             capture_output=True,
             text=True,
             timeout=30,
-            startupinfo=subprocess.STARTUPINFO(
-                subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0
-            ) if sys.platform == "win32" else None,
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" and hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
         )
         if result.returncode == 0 and result.stdout.strip():
             data = json.loads(result.stdout)
@@ -189,7 +187,7 @@ def flatten_exiftool(d: dict) -> dict:
     for k, v in d.items():
         if ":" in k:
             group, name = k.split(":", 1)
-            flat_key = f"{group.lower()}_{name}"
+            flat_key = f"{group.lower()}_{name.lower()}"
         else:
             flat_key = k.lower()
         flat[flat_key] = str(v) if not isinstance(v, (str, int, float)) else v
@@ -396,7 +394,7 @@ def parse_timestamp_iso(ts_str: str):
     ]:
         try:
             dt = datetime.strptime(ts_str_no_t, fmt)
-            # Sin timezone → asumir ART (UTC-3)
+            # Sin timezone -> asumir ART (UTC-3)
             dt_art = dt.replace(tzinfo=timezone(timedelta(hours=-3)))
             return dt.isoformat(), dt_art.astimezone(timezone.utc).isoformat(), "asumido ART -03:00"
         except:
@@ -703,6 +701,10 @@ def init_db(db_path: str):
                 value TEXT,
                 UNIQUE(media_id, key)
             );
+            CREATE TABLE IF NOT EXISTS config (
+                key   TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
             CREATE INDEX IF NOT EXISTS idx_media_content_hash ON media(content_hash);
             CREATE INDEX IF NOT EXISTS idx_media_type ON media(type);
             CREATE INDEX IF NOT EXISTS idx_media_carpeta ON media(carpeta);
@@ -739,6 +741,17 @@ def migrate_db(conn):
             conn.execute(f"ALTER TABLE media ADD COLUMN {col_name} {col_type}")
         except sqlite3.OperationalError:
             pass  # ya existe
+
+    # Migración: tabla config (agregada en Julio 2026)
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS config (
+                key   TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+        """)
+    except sqlite3.OperationalError:
+        pass
 
 
 def file_hash_exists(conn, file_hash: str) -> bool:
@@ -850,12 +863,12 @@ def process_file(
 
     # --- Saltar sidecars (se procesan junto con su archivo padre) ---
     if is_sidecar_xml(basename):
-        log.info("  → Sidecar XML, se procesa con su video")
+        log.info("  -> Sidecar XML, se procesa con su video")
         ingest_stats["sidecar_xml_skipped"] += 1
         return
 
     if is_sidecar_aae(basename):
-        log.info("  → Sidecar AAE, se procesa con su imagen")
+        log.info("  -> Sidecar AAE, se procesa con su imagen")
         ingest_stats["sidecar_aae_skipped"] += 1
         return
 
@@ -866,7 +879,7 @@ def process_file(
         file_hash = fast_fingerprint(filepath)
 
     if file_hash_exists(conn, file_hash):
-        log.info("  → Ya existe (fingerprint duplicado). SKIP.")
+        log.info("  -> Ya existe (fingerprint duplicado). SKIP.")
         ingest_stats["duplicates_file"] += 1
         return
 
@@ -913,7 +926,7 @@ def process_file(
                     record["longitude"] = geo.get("longitude")
                     record["altitude"] = geo.get("altitude")
                     record["geolocation_source"] = geo.get("geolocation_source")
-                    log.debug("  → GPS: %.6f, %.6f (source: %s)",
+                    log.debug("  -> GPS: %.6f, %.6f (source: %s)",
                               geo.get("latitude", 0), geo.get("longitude", 0),
                               geo.get("geolocation_source", "?"))
 
@@ -924,7 +937,7 @@ def process_file(
         aae_path = os.path.splitext(filepath)[0] + ".AAE"
         if os.path.isfile(aae_path):
             meta["sidecar_aae"] = aae_path
-            log.debug("  → Tiene sidecar AAE: %s", os.path.basename(aae_path))
+            log.debug("  -> Tiene sidecar AAE: %s", os.path.basename(aae_path))
 
         # Colores dominantes
         try:
@@ -934,7 +947,7 @@ def process_file(
                 record[f"color_{i}_hex"] = hex_color
                 record[f"color_{i}_name_css"] = name_css
                 record[f"color_{i}_name_basic"] = name_basic
-            log.debug("  → Colores: %s, %s, %s",
+            log.debug("  -> Colores: %s, %s, %s",
                       record.get("color_1_name_css", "?"),
                       record.get("color_2_name_css", "?"),
                       record.get("color_3_name_css", "?"))
@@ -946,7 +959,7 @@ def process_file(
         if author:
             record["author"] = author
             record["author_source"] = author_source
-            log.info("  → Autor: %s (source: %s)", author, author_source)
+            log.info("  -> Autor: %s (source: %s)", author, author_source)
 
     elif filetype == "video":
         # Metadata con ffprobe
@@ -957,7 +970,7 @@ def process_file(
         # Buscar XML sidecar SONY
         sidecar_xml_path = find_sony_sidecar(filepath)
         if sidecar_xml_path:
-            log.info("  → Tiene sidecar XML: %s", os.path.basename(sidecar_xml_path))
+            log.info("  -> Tiene sidecar XML: %s", os.path.basename(sidecar_xml_path))
             sony_xml_meta = parse_sony_xml(sidecar_xml_path)
             if sony_xml_meta:
                 meta.update(sony_xml_meta)
@@ -980,7 +993,7 @@ def process_file(
         if author:
             record["author"] = author
             record["author_source"] = author_source
-            log.info("  → Autor: %s (source: %s)", author, author_source)
+            log.info("  -> Autor: %s (source: %s)", author, author_source)
 
         # Content hash (solo si se pide explícitamente, porque es lento en videos grandes)
         if compute_video_hash:
@@ -1064,7 +1077,7 @@ def detect_360(meta: dict) -> bool:
 # Main
 # ---------------------------------------------------------------------------
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Ingiere medios desde una carpeta a la base de datos Flujos",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -1113,7 +1126,7 @@ Ejemplos:
         ),
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
@@ -1163,8 +1176,16 @@ Ejemplos:
     conn = init_db(db_path)
     log.info("Schema verificado/creado.")
 
+    # Guardar raíz de ingesta
+    if not args.dry_run:
+        conn.execute(
+            "INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)",
+            ("ingest_root", os.path.abspath(root)),
+        )
+        conn.commit()
+
     if args.dry_run:
-        log.info("=== DRY RUN — No se escribirá en la DB ===")
+        log.info("=== DRY RUN - No se escribirá en la DB ===")
 
     # Estadísticas
     stats = {

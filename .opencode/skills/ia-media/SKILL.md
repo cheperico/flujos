@@ -30,31 +30,65 @@ Todos los módulos están en `scripts/ai_media/`:
 | `video_analysis.py` | Keywords y descripción de videos (frames + visión) |
 | `batch_selector.py` | Selección de la mejor imagen de una tanda |
 
-## Modelos recomendados
+## Stack
 
-### Visión (Ollama)
+| Componente | Tecnología | Uso |
+|------------|-----------|-----|
+| Visión | Ollama + modelos (qwen2.5vl, moondream, llama3.2-vision, gemma4) | Keywords, descripción, clasificación, OCR |
+| Audio | faster-whisper 1.2.1 | Transcripción de audio a texto |
+| Video | ffmpeg + Ollama visión | Extracción de frames + análisis |
+| Texto | Ollama modelos de lenguaje | Post-procesamiento, clasificación, razonamiento |
+| Embeddings | `nomic-embed-text` / `-v2-moe` | Búsqueda semántica |
+| Cliente Python | librería `ollama` 0.6.2 | Comunicación con Ollama |
 
-| Modelo | Tamaño | Cuándo usarlo |
-|--------|--------|--------------|
-| `moondream:latest` | 1.7 GB | Por defecto para keywords de imágenes — rápido y preciso |
-| `qwen2.5vl:latest` | 6.0 GB | Cuando se necesita máxima calidad en descripción |
-| `qwen2.5vl:3b` | 3.2 GB | Alternativa liviana a qwen2.5vl |
-| `llama3.2-vision:latest` | 7.8 GB | Buena calidad general |
-| `gemma4:e4b` | 9.6 GB | Multimodal, para análisis complejos |
+## Modelos de visión disponibles
 
-### Transcripción (faster-whisper)
+| Modelo | Tamaño | Ideal para |
+|--------|--------|------------|
+| `moondream:latest` | 1.7 GB | Keywords rápidas, clasificación simple, primera pasada |
+| `qwen2.5vl:3b` | 3.2 GB | Análisis balance calidad/velocidad, OCR básico |
+| `qwen2.5vl:latest` | 6.0 GB | Descripción detallada, OCR fino, razonamiento visual |
+| `llama3.2-vision:latest` | 7.8 GB | Análisis visual general de alta calidad |
+| `gemma4:e4b` | 9.6 GB | Análisis multimodal complejo |
 
-| Modelo | Tamaño | Cuándo usarlo |
-|--------|--------|--------------|
-| `tiny` | ~150 MB | Pruebas rápidas, poca precisión |
-| `base` | ~300 MB | Balance calidad/velocidad (default) |
-| `small` | ~500 MB | Buena precisión |
-| `medium` | ~1.5 GB | Alta precisión |
-| `large` | ~3 GB | Máxima precisión |
+## Estrategias de prompting para visión
+
+### Keywords
+```
+Prompt: "Describí esta imagen con 5-10 palabras clave separadas por coma.
+         Solo las palabras clave, sin puntuación ni explicación."
+```
+
+### Descripción detallada (para metadatos)
+```
+Prompt: "Describí esta imagen con precisión. Incluí:
+         - Tipo de escena (interior/exterior/naturaleza/urbano)
+         - Elementos principales y secundarios
+         - Colores dominantes y paleta general
+         - Iluminación (natural/artificial, dirección, calidad)
+         - Composición (planos, simetría, profundidad)
+         - Estado de ánimo o atmósfera
+         Respuesta en español."
+```
+
+### Clasificación
+```
+Prompt: "Clasificá esta imagen en UNA categoría: [naturaleza, urbano,
+         retrato, abstracto, documental, nocturno]. Solo el nombre."
+```
+
+### Análisis de color
+```
+Prompt: "Analizá los colores dominantes. Decime:
+         1. Color principal
+         2. Paleta (cálida/fría/neutra/mixta)
+         3. Contraste (alto/medio/bajo)
+         4. Saturación general (alta/media/baja)"
+```
 
 ## Uso desde Python
 
-### Transcripción de audio
+### 1. Transcripción de audio
 ```python
 from scripts.ai_media.transcribe import transcribir_audio, segmentos_a_srt
 
@@ -64,42 +98,43 @@ print(f"Idioma: {info.language}")
 # Exportar
 segmentos_a_srt(segmentos, "transcripcion.srt")
 segmentos_a_txt(segmentos, "transcripcion.txt")
-
-# Texto completo
-from scripts.ai_media.transcribe import obtener_texto_completo
 texto = obtener_texto_completo(segmentos)
 ```
 
-### Palabras clave de una imagen
+### 2. Análisis de imágenes
 ```python
-from scripts.ai_media.image_analysis import extraer_keywords
+from scripts.ai_media.image_analysis import extraer_keywords, describir_imagen, clasificar_imagen
 
+# Keywords rápidas (moondream recomendado)
 keywords = extraer_keywords("foto.jpg", modelo="moondream:latest")
-# -> ["atardecer", "playa", "mar", "palmeras", "cielo", "nubes"]
+
+# Descripción detallada (qwen2.5vl recomendado)
+desc = describir_imagen("foto.jpg", modelo="qwen2.5vl:latest")
+
+# Clasificación por categorías
+categoria = clasificar_imagen("foto.jpg", categorias=["naturaleza", "urbano", "gente"])
 ```
 
-### Palabras clave de un video
+### 3. Análisis de videos
 ```python
-from scripts.ai_media.video_analysis import analizar_video_keywords
+from scripts.ai_media.video_analysis import analizar_video_keywords, analizar_video_descripcion
 
+# Keywords generales
 resultado = analizar_video_keywords("video.mp4", modelo="moondream:latest")
-# resultado["keywords"] -> ["gente", "playa", "ola", "sol"]
+
+# Descripción narrativa
+resultado = analizar_video_descripcion("video.mp4")
 
 # Control de frames
-resultado = analizar_video_keywords(
-    "video.mp4",
-    fps=1.0,           # 1 frame por segundo
-    max_frames=30,      # máximo 30 frames
-)
+resultado = analizar_video_keywords("video.mp4", fps=1.0, max_frames=30)
 ```
 
-### Seleccionar mejor imagen de una tanda
+### 4. Selección inteligente de imágenes
 ```python
 from scripts.ai_media.batch_selector import seleccionar_mejor_imagen, seleccionar_mejores_n
 
 # Por calidad visual
 mejor = seleccionar_mejor_imagen(["f1.jpg", "f2.jpg", "f3.jpg"], criterio="calidad")
-print(mejor["ruta"], mejor["razon"])
 
 # Por tema
 mejor = seleccionar_mejor_imagen(
@@ -112,54 +147,53 @@ mejor = seleccionar_mejor_imagen(
 top3 = seleccionar_mejores_n(imagenes, n=3)
 ```
 
-### Cliente Ollama directo
+### 5. Cliente directo Ollama
 ```python
 from scripts.ai_media.ollama_client import OllamaVision, OllamaTexto
 
-vision = OllamaVision(modelo="qwen2.5vl:latest")
+# Visión con temperatura controlada
+vision = OllamaVision(modelo="qwen2.5vl:latest", temperatura=0.1)
 desc = vision.analizar_imagen("foto.jpg", "Describí esta imagen")
 
+# Texto
 texto = OllamaTexto(modelo="qwen3.5:9b")
-respuesta = texto.consultar("Resumí este texto: ...", sistema="Sé conciso.")
+respuesta = texto.consultar("Resumí:", sistema="Sé conciso.")
 ```
 
-## Línea de comandos
+### 6. Embeddings
+```python
+import ollama
 
-```bash
-# Transcripción
-python -m scripts.ai_media.transcribe audio.wav --modelo small --srt salida.srt --txt salida.txt
-
-# Keywords de imágenes (una o varias)
-python -m scripts.ai_media.image_analysis foto1.jpg foto2.jpg
-python -m scripts.ai_media.image_analysis foto.jpg --action describir
-python -m scripts.ai_media.image_analysis foto.jpg --action clasificar
-
-# Keywords de video
-python -m scripts.ai_media.video_analysis video.mp4 --modelo moondream:latest
-python -m scripts.ai_media.video_analysis video.mp4 --action describir
-
-# Selección de mejor imagen
-python -m scripts.ai_media.batch_selector *.jpg --criterio calidad
-python -m scripts.ai_media.batch_selector *.jpg --criterio tema --tema "paisaje natural"
-python -m scripts.ai_media.batch_selector *.jpg --criterio calidad --n 3
+def embedding(texto, modelo="nomic-embed-text"):
+    resp = ollama.embeddings(model=modelo, prompt=texto)
+    return resp["embedding"]
 ```
+
+## Guía rápida de selección
+
+| Tarea | Recomendado |
+|-------|-------------|
+| Keywords rápidas | `moondream` |
+| Descripción detallada | `qwen2.5vl:latest` |
+| OCR / texto en imagen | `qwen2.5vl:latest` |
+| Análisis de color | `qwen2.5vl:3b` |
+| Transcripción audio | faster-whisper `small` o `medium` |
+| Clasificar texto | `qwen3.5:4b` |
+| Embeddings | `nomic-embed-text` |
 
 ## Buenas prácticas
 
-- **Elegí el modelo según la tarea**: `moondream` para keywords rápidas,
-  `qwen2.5vl` para descripciones detalladas.
-- **Temperatura baja** (0.1-0.2) para keywords o clasificación; más alta (0.3-0.5)
-  para descripciones creativas.
-- **Videos largos**: aumentá `fps` para capturar más dinámica o reducí
-  `max_frames` para procesar más rápido.
-- **Manejo de errores**: todos los módulos wrappean errores y devuelven
-  resultados parciales con campo `"error"`.
-- **Frames temporales**: `video_analysis.py` limpia automáticamente los frames
-  extraídos. Usá `--keep-frames` para depuración.
+- **Prompt específico > genérico**: cuanto más detalle en el prompt, mejor resultado
+- **Temperatura baja** (0.1-0.2) para clasificación y keywords
+- **Temperatura media** (0.3-0.5) para descripciones
+- **Modelo rápido primero**: moondream para primera pasada, qwen2.5vl para profundizar
+- **Redimensionar imágenes** >2000px antes de enviar
+- **Una tarea por llamada**: no mezclar keywords + descripción + clasificación
+- **Fallback**: si un modelo da resultados pobres, probar con uno más grande
+- **Errores**: todos los módulos devuelven resultados parciales con campo `"error"`
+- **Frames**: `video_analysis.py` limpia automáticamente; `--keep-frames` para debug
 
 ## Integración con TouchDesigner
-
-Los módulos se pueden importar directamente desde un Script DAT en TouchDesigner:
 
 ```python
 # En un Script DAT de TouchDesigner
@@ -169,7 +203,7 @@ sys.path.insert(0, 'C:\\Users\\Federico\\Documents\\OpenCode\\Flujos')
 from scripts.ai_media.image_analysis import extraer_keywords
 from scripts.ai_media.transcribe import transcribir_audio
 
-# Se puede ejecutar en un thread separado para no bloquear el render
+# Ejecutar en thread separado para no bloquear el render
 ```
 
 ## Dependencias
@@ -177,7 +211,6 @@ from scripts.ai_media.transcribe import transcribir_audio
 ```bash
 # Instaladas
 pip install faster-whisper ollama pillow tqdm pydantic
-
-# Opcionales (para mejor logging)
+# Opcionales
 pip install rich
 ```
