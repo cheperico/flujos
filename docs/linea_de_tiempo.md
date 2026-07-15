@@ -15,9 +15,10 @@ contexto.
    registrado en un instante del viaje. Ese instante (`timestamp_utc`) es su
    coordenada primaria en la línea.
 
-2. **La línea es un continuo.** No hay saltos de un día a otro sin que
-   exista material para tender el puente. Si entre dos puntos hay un video
-   de 3 minutos, ese video ocupa esos 3 minutos en la línea.
+2. **La línea no es uniforme.** Los medios no están espaciados de manera
+   pareja. Hay momentos con muchas fotos seguidas y otros con horas de
+   silencio. La línea respeta esos intervalos reales: no comprime ni
+   estira el tiempo.
 
 3. **El presente es un punto.** La instalación está siempre posicionada en
    algún momento del viaje. Ese momento es el **ahora** de la sala.
@@ -27,17 +28,39 @@ contexto.
    punto en la línea sigue existiendo aunque ningún medio del tramo coincida
    con el filtro.
 
-## Estructura
+## Estructura de la línea
 
 ```
-Buenos Aires ──────┬──────┬──────────┬──────────────┬──────→ Tucumán
-                   │      │          │              │
-                Luján  Colón  Villa María  Ojo de Agua
-                (día 2) (día 5)  (día 8)    (día 11)
+tiempo real del viaje ──────────────────────────────────────────────→
+                        |          |               |
+                     foto 1    video 3 min      foto 2
+                     (punto)   (segmento)      (punto)
 ```
 
-Cada video 360 es un **segmento** (tiene duración). Cada foto es un
-**punto**. Los audios y textos también ocupan su instante.
+Los medios se dividen en dos tipos según cómo ocupan la línea:
+
+| Tipo | Ocupa | Ejemplos |
+|---|---|---|
+| **Punto** | Un instante (`timestamp_utc`) | Fotos, textos |
+| **Segmento** | Un intervalo (`timestamp_utc` a `timestamp_utc + duration_secs`) | Videos, audios |
+
+Un video de una hora puede solaparse temporalmente con fotos que se
+sacaron durante esa hora. La línea no oculta eso: el video y las fotos
+comparten el mismo tramo.
+
+### Velocidad variable
+
+El tiempo en la línea fluye a la **velocidad real del viaje**. Esto implica
+que el "ritmo" de la instalación cambia según el contenido:
+
+- Durante un video de 5 minutos, el tiempo pasa 1:1 (el video se reproduce).
+- Entre el último medio de un día y el primero del siguiente, puede haber
+  horas o días de diferencia — una **elipsis**.
+- En momentos con muchas fotos seguidas (ej: 20 fotos en 2 minutos), la
+  línea avanza rápido y se genera un **sumario** visual.
+
+La instalación no se salta esos huecos ni acelera las zonas densas. Los
+recorre al ritmo que el viaje realmente tuvo.
 
 ## Preguntas abiertas
 
@@ -45,15 +68,15 @@ Estas decisiones se postergan hasta la implementación del motor:
 
 - **Sentido**: ¿la línea avanza siempre hacia adelante o puede
   rebobinarse? El candidato natural es que avance, pero no está decidido.
-- **Escala**: ¿el movimiento es continuo (segundo a segundo) o a saltos
-  (día a día, pueblo a pueblo)?
 - **Cluster**: cuando hay muchas fotos en el mismo minuto (ej: 19 fotos
   en un mismo instante), ¿se funden, se elige una al azar, se rotan?
-- **Videos como ventanas**: los videos 360 duran minutos. ¿La línea
-  avanza con la reproducción del video o el video se reinicia si se
-  retrocede en la línea?
+- **Solapamiento**: si un video de una hora coincide con fotos de ese
+  mismo tramo, ¿se muestran las fotos superpuestas al video?
 - **Vacío**: ¿qué se muestra cuando en el tramo actual no hay medios que
   cumplan el filtro activo?
+- **Keypoints en video**: si un video tiene marcadores internos
+  (transcripción, detección de escenas), esos puntos pueden funcionar
+  como sub-paradas dentro del segmento.
 
 ## Relación con la deriva
 
@@ -71,5 +94,9 @@ Para que este diseño funcione, la DB debe responder:
 - "dame el siguiente medio después de `t`"
 - "dame el medio anterior antes de `t`"
 - "dame la distribución de medios por hora/día/pueblo"
+- "dame los videos/audios que cubren este instante `t`"
+- "dame los medios puntuales dentro de este segmento de video"
 
-Todo esto ya es posible con el schema actual.
+Con `duration_secs` como columna directa en `media`, estas consultas son
+posibles. Para keypoints dentro de un video, se puede usar una tabla
+`media_keypoints` con `timestamp_offset_secs`.

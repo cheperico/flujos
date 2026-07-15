@@ -676,6 +676,7 @@ def init_db(db_path: str):
                 timestamp_original TEXT,
                 timestamp_utc TEXT,
                 timezone_note TEXT,
+                duration_secs REAL,
                 latitude REAL,
                 longitude REAL,
                 altitude REAL,
@@ -692,7 +693,8 @@ def init_db(db_path: str):
                 color_3_name_css TEXT,
                 color_3_name_basic TEXT,
                 ingested_at TEXT NOT NULL DEFAULT (datetime('now')),
-                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                ingest_batch_id INTEGER
             );
             CREATE TABLE IF NOT EXISTS media_metadata (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -710,6 +712,7 @@ def init_db(db_path: str):
             CREATE INDEX IF NOT EXISTS idx_media_carpeta ON media(carpeta);
             CREATE INDEX IF NOT EXISTS idx_media_timestamp_utc ON media(timestamp_utc);
             CREATE INDEX IF NOT EXISTS idx_media_latlon ON media(latitude, longitude);
+            CREATE INDEX IF NOT EXISTS idx_media_ingest_batch ON media(ingest_batch_id);
             CREATE INDEX IF NOT EXISTS idx_metadata_key ON media_metadata(key);
         """)
 
@@ -735,6 +738,8 @@ def migrate_db(conn):
         ("color_3_hex", "TEXT"),
         ("color_3_name_css", "TEXT"),
         ("color_3_name_basic", "TEXT"),
+        ("duration_secs", "REAL"),
+        ("ingest_batch_id", "INTEGER"),
     ]
     for col_name, col_type in migrations:
         try:
@@ -777,17 +782,20 @@ def insert_media(conn, record: dict) -> int:
             filename_original, filepath_absoluto, filepath_relativo, carpeta,
             type, subtype, size_bytes, file_hash, content_hash,
             sidecar_xml, sidecar_parsed, sidecar_hash,
-            timestamp_original, timestamp_utc, timezone_note,
+            timestamp_original, timestamp_utc, timezone_note, duration_secs,
             latitude, longitude, altitude, geolocation_source,
             author, author_source,
             color_1_hex, color_1_name_css, color_1_name_basic,
             color_2_hex, color_2_name_css, color_2_name_basic,
-            color_3_hex, color_3_name_css, color_3_name_basic
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+            color_3_hex, color_3_name_css, color_3_name_basic,
+            ingest_batch_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                  ?, ?, ?, ?,
                   ?, ?,
                   ?, ?, ?,
                   ?, ?, ?,
-                  ?, ?, ?)
+                  ?, ?, ?,
+                  ?)
     """, (
         record["filename_original"],
         record["filepath_absoluto"],
@@ -804,6 +812,7 @@ def insert_media(conn, record: dict) -> int:
         record.get("timestamp_original"),
         record.get("timestamp_utc"),
         record.get("timezone_note"),
+        record.get("duration_secs"),
         record.get("latitude"),
         record.get("longitude"),
         record.get("altitude"),
@@ -819,6 +828,7 @@ def insert_media(conn, record: dict) -> int:
         record.get("color_3_hex"),
         record.get("color_3_name_css"),
         record.get("color_3_name_basic"),
+        record.get("ingest_batch_id"),
     ))
     conn.commit()
     return cursor.lastrowid
@@ -851,6 +861,7 @@ def process_file(
     compute_video_hash: bool,
     use_full_hash: bool,
     ingest_stats: dict,
+    ingest_batch_id: int | None = None,
 ):
     """Procesa un archivo: extrae metadatos y lo inserta en DB."""
 
@@ -896,6 +907,7 @@ def process_file(
         "type": filetype,
         "size_bytes": size_bytes,
         "file_hash": file_hash,
+        "ingest_batch_id": ingest_batch_id,
     }
 
     # --- Extraer metadatos según tipo ---
@@ -1040,6 +1052,10 @@ def process_file(
     record["timestamp_utc"] = timestamp_utc
     record["timezone_note"] = timezone_note
 
+    # --- Promover duration_secs de meta a columna directa (videos/audios) ---
+    if "duration_secs" in meta:
+        record["duration_secs"] = meta.pop("duration_secs")
+
     # --- Detectar contenido duplicado (mismo content_hash, distinto file_hash) ---
     if content_hash:
         duplicates = find_content_hash_duplicates(conn, content_hash)
@@ -1176,11 +1192,23 @@ Ejemplos:
     conn = init_db(db_path)
     log.info("Schema verificado/creado.")
 
-    # Guardar raíz de ingesta
+    # Generar batch_id para esta corrida
+    import random
+    ingest_batch_id = random.randint(100000, 999999)
+    # Asegurar que no exista
+    while conn.execute("SELECT 1 FROM media WHERE ingest_batch_id = ?", (ingest_batch_id,)).fetchone():
+        ingest_batch_id = random.randint(100000, 999999)
+    log.info("Batch ID de esta ingesta: %s", ingest_batch_id)
+
+    # Guardar raíz de ingesta y batch actual
     if not args.dry_run:
         conn.execute(
             "INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)",
             ("ingest_root", os.path.abspath(root)),
+        )
+        conn.execute(
+            "INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)",
+            ("current_ingest_batch", str(ingest_batch_id)),
         )
         conn.commit()
 
@@ -1243,7 +1271,7 @@ Ejemplos:
             pbar.update(1)
             continue
 
-        process_file(filepath, root, conn, exiftool_path, args.compute_video_hash, args.full_hash, stats)
+        process_file(filepath, root, conn, exiftool_path, args.compute_video_hash, args.full_hash, stats, ingest_batch_id)
         pbar.update(1)
 
     pbar.close()

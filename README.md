@@ -1,194 +1,173 @@
 # Flujos
 
-Proyecto de instalación interactiva. Procesamiento, gestión y flujo de medios
-audiovisuales (video, imágenes, audio, texto) con TouchDesigner como motor
-principal.
+Instalación interactiva basada en un viaje en bicicleta de Buenos Aires a
+Tucumán. Procesamiento, gestión y flujo de medios audiovisuales (video 360°,
+imágenes, audio, texto) con SQLite como base de datos central.
 
-## Stack
+**Concepto curatorial:** la deriva. No hay algoritmo fijo. El sistema ofrece
+medios según filtros (color, tiempo, lugar, autor) y la navegación emerge de
+condiciones externas (un pico de ruido, un grito, el momento presente).
 
-| Componente | Versión verificada | Propósito |
-|---|---|---|
-| **Python** | 3.13+ | Scripting principal (ETL, extracción de metadatos, color) |
-| **ffmpeg** | 8.1.2+ | Análisis y transcodificación de video/audio |
-| **ExifTool** | 13.58+ | Lectura de metadatos EXIF/IPTC/XMP en imágenes |
-| **SQLite** | 3.x (incluido en Python) | Base de datos embebida |
+---
 
-## Dependencias del sistema
+## Pipeline
 
-### ffmpeg
-
-Descargar desde [gyan.dev](https://www.gyan.dev/ffmpeg/builds/) (build completo)
-o desde [ffmpeg.org](https://ffmpeg.org/). Asegurarse de que `ffmpeg` y
-`ffprobe` estén en el PATH del sistema.
-
-Verificar:
-```bash
-ffmpeg -version
-ffprobe -version
+```
+Medios crudos → CURACIÓN → INGESTA → INFERENCIA → DB
+                                                     ↓
+                                              INSTALACIÓN
+                                         (consulta la DB por
+                                          color, tiempo, lugar,
+                                          autor, keywords...)
 ```
 
-### ExifTool
+Cada etapa puede correrse total o parcialmente.
 
-Descargar desde [exiftool.org](https://exiftool.org/). En Windows se puede
-instalar como parte de [digiKam](https://www.digikam.org/) en
-`C:\Program Files\digiKam\exiftool.exe`, o descargar el ejecutable
-independiente y agregarlo al PATH.
+---
 
-El script `ingest.py` busca automáticamente en ubicaciones comunes. También
-se puede especificar la ruta con `--exiftool`.
+## Entry point unificado
 
-Verificar:
-```bash
-exiftool -ver
+```powershell
+python flujos.py                # Menú interactivo (TUI)
+python flujos.py --tui          # Ídem
+python flujos.py --help         # Ayuda general
+python flujos.py --ayuda        # Ídem
 ```
 
-## Dependencias de Python
+### Subcomandos
 
-Instalar con pip:
+| Comando | Qué hace |
+|---------|----------|
+| `ingest --root CARPETA` | Ingerir medios desde una carpeta |
+| `query --distinct author --count` | Consultar la base de datos |
+| `relocate --new-root CARPETA` | Actualizar rutas si los archivos se mudaron |
+| `check-db` | Inspeccionar todos los registros |
+| `check-gps` | Revisar qué archivos tienen GPS |
+| `undo-ingest` | Deshacer una ingesta por batch ID |
 
-```bash
-pip install Pillow tqdm webcolors
+Cada subcomando acepta `--help` para ver sus opciones específicas:
+
+```powershell
+python flujos.py query --help     # flags: --columns, --distinct, --key,
+                                  #        --count, --where, --search, --limit
+python flujos.py ingest --help    # flags: --verbose, --dry-run, --full-hash,
+                                  #        --compute-video-hash, --exiftool
+python flujos.py relocate --help  # flags: --old-root, --dry-run
 ```
 
-| Librería | Versión verificada | Propósito |
-|---|---|---|
-| **Pillow** | 12.2+ | Procesamiento de imágenes (content hash, colores dominantes) |
-| **tqdm** | 4.68+ | Barras de progreso en scripts |
-| **webcolors** | 25.10+ | Nombres de colores CSS estándar |
-| **mutagen** | — | (Futuro) Metadatos de audio |
-
-No requieren instalación (incluidas en Python estándar):
-- `sqlite3` — Base de datos
-- `hashlib` — SHA-256
-- `xml.etree.ElementTree` — Parseo de XML SONY
-- `json` — Parseo de metadatos
-- `argparse` — Interfaz de línea de comandos
-- `subprocess` — Llamadas a ffmpeg, exiftool, ffprobe
-- `datetime` — Manejo de timestamps y husos horarios
-- `re` — Expresiones regulares
+---
 
 ## Scripts
 
-### `scripts/ingest.py`
+| Script | Propósito | Pipeline |
+|--------|-----------|----------|
+| `flujos.py` | Entry point unificado con subcomandos y TUI | — |
+| `scripts/ingest.py` | Escanea, extrae metadatos e ingiere en DB | Ingesta |
+| `scripts/query.py` | Consultas a la DB (columnas, valores, búsqueda) | Consulta |
+| `scripts/relocate.py` | Actualiza rutas absolutas cuando los archivos se mudan | Gestión |
+| `scripts/color_utils.py` | Extracción y naming de colores (usado por ingest) | Ingesta |
+| `scripts/limpiar_tandas.py` | Selección de mejor imagen por tanda con IA | Curación |
+| `scripts/mover_descartadas.py` | Mueve imágenes descartadas a otra carpeta | Curación |
+| `scripts/check_db.py` | Inspección general de la DB | Consulta |
+| `scripts/check_gps.py` | Verifica GPS en archivos | Consulta |
 
-Escanea una carpeta de medios, extrae metadatos y los ingiere en la base de
-datos SQLite.
-
-```bash
-# Ingest básico
-python scripts/ingest.py --root D:/Flujos/Ingesta_1
-
-# Con ExifTool (para metadatos EXIF y GPS)
-python scripts/ingest.py --root D:/Flujos/Ingesta_1 --exiftool "C:/Program Files/digiKam/exiftool.exe"
-
-# Modo verbose (debug logging)
-python scripts/ingest.py --root D:/Flujos/Ingesta_1 --verbose
-
-# Solo escanear (no escribe en DB)
-python scripts/ingest.py --root D:/Flujos/Ingesta_1 --dry-run
-
-# Calcular content_hash de videos (lento en archivos grandes)
-python scripts/ingest.py --root D:/Flujos/Ingesta_1 --compute-video-hash
-```
-
-**Qué hace:**
-1. Escanea recursivamente todos los archivos en `--root`
-2. Por cada archivo calcula SHA-256 (file_hash)
-3. Si el archivo ya existe en DB → lo salta
-4. Detecta el tipo (image, video, audio, etc.)
-5. Extrae metadatos según tipo:
-   - **Imagen**: EXIF con ExifTool (GPS, fecha, cámara, autor) + colores dominantes
-   - **Video**: ffprobe + XML sidecar SONY si existe
-   - **Audio**: ffprobe
-6. Calcula content_hash (contenido puro sin metadatos)
-7. Detecta contenido duplicado con diferente metadata
-8. Inserta todo en la base de datos
-
-### `scripts/color_utils.py`
-
-Módulo auxiliar para extracción y naming de colores. Usado por `ingest.py`.
-
-- Extrae los 3 colores dominantes de una imagen (cuantización con Pillow)
-- Asigna nombres CSS en español (140+ colores)
-- Asigna nombres básicos (11 categorías: rojo, azul, verde, etc.)
-
-### `scripts/check_gps.py`
-
-(Prueba) Verifica qué imágenes tienen GPS en una carpeta.
-
-### `scripts/check_db.py`
-
-(Prueba) Inspecciona el contenido de la base de datos.
+---
 
 ## Base de datos
 
-La base de datos SQLite se crea automáticamente en `db/flujos.db` con el
-schema definido en `db/schema.sql`.
+Se crea automáticamente en `db/flujos.db`.
 
-### Tabla principal: `media`
+### Tabla `media`
 
 | Columna | Tipo | Descripción |
-|---|---|---|
+|---------|------|-------------|
 | `id` | INTEGER | Clave primaria |
 | `filename_original` | TEXT | Nombre original del archivo |
 | `filepath_absoluto` | TEXT | Ruta completa en disco |
 | `filepath_relativo` | TEXT | Ruta relativa a la raíz de ingest |
-| `carpeta` | TEXT | Nombre de la carpeta contenedora |
+| `carpeta` | TEXT | Carpeta contenedora |
 | `type` | TEXT | image, video, audio, text, other |
 | `subtype` | TEXT | 360, entrevista, paisaje, etc. |
 | `size_bytes` | INTEGER | Tamaño del archivo |
-| `file_hash` | TEXT | SHA-256 del archivo completo (UNIQUE) |
-| `content_hash` | TEXT | SHA-256 del contenido puro (sin metadatos) |
+| `file_hash` | TEXT | Fingerprint único (UNIQUE) |
+| `content_hash` | TEXT | Hash del contenido puro |
 | `sidecar_xml` | TEXT | Ruta al XML sidecar SONY |
 | `sidecar_parsed` | INTEGER | 1 si ya se procesó el XML |
-| `sidecar_hash` | TEXT | SHA-256 del XML |
-| `timestamp_original` | TEXT | Fecha/hora tal cual del archivo |
+| `sidecar_hash` | TEXT | Hash del XML |
+| `timestamp_original` | TEXT | Fecha/hora del archivo |
 | `timestamp_utc` | TEXT | Normalizado a UTC |
 | `timezone_note` | TEXT | Cómo se determinó la zona horaria |
+| `duration_secs` | REAL | Duración en segundos (videos/audios) |
 | `latitude` | REAL | Latitud (WGS84) |
 | `longitude` | REAL | Longitud (WGS84) |
 | `altitude` | REAL | Altitud en metros |
 | `geolocation_source` | TEXT | metadata, inferido_tiempo, track_gps, manual |
 | `author` | TEXT | Autor del medio |
 | `author_source` | TEXT | exif, carpeta, modelo_camara |
-| `color_1_hex` | TEXT | Color dominante 1 (hex) |
-| `color_1_name_css` | TEXT | Nombre CSS en español |
-| `color_1_name_basic` | TEXT | Nombre básico (rojo, azul...) |
-| `color_2_hex` | TEXT | Color dominante 2 |
-| `color_2_name_css` | TEXT | Nombre CSS |
-| `color_2_name_basic` | TEXT | Nombre básico |
-| `color_3_hex` | TEXT | Color dominante 3 |
-| `color_3_name_css` | TEXT | Nombre CSS |
-| `color_3_name_basic` | TEXT | Nombre básico |
+| `color_1/2/3_hex` | TEXT | Colores dominantes en hex |
+| `color_1/2/3_name_css` | TEXT | Nombre CSS en español |
+| `color_1/2/3_name_basic` | TEXT | Nombre básico (rojo, azul...) |
 | `ingested_at` | TEXT | Fecha de ingestión |
 | `updated_at` | TEXT | Fecha de última actualización |
+| `ingest_batch_id` | INTEGER | ID de la corrida de ingesta (para undo) |
 
-### Tabla secundaria: `media_metadata`
+### Tabla `media_metadata`
 
-Almacena metadatos variables según el tipo de medio en formato clave-valor:
+Metadatos variables en formato clave-valor.
 
-| Columna | Tipo | Descripción |
-|---|---|---|
-| `id` | INTEGER | Clave primaria |
-| `media_id` | INTEGER | Referencia a `media.id` |
-| `key` | TEXT | Nombre del metadato |
-| `value` | TEXT | Valor del metadato |
+### Tabla `config`
+
+Configuración de la base de datos (`ingest_root`, `current_ingest_batch`, etc.).
+
+---
+
+## Stack
+
+| Componente | Versión | Propósito |
+|------------|---------|-----------|
+| **Python** | 3.13+ | Scripting principal |
+| **SQLite** | 3.x (incluido) | Base de datos embebida |
+| **ffmpeg** | 8.1.2+ | Análisis y transcodificación |
+| **ExifTool** | 13.58+ | Metadatos EXIF/IPTC/XMP |
+| **Pillow** | 12.2+ | Colores dominantes, content hash |
+| **tqdm** | 4.68+ | Barras de progreso |
+| **webcolors** | 25.10+ | Nombres de colores CSS |
+
+---
+
+## Documentos de diseño
+
+| Documento | Contenido |
+|-----------|-----------|
+| `VISION.md` | Visión del proyecto, concepto curatorial |
+| `ROADMAP.md` | Estado de cada etapa del pipeline |
+| `docs/flujo_de_medios.md` | Pipeline completo (curación, ingesta, inferencia) |
+| `docs/linea_de_tiempo.md` | Diseño conceptual de la línea de tiempo |
+| `docs/limpieza_tandas_resultados.md` | Comparativa de estrategias de limpieza |
+
+---
 
 ## Estructura del proyecto
 
 ```
 /
+├── flujos.py                  # Entry point unificado
 ├── db/
-│   ├── flujos.db          # Base de datos SQLite (se crea al ingerir)
-│   └── schema.sql         # Schema de la base de datos
+│   ├── flujos.db              # Base de datos (se crea al ingerir)
+│   └── schema.sql             # Schema SQL
 ├── scripts/
-│   ├── __init__.py
-│   ├── ingest.py          # Script principal de ingestión
-│   ├── color_utils.py     # Utilidades de color
-│   ├── check_db.py        # Inspeccionar DB
-│   └── check_gps.py       # Verificar GPS en imágenes
-├── logs/                  # Logs de ingestión
-├── opencode.json          # Configuración del proyecto
-├── AGENTS.md              # Documentación de agentes
-└── README.md              # Este archivo
+│   ├── ingest.py              # Ingesta de medios
+│   ├── query.py               # Consultas a la DB
+│   ├── relocate.py            # Relocalizar medios
+│   ├── color_utils.py         # Colores dominantes
+│   ├── limpiar_tandas.py      # Selección con IA
+│   ├── mover_descartadas.py   # Mover descartadas
+│   ├── check_db.py            # Inspeccionar DB
+│   ├── check_gps.py           # Verificar GPS
+│   └── ai_media/              # Scripts de IA (visión, transcripción)
+├── docs/                      # Documentos de diseño
+├── VISION.md                  # Visión del proyecto
+├── ROADMAP.md                 # Estado y prioridades
+├── AGENTS.md                  # Configuración de agentes OpenCode
+└── README.md                  # Este archivo
 ```

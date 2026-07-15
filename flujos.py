@@ -60,6 +60,8 @@ COMANDOS:
 
   check-gps   Revisar que archivos tienen GPS en el sistema de archivos.
 
+  undo-ingest Deshacer una ingesta por batch ID.
+
   --tui       Menu interactivo (tambien sin argumentos).
 
   --help, --ayuda, -h   Esta ayuda.
@@ -166,6 +168,8 @@ def opcion_consultar():
     print("  5) Listar colores")
     print("  6) Buscar texto")
     print("  7) Consulta libre (escribo el flag)")
+    print("  8) Inspeccion general de DB")
+    print("  9) Revisar GPS")
     print("  0) Volver\n")
 
     opc = input("  Opcion: ").strip()
@@ -189,6 +193,12 @@ def opcion_consultar():
         flags = input("  Flags (ej: --distinct type --count): ").strip()
         if flags:
             query.main(flags.split())
+    elif opc == "8":
+        opcion_check_db()
+        return
+    elif opc == "9":
+        opcion_check_gps()
+        return
     elif opc == "0":
         return
 
@@ -296,6 +306,67 @@ def opcion_check_gps():
     pausa()
 
 
+def opcion_undo_ingest():
+    """Menu para deshacer una ingesta por batch_id."""
+    limpiar_pantalla()
+    print("=== DESHACER INGESTA ===\n")
+
+    db_path = leer_db()
+    if not os.path.isfile(db_path):
+        print("  No se encuentra la base de datos.")
+        pausa()
+        return
+
+    conn = sqlite3.connect(db_path)
+    try:
+        # Listar batches disponibles
+        cursor = conn.execute(
+            "SELECT ingest_batch_id, MIN(ingested_at), COUNT(*) FROM media "
+            "WHERE ingest_batch_id IS NOT NULL "
+            "GROUP BY ingest_batch_id ORDER BY MIN(ingested_at) DESC"
+        )
+        batches = cursor.fetchall()
+        if not batches:
+            print("  No hay ingestas con batch_id registradas.")
+            conn.close()
+            pausa()
+            return
+
+        print("  Ingresos disponibles:\n")
+        for bid, ts, cnt in batches:
+            root = conn.execute(
+                "SELECT value FROM config WHERE key = 'current_ingest_batch'"
+            ).fetchone()
+            current = "  (actual)" if root and str(bid) == root[0] else ""
+            print(f"  Batch #{bid}  -  {ts}  -  {cnt} medios{current}")
+        print()
+
+        bid_str = input("  Batch ID a deshacer (0 para cancelar): ").strip()
+        if bid_str == "0" or not bid_str:
+            print("  Cancelado.")
+            conn.close()
+            pausa()
+            return
+
+        bid = int(bid_str)
+        confirm = input(f"  Esto borrara TODOS los medios del batch #{bid}. Confirmar? (s/N): ").strip().lower()
+        if confirm != "s":
+            print("  Cancelado.")
+            conn.close()
+            pausa()
+            return
+
+        deleted = conn.execute("DELETE FROM media WHERE ingest_batch_id = ?", (bid,)).rowcount
+        conn.commit()
+        print(f"  Eliminados {deleted} medios del batch #{bid}.")
+
+    except (sqlite3.OperationalError, ValueError) as e:
+        print(f"  Error: {e}")
+    finally:
+        conn.close()
+    pausa()
+
+
 def opcion_ayuda():
     """Submenu de ayuda con detalle por comando."""
     while True:
@@ -361,11 +432,10 @@ def tui():
             print("  (Base de datos no encontrada - ejecuta 'ingest' primero)\n")
 
         print("  1) Ingestionar medios")
-        print("  2) Consultar base de datos")
-        print("  3) Relocalizar medios")
-        print("  4) Ver inspeccion de DB")
-        print("  5) Revisar GPS")
-        print("  6) Ayuda")
+        print("  2) Deshacer ingesta")
+        print("  3) Consultar base de datos")
+        print("  4) Relocalizar medios")
+        print("  5) Ayuda")
         print("  0) Salir\n")
 
         opc = input("  Opcion: ").strip()
@@ -373,14 +443,12 @@ def tui():
         if opc == "1":
             opcion_ingresar()
         elif opc == "2":
-            opcion_consultar()
+            opcion_undo_ingest()
         elif opc == "3":
-            opcion_relocalizar()
+            opcion_consultar()
         elif opc == "4":
-            opcion_check_db()
+            opcion_relocalizar()
         elif opc == "5":
-            opcion_check_gps()
-        elif opc == "6":
             opcion_ayuda()
         elif opc == "0":
             limpiar_pantalla()
@@ -422,6 +490,9 @@ def main():
 
     elif comando == "check-gps":
         opcion_check_gps()
+
+    elif comando in ("undo-ingest", "undo"):
+        opcion_undo_ingest()
 
     else:
         print(f"Comando desconocido: {comando}")
