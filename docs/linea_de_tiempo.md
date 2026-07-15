@@ -144,15 +144,54 @@ hacer: mostrar ambos, priorizar uno, superponerlos, etc.
 
 ### Keypoints dentro de un video
 
-Para marcadores internos (transcripción con timestamp, detección de escenas),
-se puede usar una tabla `media_keypoints` (no implementada aún):
+La tabla `media_keypoints` almacena puntos de interés dentro de un medio
+continuo (video/audio). Cada keypoint tiene:
+
+- `timestamp_offset_secs`: offset desde el inicio del medio (segundos)
+- `timestamp_absolute`: timestamp absoluto en la línea de tiempo
+  (= `timestamp_utc` del medio + offset). Esto permite consultas por rango
+  sin cálculos por fila.
+- `key`: tipo de keypoint (`transcription`, `scene_change`, etc.)
+- `value`: contenido (texto de transcripción, etc.)
 
 ```sql
 CREATE TABLE media_keypoints (
     id                    INTEGER PRIMARY KEY AUTOINCREMENT,
     media_id              INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
-    timestamp_offset_secs REAL NOT NULL,   -- offset desde el inicio del video
-    key                   TEXT NOT NULL,    -- 'transcription', 'scene_change', etc.
-    value                 TEXT             -- texto de la transcripción, etc.
+    timestamp_offset_secs REAL NOT NULL,           -- offset desde inicio
+    timestamp_absolute    TEXT NOT NULL,            -- timestamp_utc + offset
+    key                   TEXT NOT NULL DEFAULT 'transcription',
+    value                 TEXT,
+    source                TEXT DEFAULT 'whisper'    -- 'whisper', 'ollama', etc.
 );
 ```
+
+#### Ejemplo: consultar qué se dijo justo cuando se tomó una foto
+
+```sql
+SELECT kp.value AS dialogo, kp.timestamp_offset_secs
+FROM media_keypoints kp
+JOIN media foto ON foto.id = ?
+WHERE kp.timestamp_absolute <= foto.timestamp_utc
+  AND kp.media_id = ?
+ORDER BY kp.timestamp_absolute DESC
+LIMIT 1;
+```
+
+Esto devuelve la línea de diálogo que se estaba diciendo en el video justo
+en el momento exacto en que se tomó la foto.
+
+#### Independencia de capas
+
+En un mismo instante `t` la instalación puede consultar cada capa por
+separado:
+
+| Capa | Consulta |
+|------|----------|
+| 🖼 Visual | `SELECT * FROM media WHERE timestamp_utc <= t AND end_time >= t AND type = 'image'` |
+| 🔊 Auditiva | `SELECT * FROM media WHERE timestamp_utc <= t AND end_time >= t AND type IN ('video','audio')` |
+| 📝 Textual | `SELECT value FROM media_keypoints WHERE timestamp_absolute = t AND key = 'transcription'` |
+| 🎨 Metadata | `SELECT author, color_1_hex, latitude FROM media WHERE ...` |
+
+Cada capa se resuelve independientemente. La instalación decide qué
+combinación mostrar (ej: foto + texto de transcripción, sin video ni audio).

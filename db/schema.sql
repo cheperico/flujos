@@ -68,6 +68,17 @@ CREATE TABLE IF NOT EXISTS config (
     value TEXT NOT NULL
 );
 
+-- Keypoints: puntos de interés dentro de un medio continuo (video/audio)
+CREATE TABLE IF NOT EXISTS media_keypoints (
+    id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+    media_id              INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+    timestamp_offset_secs REAL NOT NULL,           -- offset desde el inicio del medio (segundos)
+    timestamp_absolute    TEXT NOT NULL,            -- timestamp_utc + offset (para consulta por rango)
+    key                   TEXT NOT NULL DEFAULT 'transcription',  -- 'transcription', 'scene_change', etc.
+    value                 TEXT,                     -- contenido (texto de transcripción, descripción, etc.)
+    source                TEXT DEFAULT 'whisper'    -- 'whisper', 'ollama', 'manual'
+);
+
 -- Índices
 CREATE INDEX IF NOT EXISTS idx_media_content_hash ON media(content_hash);
 CREATE INDEX IF NOT EXISTS idx_media_type ON media(type);
@@ -77,3 +88,6 @@ CREATE INDEX IF NOT EXISTS idx_media_end_time ON media(end_time);
 CREATE INDEX IF NOT EXISTS idx_media_latlon ON media(latitude, longitude);
 CREATE INDEX IF NOT EXISTS idx_media_ingest_batch ON media(ingest_batch_id);
 CREATE INDEX IF NOT EXISTS idx_metadata_key ON media_metadata(key);
+CREATE INDEX IF NOT EXISTS idx_kp_absolute ON media_keypoints(timestamp_absolute);
+CREATE INDEX IF NOT EXISTS idx_kp_media ON media_keypoints(media_id);
+CREATE INDEX IF NOT EXISTS idx_kp_key ON media_keypoints(key);

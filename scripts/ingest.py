@@ -760,6 +760,31 @@ def migrate_db(conn):
     except sqlite3.OperationalError:
         pass
 
+    # Migración: tabla media_keypoints (agregada en Julio 2026)
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS media_keypoints (
+                id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+                media_id              INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+                timestamp_offset_secs REAL NOT NULL,
+                timestamp_absolute    TEXT NOT NULL,
+                key                   TEXT NOT NULL DEFAULT 'transcription',
+                value                 TEXT,
+                source                TEXT DEFAULT 'whisper'
+            )
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_kp_absolute ON media_keypoints(timestamp_absolute)
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_kp_media ON media_keypoints(media_id)
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_kp_key ON media_keypoints(key)
+        """)
+    except sqlite3.OperationalError:
+        pass
+
 
 def file_hash_exists(conn, file_hash: str) -> bool:
     cursor = conn.execute("SELECT 1 FROM media WHERE file_hash = ?", (file_hash,))

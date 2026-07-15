@@ -65,6 +65,9 @@ COMANDOS:
   backfill-end-time Calcular end_time para registros existentes
                     que no lo tengan (migracion).
 
+  improve-db        Ejecutar pasos de mejora sobre la DB (colores,
+                    keywords, transcripcion, keypoints, timestamps, GPS).
+
   --tui       Menu interactivo (tambien sin argumentos).
 
   --help, --ayuda, -h   Esta ayuda.
@@ -370,6 +373,51 @@ def opcion_undo_ingest():
     pausa()
 
 
+def opcion_improve_db():
+    """Menu para ejecutar pasos de mejora sobre la DB."""
+    limpiar_pantalla()
+    print("=== MEJORAR BASE DE DATOS ===\n")
+    print("  1) Todos los pasos (skip)")
+    print("  2) Colores dominantes")
+    print("  3) Keywords con IA")
+    print("  4) Descripciones con IA")
+    print("  5) Transcripcion (audios/videos)")
+    print("  6) Keypoints desde transcripciones")
+    print("  7) Inferir timestamps")
+    print("  8) Inferir GPS")
+    print("  9) Elegir pasos manualmente")
+    print("  0) Volver\n")
+
+    from scripts import improve_db
+
+    opc = input("  Opcion: ").strip()
+
+    if opc == "1":
+        improve_db.main([])
+    elif opc == "2":
+        improve_db.main(["--steps", "colors"])
+    elif opc == "3":
+        improve_db.main(["--steps", "keywords"])
+    elif opc == "4":
+        improve_db.main(["--steps", "descriptions"])
+    elif opc == "5":
+        improve_db.main(["--steps", "transcribe"])
+    elif opc == "6":
+        improve_db.main(["--steps", "keypoints"])
+    elif opc == "7":
+        improve_db.main(["--steps", "timestamps"])
+    elif opc == "8":
+        improve_db.main(["--steps", "gps"])
+    elif opc == "9":
+        pasos = input("  Pasos (separados por coma, ej: colors,keywords): ").strip()
+        if pasos:
+            improve_db.main(["--steps", pasos])
+    elif opc == "0":
+        return
+
+    pausa()
+
+
 def opcion_ayuda():
     """Submenu de ayuda con detalle por comando."""
     while True:
@@ -380,7 +428,8 @@ def opcion_ayuda():
         print("  2) ingest  - Ingestion de medios")
         print("  3) query   - Consultas a la base de datos")
         print("  4) relocate - Relocalizar medios")
-        print("  5) check-db / check-gps")
+        print("  5) improve-db - Mejorar base de datos")
+        print("  6) check-db / check-gps")
         print("  0) Volver\n")
 
         opc = input("  Opcion: ").strip()
@@ -402,6 +451,22 @@ def opcion_ayuda():
             relocate.main(["--help"])
             pausa()
         elif opc == "5":
+            limpiar_pantalla()
+            print("============ IMPROVE-DB ============\n")
+            print("  Ejecuta pasos de mejora sobre la base de datos.")
+            print("  Uso: python flujos.py improve-db [--steps X,Y] [--mode skip|update|replace]\n")
+            print("  Pasos disponibles:")
+            print("    colors        Extraer colores dominantes")
+            print("    keywords      Etiquetar con IA")
+            print("    descriptions  Describir con IA")
+            print("    transcribe    Transcribir audios/videos")
+            print("    keypoints     Poblar keypoints desde transcripciones")
+            print("    timestamps    Inferir timestamps faltantes")
+            print("    gps           Inferir GPS")
+            print()
+            print("  --list  para listar todos los pasos.")
+            pausa()
+        elif opc == "6":
             limpiar_pantalla()
             print("============ CHECK-DB ============\n")
             print("  Inspecciona todos los registros de la base de datos.")
@@ -436,22 +501,25 @@ def tui():
 
         print("  1) Ingestionar medios")
         print("  2) Deshacer ingesta")
-        print("  3) Consultar base de datos")
-        print("  4) Relocalizar medios")
-        print("  5) Ayuda")
+        print("  3) Mejorar base de datos")
+        print("  4) Consultar base de datos")
+        print("  5) Relocalizar medios")
+        print("  6) Ayuda")
         print("  0) Salir\n")
 
         opc = input("  Opcion: ").strip()
 
-        if opc == "1":
+        if opc == "1">
             opcion_ingresar()
-        elif opc == "2":
+        elif opc == "2">
             opcion_undo_ingest()
-        elif opc == "3":
+        elif opc == "3">
+            opcion_improve_db()
+        elif opc == "4">
             opcion_consultar()
-        elif opc == "4":
+        elif opc == "5">
             opcion_relocalizar()
-        elif opc == "5":
+        elif opc == "6">
             opcion_ayuda()
         elif opc == "0":
             limpiar_pantalla()
@@ -557,6 +625,10 @@ def main():
 
     elif comando in ("backfill-end-time", "backfill"):
         opcion_backfill_end_time()
+
+    elif comando == "improve-db":
+        from scripts import improve_db
+        improve_db.main(resto)
 
     else:
         print(f"Comando desconocido: {comando}")

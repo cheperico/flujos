@@ -40,14 +40,15 @@ Etapa 4: POST-PROCESO (yapa)  →  Escribir metadatos de DB a los archivos
 
 ## Etapa 3: Mejora de DB
 
-| Item | Prioridad | Estado | Script |
+| Item | Prioridad | Estado | Ejecuta vía |
 |---|---|---|---|
-| Etiquetado por keywords con IA | Alta | ✅ | `scripts/ai_media/tag_images.py` |
-| Transcripción de audios/videos con timestamp | Alta | ✅ | `scripts/ai_media/transcribe.py` |
-| Descripción de imágenes con IA | Alta | ✅ | `scripts/ai_media/image_analysis.py` |
-| **Inferencia de GPS** desde medios cercanos en el tiempo | **Alta** | ❌ | — |
-| Lectura de color de imágenes (fix webcolors) | Alta | ❌ | `color_utils.py` (bug) |
-| Inferencia de timestamps faltantes | **Alta** | ❌ | — |
+| Etiquetado por keywords con IA | Alta | ✅ | `improve-db --steps keywords` |
+| Transcripción de audios/videos con timestamp | Alta | ✅ | `improve-db --steps transcribe` |
+| Descripción de imágenes con IA | Alta | ✅ | `improve-db --steps descriptions` |
+| Lectura de color de imágenes (fix webcolors) | Alta | ✅ | `improve-db --steps colors` |
+| **Inferencia de GPS** desde medios cercanos | **Alta** | ✅ | `improve-db --steps gps` |
+| **Inferencia de timestamps faltantes** | **Alta** | ✅ | `improve-db --steps timestamps` |
+| Tabla `media_keypoints` + poblar desde transcripciones | Alta | ✅ | `improve-db --steps keypoints` |
 | Inferencia de autor desde medios cercanos | Baja | ❌ | — |
 | Merge de metadatos para contenido duplicado | Baja | ❌ | — |
 | Soporte para tracks GPS (GPX) | Baja | ❌ | — |
@@ -70,6 +71,7 @@ Etapa 4: POST-PROCESO (yapa)  →  Escribir metadatos de DB a los archivos
 | `relocate.py` — cambiar raíz de medios | Alta | ✅ |
 | `reset-db` — borrar datos y reiniciar | Media | ❌ |
 | `backfill-end-time` — poblar end_time en registros existentes | Alta | ✅ flujos.py |
+| `improve-db` — comando unificado de mejora (7 pasos, modos skip/update/replace) | Alta | ✅ `scripts/improve_db.py` + flujos.py |
 
 ---
 
@@ -94,3 +96,8 @@ Etapa 4: POST-PROCESO (yapa)  →  Escribir metadatos de DB a los archivos
 - **2026-07-15:** `end_time` agregado a schema, ingest y flujos.py.
   `backfill-end-time` subcomando. Timestamps faltantes a prioridad alta.
   Documentación actualizada.
+- **2026-07-15 (2da ronda):** Tabla `media_keypoints` en schema.
+  `scripts/improve_db.py` creado con 7 pasos (colors, keywords,
+  descriptions, transcribe, keypoints, timestamps, gps) y 3 modos
+  (skip/update/replace). Subcomando `improve-db` en flujos.py (CLI + TUI).
+  Dependencias entre pasos resueltas automáticamente.
