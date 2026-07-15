@@ -404,8 +404,8 @@ def run_transcribe(conn, db_path, mode, stats):
                 conn.execute(
                     "INSERT OR REPLACE INTO media_metadata (media_id, key, value) VALUES (?, 'whisper_info', ?)",
                     (mid, json.dumps({
-                        "language": info.language,
-                        "language_probability": info.language_probability,
+                        "language": str(info.language),
+                        "language_probability": float(info.language_probability),
                     })),
                 )
             ok += 1

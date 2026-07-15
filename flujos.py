@@ -10,6 +10,8 @@ Uso:
   python flujos.py relocate --new-root E:/Medios     -> Relocalizar archivos
   python flujos.py check-db                          -> Inspeccionar DB
   python flujos.py check-gps                         -> Revisar GPS en archivos
+  python flujos.py geocode                           -> Geocodificar coordenadas GPS a localidad/provincia
+  python flujos.py geocode --limit 100               -> Con limite de registros
   python flujos.py --help | --ayuda | -h             -> Esta ayuda
 """
 
@@ -60,6 +62,10 @@ COMANDOS:
 
   check-gps   Revisar que archivos tienen GPS en el sistema de archivos.
 
+  geocode     Geocodificar coordenadas GPS (lat,lon) a provincia/localidad
+              usando la API Georef Argentina (batch).
+              Ej: python flujos.py geocode --limit 100
+
   undo-ingest       Deshacer una ingesta por batch ID.
 
   backfill-end-time Calcular end_time para registros existentes
@@ -102,8 +108,10 @@ def mostrar_bienvenida():
     print()
 
 
-def leer_db() -> str:
-    """Resuelve la ruta a la DB por defecto."""
+def leer_db(db_path: str | None = None) -> str:
+    """Resuelve la ruta a la DB. Si se pasa una, la usa; si no, la default."""
+    if db_path:
+        return os.path.abspath(db_path)
     return os.path.join(os.path.dirname(__file__), "db", "flujos.db")
 
 
@@ -135,7 +143,7 @@ def resumen_db(conn) -> str:
     )
 
 
-def opcion_ingresar():
+def opcion_ingresar(db_path: str | None = None):
     """Menu para configurar y ejecutar ingesta."""
     limpiar_pantalla()
     print("=== INGESTAR MEDIOS ===\n")
@@ -152,18 +160,26 @@ def opcion_ingresar():
 
     verbose = input("  ?Modo verbose? (s/N): ").strip().lower() == "s"
     dry_run = input("  ?Solo previsualizar (dry-run)? (s/N): ").strip().lower() == "s"
+    custom_db = input(f"  ?Usar otra DB? (default: {leer_db(db_path)}) [Enter para default]: ").strip()
 
     print("\n  Ejecutando ingesta...\n")
 
     from scripts import ingest
-    ingest.main(["--root", root] +
-                (["--verbose"] if verbose else []) +
-                (["--dry-run"] if dry_run else []))
+    args = ["--root", root]
+    if verbose:
+        args.append("--verbose")
+    if dry_run:
+        args.append("--dry-run")
+    if custom_db:
+        args.extend(["--db", custom_db])
+    elif db_path:
+        args.extend(["--db", db_path])
+    ingest.main(args)
 
     pausa()
 
 
-def opcion_consultar():
+def opcion_consultar(db_path: str | None = None):
     """Menu para consultas comunes."""
     limpiar_pantalla()
     print("=== CONSULTAR BASE DE DATOS ===\n")
@@ -181,32 +197,33 @@ def opcion_consultar():
     print("  9) Revisar GPS")
     print("  0) Volver\n")
 
+    db_flag = ["--db", db_path] if db_path else []
     opc = input("  Opcion: ").strip()
 
     if opc == "1":
-        query.main(["--columns"])
+        query.main(["--columns"] + db_flag)
     elif opc == "2":
-        query.main(["--distinct", "type", "--count"])
+        query.main(["--distinct", "type", "--count"] + db_flag)
     elif opc == "3":
-        query.main(["--distinct", "author", "--count"])
+        query.main(["--distinct", "author", "--count"] + db_flag)
     elif opc == "4":
-        query.main(["--distinct", "carpeta", "--count"])
+        query.main(["--distinct", "carpeta", "--count"] + db_flag)
     elif opc == "5":
         query.main(["--distinct", "color_1_name_basic", "--count", "--where",
-                     "color_1_name_basic IS NOT NULL"])
+                     "color_1_name_basic IS NOT NULL"] + db_flag)
     elif opc == "6":
         texto = input("  Texto a buscar: ").strip()
         if texto:
-            query.main(["--search", texto])
+            query.main(["--search", texto] + db_flag)
     elif opc == "7":
         flags = input("  Flags (ej: --distinct type --count): ").strip()
         if flags:
             query.main(flags.split())
     elif opc == "8":
-        opcion_check_db()
+        opcion_check_db(db_path)
         return
     elif opc == "9":
-        opcion_check_gps()
+        opcion_check_gps(db_path)
         return
     elif opc == "0":
         return
@@ -214,13 +231,12 @@ def opcion_consultar():
     pausa()
 
 
-def opcion_relocalizar():
+def opcion_relocalizar(db_path: str | None = None):
     """Menu para relocalizar medios."""
     limpiar_pantalla()
     print("=== RELOCALIZAR MEDIOS ===\n")
 
-    # Mostrar root actual
-    db_path = leer_db()
+    db_path = leer_db(db_path)
     if os.path.isfile(db_path):
         conn = sqlite3.connect(db_path)
         try:
@@ -253,10 +269,10 @@ def opcion_relocalizar():
     pausa()
 
 
-def opcion_check_db():
+def opcion_check_db(db_path: str | None = None):
     limpiar_pantalla()
     print("=== INSPECCION DE BASE DE DATOS ===\n")
-    db_path = leer_db()
+    db_path = leer_db(db_path)
     if not os.path.isfile(db_path):
         print("  No se encuentra la base de datos.")
         pausa()
@@ -284,10 +300,40 @@ def opcion_check_db():
     pausa()
 
 
-def opcion_check_gps():
+def opcion_geocode():
+    """Menu para geocodificación inversa de coordenadas GPS."""
+    limpiar_pantalla()
+    print("=== GEOCODIFICAR COORDENADAS GPS ===\n")
+
+    print("  1) Geocodificar todos los pendientes")
+    print("  2) Geocodificar con límite")
+    print("  3) Ver cuántos hay pendientes (dry-run)")
+    print("  0) Volver\n")
+
+    opc = input("  Opcion: ").strip()
+
+    from scripts import geocode
+
+    if opc == "1":
+        geocode.main(["--db", leer_db()])
+    elif opc == "2":
+        limite = input("  Cantidad maxima: ").strip()
+        if limite.isdigit():
+            geocode.main(["--db", leer_db(), "--limit", limite])
+        else:
+            print("  Cantidad invalida.")
+    elif opc == "3":
+        geocode.main(["--db", leer_db(), "--dry-run"])
+    elif opc == "0":
+        return
+
+    pausa()
+
+
+def opcion_check_gps(db_path: str | None = None):
     limpiar_pantalla()
     print("=== REVISAR GPS EN ARCHIVOS ===\n")
-    db_path = leer_db()
+    db_path = leer_db(db_path)
     if not os.path.isfile(db_path):
         print("  No se encuentra la base de datos.")
         pausa()
@@ -311,16 +357,16 @@ def opcion_check_gps():
     conn.close()
 
     print()
-    print("  Para un analisis completo, usa: python scripts/check_gps.py")
+    print("  Para un analisis completo, usa: python flujos.py check-gps --db ruta")
     pausa()
 
 
-def opcion_undo_ingest():
+def opcion_undo_ingest(db_path: str | None = None):
     """Menu para deshacer una ingesta por batch_id."""
     limpiar_pantalla()
     print("=== DESHACER INGESTA ===\n")
 
-    db_path = leer_db()
+    db_path = leer_db(db_path)
     if not os.path.isfile(db_path):
         print("  No se encuentra la base de datos.")
         pausa()
@@ -341,12 +387,15 @@ def opcion_undo_ingest():
             pausa()
             return
 
+        # Obtener batch actual una vez, no por cada fila
+        current_batch = conn.execute(
+            "SELECT value FROM config WHERE key = 'current_ingest_batch'"
+        ).fetchone()
+        current_batch_str = current_batch[0] if current_batch else ""
+
         print("  Ingresos disponibles:\n")
         for bid, ts, cnt in batches:
-            root = conn.execute(
-                "SELECT value FROM config WHERE key = 'current_ingest_batch'"
-            ).fetchone()
-            current = "  (actual)" if root and str(bid) == root[0] else ""
+            current = "  (actual)" if str(bid) == current_batch_str else ""
             print(f"  Batch #{bid}  -  {ts}  -  {cnt} medios{current}")
         print()
 
@@ -432,7 +481,8 @@ def opcion_ayuda():
         print("  3) query   - Consultas a la base de datos")
         print("  4) relocate - Relocalizar medios")
         print("  5) improve-db - Mejorar base de datos")
-        print("  6) check-db / check-gps")
+        print("  6) geocode - Geocodificar coordenadas GPS")
+        print("  7) check-db / check-gps")
         print("  0) Volver\n")
 
         opc = input("  Opcion: ").strip()
@@ -471,6 +521,15 @@ def opcion_ayuda():
             pausa()
         elif opc == "6":
             limpiar_pantalla()
+            print("============ GEOCODE ============\n")
+            print("  Geocodifica coordenadas GPS (lat,lon) a provincia/localidad")
+            print("  usando la API Georef Argentina (batch).\n")
+            print("  Uso: python flujos.py geocode [--limit N] [--dry-run]\n")
+            print("  Tambien desde consola:")
+            print("    python scripts/geocode.py --coords -34.6037,-58.3816")
+            pausa()
+        elif opc == "7":
+            limpiar_pantalla()
             print("============ CHECK-DB ============\n")
             print("  Inspecciona todos los registros de la base de datos.")
             print("  Uso: python flujos.py check-db\n")
@@ -505,27 +564,30 @@ def tui():
         print("  1) Ingestionar medios")
         print("  2) Deshacer ingesta")
         print("  3) Mejorar base de datos")
-        print("  4) Consultar base de datos")
-        print("  5) Relocalizar medios")
-        print("  6) Reset DB (backup + limpiar)")
-        print("  7) Ayuda")
+        print("  4) Geocodificar coordenadas GPS")
+        print("  5) Consultar base de datos")
+        print("  6) Relocalizar medios")
+        print("  7) Reset DB (backup + limpiar)")
+        print("  8) Ayuda")
         print("  0) Salir\n")
 
         opc = input("  Opcion: ").strip()
 
-        if opc == "1">
+        if opc == "1":
             opcion_ingresar()
-        elif opc == "2">
+        elif opc == "2":
             opcion_undo_ingest()
-        elif opc == "3">
+        elif opc == "3":
             opcion_improve_db()
-        elif opc == "4">
+        elif opc == "4":
+            opcion_geocode()
+        elif opc == "5":
             opcion_consultar()
-        elif opc == "5">
+        elif opc == "6":
             opcion_relocalizar()
-        elif opc == "6">
+        elif opc == "7":
             opcion_reset_db()
-        elif opc == "7">
+        elif opc == "8":
             opcion_ayuda()
         elif opc == "0":
             limpiar_pantalla()
@@ -538,9 +600,9 @@ def tui():
 
 # ── Backfill end_time ─────────────────────────────────────────────────────────
 
-def opcion_backfill_end_time():
+def opcion_backfill_end_time(db_path: str | None = None):
     """Calcula end_time para registros existentes que no lo tienen."""
-    db_path = leer_db()
+    db_path = leer_db(db_path)
     if not os.path.isfile(db_path):
         print("  No se encuentra la base de datos.")
         return
@@ -596,9 +658,9 @@ def opcion_backfill_end_time():
 
 # ── Reset DB ─────────────────────────────────────────────────────────────────
 
-def opcion_reset_db():
+def opcion_reset_db(db_path: str | None = None):
     """Hace backup de la DB actual y crea una nueva desde cero."""
-    db_path = leer_db()
+    db_path = leer_db(db_path)
     db_dir = os.path.dirname(db_path)
 
     if not os.path.isfile(db_path):
@@ -674,6 +736,17 @@ def main():
     comando = sys.argv[1]
     resto = sys.argv[2:]
 
+    # Extraer --db de los args para comandos que no pasan resto a sub-scripts
+    def _extract_db(args: list[str]) -> tuple[str | None, list[str]]:
+        if "--db" in args:
+            idx = args.index("--db")
+            if idx + 1 < len(args):
+                db_val = args[idx + 1]
+                del args[idx + 1]
+                del args[idx]
+                return db_val, args
+        return None, args
+
     if comando == "ingest":
         from scripts import ingest
         ingest.main(resto)
@@ -687,23 +760,32 @@ def main():
         relocate.main(resto)
 
     elif comando == "check-db":
-        opcion_check_db()
+        db_val, _ = _extract_db(resto)
+        opcion_check_db(db_val)
 
     elif comando == "check-gps":
-        opcion_check_gps()
+        db_val, _ = _extract_db(resto)
+        opcion_check_gps(db_val)
 
     elif comando in ("undo-ingest", "undo"):
-        opcion_undo_ingest()
+        db_val, _ = _extract_db(resto)
+        opcion_undo_ingest(db_val)
 
     elif comando in ("backfill-end-time", "backfill"):
-        opcion_backfill_end_time()
+        db_val, _ = _extract_db(resto)
+        opcion_backfill_end_time(db_val)
 
     elif comando == "improve-db":
         from scripts import improve_db
         improve_db.main(resto)
 
     elif comando in ("reset-db", "reset"):
-        opcion_reset_db()
+        db_val, _ = _extract_db(resto)
+        opcion_reset_db(db_val)
+
+    elif comando == "geocode":
+        from scripts import geocode
+        geocode.main(resto)
 
     else:
         print(f"Comando desconocido: {comando}")

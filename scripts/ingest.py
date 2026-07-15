@@ -742,6 +742,12 @@ def migrate_db(conn):
         ("duration_secs", "REAL"),
         ("ingest_batch_id", "INTEGER"),
         ("end_time", "TEXT"),
+        ("provincia", "TEXT"),
+        ("departamento", "TEXT"),
+        ("municipio", "TEXT"),
+        ("localidad", "TEXT"),
+        ("geocode_source", "TEXT"),
+        ("geocode_date", "TEXT"),
     ]
     for col_name, col_type in migrations:
         try:
@@ -1067,14 +1073,28 @@ def process_file(
 
     record["content_hash"] = content_hash
 
-    # --- Fallback: usar modified_at del archivo como timestamp ---
+    # --- Fallback: timestamp desde sistema o metadatos del archivo ---
     if not timestamp_original and filetype in ("image", "video", "audio"):
-        mtime = os.path.getmtime(filepath)
-        dt = datetime.fromtimestamp(mtime, tz=timezone(timedelta(hours=-3)))
-        timestamp_original = dt.isoformat()
-        timestamp_utc = dt.astimezone(timezone.utc).isoformat()
-        timezone_note = "fallback: file modified_at (asumido ART)"
-        log.info("  Timestamp: usando modified_at del archivo")
+        # 1. FileCreateDate de ExifTool (imágenes con exiftool)
+        for key in ("file_filecreatedate", "file_filemodifydate"):
+            val = meta.get(key)
+            if val:
+                ts_orig, ts_utc, ts_note = parse_timestamp_iso(val)
+                if ts_orig:
+                    timestamp_original = ts_orig
+                    timestamp_utc = ts_utc
+                    timezone_note = f"fallback: {key}"
+                    log.info("  Timestamp: usando %s", key)
+                    break
+
+        # 2. Último recurso: modified_at del archivo (poco confiable en copias)
+        if not timestamp_original:
+            mtime = os.path.getmtime(filepath)
+            dt = datetime.fromtimestamp(mtime, tz=timezone(timedelta(hours=-3)))
+            timestamp_original = dt.isoformat()
+            timestamp_utc = dt.astimezone(timezone.utc).isoformat()
+            timezone_note = "fallback: file modified_at (asumido ART)"
+            log.info("  Timestamp: usando modified_at del archivo")
 
     record["timestamp_original"] = timestamp_original
     record["timestamp_utc"] = timestamp_utc

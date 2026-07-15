@@ -39,6 +39,13 @@ def normalize_path(p: str) -> str:
     return p
 
 
+def _sidecar_abs(sc_rel: str, old_root: str) -> str:
+    """Convierte sidecar_xml (relativo a ingest_root) a ruta absoluta."""
+    if os.path.isabs(sc_rel):
+        return sc_rel
+    return os.path.normpath(os.path.join(old_root, sc_rel))
+
+
 def preview_changes(conn, old_root: str, new_root: str):
     """Muestra los cambios que se harían, sin escribirlos."""
     old_norm = normalize_path(old_root)
@@ -61,19 +68,22 @@ def preview_changes(conn, old_root: str, new_root: str):
         else:
             print(f"  #{mid} {fname}  [NO CAMBIA - no arranca con old_root]")
 
-    # sidecar_xml
+    # sidecar_xml: se guarda como relativo a ingest_root -> convertir a abs
     cursor2 = conn.execute(
         "SELECT id, filename_original, sidecar_xml FROM media WHERE sidecar_xml IS NOT NULL"
     )
     rows2 = cursor2.fetchall()
     cambios_sc = 0
     for row in rows2:
-        mid, fname, sc_path = row
-        if sc_path and sc_path.startswith(old_norm):
-            new_sc = sc_path.replace(old_norm, new_norm, 1)
+        mid, fname, sc_rel = row
+        sc_abs = _sidecar_abs(sc_rel, old_norm)
+        if sc_abs.startswith(old_norm):
+            new_sc_abs = sc_abs.replace(old_norm, new_norm, 1)
+            # Guardar como relativo al nuevo root (mismo criterio que ingest.py)
+            new_sc_rel = os.path.relpath(new_sc_abs, new_norm)
             print(f"  #{mid} {fname} [sidecar]")
-            print(f"    {sc_path}")
-            print(f"    -> {new_sc}")
+            print(f"    abs: {sc_abs}")
+            print(f"    -> rel: {new_sc_rel}")
             cambios_sc += 1
 
     print(f"\nResumen: {cambios} rutas absolutas, {cambios_sc} sidecars cambiarían.")
@@ -103,17 +113,21 @@ def apply_changes(conn, old_root: str, new_root: str):
     )
     cambios = conn.rowcount
 
-    # Actualizar sidecar_xml
-    conn.execute(
-        """
-        UPDATE media
-        SET sidecar_xml = REPLACE(sidecar_xml, ?, ?),
-            updated_at = datetime('now')
-        WHERE sidecar_xml IS NOT NULL AND sidecar_xml LIKE ? || '%'
-        """,
-        (old_norm, new_norm, old_norm),
-    )
-    cambios_sc = conn.rowcount
+    # Actualizar sidecar_xml (relativo a ingest_root)
+    sidecar_rows = conn.execute(
+        "SELECT id, sidecar_xml FROM media WHERE sidecar_xml IS NOT NULL"
+    ).fetchall()
+    cambios_sc = 0
+    for mid, sc_rel in sidecar_rows:
+        sc_abs = _sidecar_abs(sc_rel, old_norm)
+        if sc_abs.startswith(old_norm):
+            new_sc_abs = sc_abs.replace(old_norm, new_norm, 1)
+            new_sc_rel = os.path.relpath(new_sc_abs, new_norm)
+            conn.execute(
+                "UPDATE media SET sidecar_xml = ?, updated_at = datetime('now') WHERE id = ?",
+                (new_sc_rel, mid),
+            )
+            cambios_sc += 1
 
     # Actualizar ingest_root en config
     conn.execute(

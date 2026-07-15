@@ -70,6 +70,92 @@ python flujos.py relocate --help  # flags: --old-root, --dry-run
 | `scripts/mover_descartadas.py` | Mueve imágenes descartadas a otra carpeta | Curación |
 | `scripts/check_db.py` | Inspección general de la DB | Consulta |
 | `scripts/check_gps.py` | Verifica GPS en archivos | Consulta |
+| `scripts/ai_media/tag_images.py` | Etiqueta y describe imágenes con IA | Inferencia |
+| `scripts/ai_media/analyze_video.py` | Análisis visual de video (scene detection + IA) | Inferencia |
+| `scripts/ai_media/transcribe_media.py` | Transcripción de audio/video con IA | Inferencia |
+
+---
+
+## IA (Procesamiento de medios)
+
+Dos subsistemas de IA complementarios:
+
+### Visión (Ollama)
+
+Usamos modelos de visión de [Ollama](https://ollama.com) para:
+- **Etiquetar imágenes** — extraer 5-7 keywords (incluye género fotográfico) + descripción
+- **Seleccionar la mejor imagen de una tanda** — evaluar calidad visual
+- **Clasificar imágenes** por contenido
+
+#### Instalación
+
+```powershell
+# Instalar Ollama (una sola vez)
+winget install Ollama.Ollama
+
+# Descargar modelos de visión (según la RAM disponible)
+ollama pull moondream:latest          # 1.7 GB — recomendado, el que usamos
+ollama pull qwen2.5vl:3b              # 3.2 GB — más preciso, liviano
+ollama pull qwen2.5vl:latest          # 6.0 GB — buena calidad
+ollama pull llama3.2-vision:latest    # 7.8 GB — buena calidad general
+```
+
+> **RAM:** con `moondream:latest` el uso de RAM sube ~40% sobre el idle.
+> Modelos más grandes (qwen2.5vl, llama3.2-vision) requieren más RAM.
+> Usar `--list-models` en los scripts para ver los modelos instalados.
+
+#### Scripts que usan visión
+
+| Script | Qué hace |
+|--------|----------|
+| `scripts/ai_media/tag_images.py` | Etiqueta y describe imágenes (DB o sidecar) |
+| `scripts/ai_media/analyze_video.py` | Análisis visual de video: scene detection + fotogramas clave con IA |
+| `scripts/ai_media/image_analysis.py` | Análisis individual (keywords, descripción, clasificación) |
+| `scripts/limpiar_tandas.py` | Selección de mejor imagen por tanda |
+
+#### Uso
+
+```powershell
+# Ver modelos disponibles
+python scripts/ai_media/tag_images.py --list-models
+
+# Etiquetar con un modelo específico
+python scripts/ai_media/tag_images.py --folder D:/Fotos --modelo moondream:latest
+
+# El flag --modelo acepta cualquier modelo instalado en Ollama
+```
+
+### Transcripción (faster-whisper)
+
+Usamos [faster-whisper](https://github.com/SYSTRAN/faster-whisper) para
+transcribir audios y pistas de audio de videos con timestamps.
+
+#### Instalación
+
+```powershell
+pip install faster-whisper
+```
+
+Los modelos se descargan automáticamente la primera vez que se usan (tiny ~75 MB,
+base ~150 MB, small ~500 MB, medium ~1.5 GB, large-v3 ~3 GB).
+
+#### Scripts que usan transcripción
+
+| Script | Qué hace |
+|--------|----------|
+| `scripts/ai_media/transcribe_media.py` | Transcripción automática (DB, carpeta o archivo individual) |
+| `scripts/ai_media/analyze_video.py` | Análisis visual de video con scene detection + IA |
+| `scripts/ai_media/transcribe.py` | Módulo base (exporta SRT/TXT/JSON) |
+
+#### Uso
+
+```powershell
+# Transcribir un audio
+python scripts/ai_media/transcribe_media.py --file audio.mp3 --modelo base
+
+# Transcribir un video
+python scripts/ai_media/transcribe_media.py --file video.mp4 --modelo small
+```
 
 ---
 
@@ -121,6 +207,34 @@ Configuración de la base de datos (`ingest_root`, `current_ingest_batch`, etc.)
 
 ---
 
+## Requisitos del sistema
+
+### Instalación de herramientas externas
+
+```powershell
+# ffmpeg — transcodificación, scene detection, extracción de fotogramas
+winget install "FFmpeg (Essentials Build)"
+
+# ExifTool — metadatos EXIF/IPTC/XMP
+winget install ExifTool.ExifTool
+
+# Ollama — modelos de visión (etiquetado, descripción, calidad)
+winget install Ollama.Ollama
+ollama pull moondream:latest          # 1.7 GB — recomendado
+```
+
+### Instalación de dependencias Python
+
+```powershell
+pip install faster-whisper            # Transcripción de audio
+pip install Pillow                    # Colores dominantes, content hash
+pip install webcolors                 # Nombres de colores CSS
+pip install tqdm                      # Barras de progreso
+pip install ollama                    # Cliente Python para Ollama
+```
+
+---
+
 ## Stack
 
 | Componente | Versión | Propósito |
@@ -132,6 +246,8 @@ Configuración de la base de datos (`ingest_root`, `current_ingest_batch`, etc.)
 | **Pillow** | 12.2+ | Colores dominantes, content hash |
 | **tqdm** | 4.68+ | Barras de progreso |
 | **webcolors** | 25.10+ | Nombres de colores CSS |
+| **Ollama** | 0.31+ | Modelos de visión (etiquetado, descripción, calidad) |
+| **faster-whisper** | 1.2+ | Transcripción de audio con timestamps |
 
 ---
 

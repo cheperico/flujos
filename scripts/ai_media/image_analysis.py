@@ -36,8 +36,13 @@ logger = logging.getLogger(__name__)
 PROMPT_KEYWORDS = (
     "Analizá esta imagen y devolvé únicamente una lista de 5 a 7 palabras clave "
     "en español que describan su contenido. "
+    "La PRIMERA palabra clave debe ser el género fotográfico de la imagen "
+    "(elige una: retrato, retrato grupal, paisaje, nocturna, macro, "
+    "arquitectura, documento, callejera, naturaleza, abstracto, deporte, "
+    "comida, objeto, urbano, evento, animales, otras). "
+    "Las siguientes deben describir elementos, colores, escena. "
     "Separalas con comas. No incluyas explicación ni ningún otro texto. "
-    "Ejemplo: 'playa, atardecer, palmeras, arena, mar, cielo, nubes'"
+    "Ejemplo: 'paisaje, montaña, lago, atardecer, bosque, cielo, reflejo'"
 )
 
 PROMPT_DESCRIBIR = (
@@ -272,6 +277,7 @@ def _limpiar_kw(palabra: str) -> str:
 # ---- CLI ----
 if __name__ == "__main__":
     import argparse
+    import sys
 
     logging.basicConfig(
         level=logging.INFO,
@@ -282,17 +288,36 @@ if __name__ == "__main__":
         description="Analizar imágenes con modelos de visión Ollama"
     )
     parser.add_argument("imagenes", nargs="+", help="Rutas a las imágenes")
+    # Opciones generales
     parser.add_argument("--modelo", default="moondream:latest",
-                        choices=["moondream:latest", "qwen2.5vl:latest",
-                                 "qwen2.5vl:3b", "llama3.2-vision:latest",
-                                 "gemma4:e4b"],
-                        help="Modelo de visión")
+                        help="Modelo de visión Ollama. (default: moondream:latest)")
+    parser.add_argument("--list-models", action="store_true",
+                        help="Mostrar modelos Ollama instalados y salir")
     parser.add_argument("--action", default="keywords",
                         choices=["keywords", "describir", "clasificar"],
                         help="Acción a realizar")
     parser.add_argument("--json", help="Exportar resultados a JSON")
 
     args = parser.parse_args()
+
+    if args.list_models:
+        try:
+            import ollama
+            response = ollama.list()
+            if hasattr(response, "models"):
+                modelos = response.models
+            elif isinstance(response, dict):
+                modelos = response.get("models", [])
+            else:
+                modelos = list(response)
+            print("=== Modelos instalados en Ollama ===\n")
+            for m in modelos:
+                nombre = m.model if hasattr(m, "model") else str(m)
+                print(f"  {nombre}")
+            print()
+        except Exception as e:
+            print(f"Error al conectar con Ollama: {e}")
+        sys.exit(0)
 
     for ruta in args.imagenes:
         if not Path(ruta).exists():

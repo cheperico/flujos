@@ -50,6 +50,7 @@ Etapa 4: POST-PROCESO (yapa)  →  Escribir metadatos de DB a los archivos
 | **Inferencia de timestamps faltantes** | **Alta** | ✅ | `improve-db --steps timestamps` |
 | Tabla `media_keypoints` + poblar desde transcripciones | Alta | ✅ | `improve-db --steps keypoints` |
 | Inferencia de autor desde medios cercanos | Baja | ❌ | — |
+| Detección/corrección de offset de reloj en cámaras | Media | ❌ Nota: si una cámara tiene la hora mal configurada, todos sus medios tienen timestamp desplazado. Se podría detectar comparando timestamps EXIF vs GPS track o vs medios de otros dispositivos en el mismo momento. |
 | Merge de metadatos para contenido duplicado | Baja | ❌ | — |
 | Soporte para tracks GPS (GPX) | Baja | ❌ | — |
 
@@ -101,3 +102,12 @@ Etapa 4: POST-PROCESO (yapa)  →  Escribir metadatos de DB a los archivos
   descriptions, transcribe, keypoints, timestamps, gps) y 3 modos
   (skip/update/replace). Subcomando `improve-db` en flujos.py (CLI + TUI).
   Dependencias entre pasos resueltas automáticamente.
+- **2026-07-15 (3ra ronda):** Fixes varios:
+  - Fallback timestamp prioriza FileCreateDate de ExifTool antes de getmtime
+  - relocate.py ahora maneja sidecar_xml como ruta relativa correctamente
+  - improve_db.py: serialización numpy fixeada (language_probability)
+  - check_db.py y check_gps.py refactorizados con argparse + main()
+  - flujos.py: TUI acepta --db en ingesta; CLI acepta --db en check-db,
+    check-gps, undo-ingest, backfill-end-time, reset-db
+  - undo_ingest: query de current_ingest_batch movida fuera del loop
+  - ROADMAP: anotado "detectar offset de reloj en cámaras" como media

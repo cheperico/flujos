@@ -1,10 +1,12 @@
 """
-Etiquetado de imágenes con IA — extrae keywords y las guarda en DB y/o sidecar.
+Etiquetado de imágenes con IA — extrae keywords + descripción y las guarda
+en DB y/o sidecar.
 
 Dos modos de operación:
 
 1. **Post-ingesta** (--db): conecta a la DB existente, busca imágenes sin
-   etiquetar, extrae keywords con moondream y guarda en media_metadata.
+   etiquetar, extrae keywords + descripción con moondream y guarda en
+   media_metadata.
 
 2. **Pre-ingesta / autónomo** (--folder): procesa imágenes de una carpeta
    y genera sidecars .tags.json sin tocar la DB. El ingest puede levantar
@@ -14,6 +16,7 @@ Formato del sidecar .tags.json:
     {
         "file_hash": "abc123def456",
         "tags": ["bicicleta", "ruta", "atardecer"],
+        "descripcion": "Una bicicleta de montaña en un camino de tierra...",
         "modelo": "moondream:latest",
         "fecha": "2026-07-14T10:30:00"
     }
@@ -43,25 +46,25 @@ import sqlite3
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 # Permitir importar scripts/ como paquete
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from scripts.ai_media.image_analysis import extraer_keywords
-from scripts.ai_media.proxy import limpiar_todos_los_proxies
+from scripts.ai_media.image_analysis import extraer_keywords, describir_imagen
 
 logger = logging.getLogger(__name__)
 
 # Extensiones de imagen soportadas
 EXT_IMAGEN = {".jpg", ".jpeg", ".png", ".tiff", ".tif", ".bmp", ".webp", ".heic", ".heif"}
 
-# Clave en media_metadata para los tags IA
+# Claves en media_metadata
 KEY_AI_TAGS = "ai_tags"
+KEY_AI_DESCRIPCION = "ai_description"
 
-# Tamaño del modelo whisper disponible
-MODELOS_VISION = ["moondream:latest", "qwen2.5vl:latest", "qwen2.5vl:3b",
-                  "llama3.2-vision:latest", "gemma4:e4b"]
+# Modelos de visión recomendados (usar --list-models para ver los instalados)
+MODELOS_RECOMENDADOS = ["moondream:latest", "qwen2.5vl:latest", "qwen2.5vl:3b",
+                        "llama3.2-vision:latest", "gemma4:e4b"]
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -95,7 +98,7 @@ def _ruta_sidecar(ruta_imagen: str) -> str:
     return f"{ruta_imagen}.tags.json"
 
 
-def _sidecar_existe_valido(ruta_imagen: str) -> Optional[list[str]]:
+def _sidecar_existe_valido(ruta_imagen: str) -> Optional[dict[str, Any]]:
     """
     Verifica si existe un sidecar válido para la imagen.
 
@@ -104,7 +107,7 @@ def _sidecar_existe_valido(ruta_imagen: str) -> Optional[list[str]]:
       - El file_hash coincide con el de la imagen actual
 
     Returns:
-        Lista de tags si el sidecar es válido, None si no.
+        Dict con tags y descripcion si el sidecar es válido, None si no.
     """
     sidecar = _ruta_sidecar(ruta_imagen)
     if not Path(sidecar).exists():
@@ -116,19 +119,23 @@ def _sidecar_existe_valido(ruta_imagen: str) -> Optional[list[str]]:
 
         hash_actual = _hash_rapido(ruta_imagen)
         if data.get("file_hash") == hash_actual:
-            return data.get("tags", [])
+            return {
+                "tags": data.get("tags", []),
+                "descripcion": data.get("descripcion", ""),
+            }
     except Exception:
         pass
 
     return None
 
 
-def _escribir_sidecar(ruta_imagen: str, tags: list[str], modelo: str):
+def _escribir_sidecar(ruta_imagen: str, resultado: dict[str, Any], modelo: str):
     """Escribe el sidecar .tags.json junto a la imagen."""
     sidecar = _ruta_sidecar(ruta_imagen)
     data = {
         "file_hash": _hash_rapido(ruta_imagen),
-        "tags": tags,
+        "tags": resultado["tags"],
+        "descripcion": resultado["descripcion"],
         "modelo": modelo,
         "fecha": datetime.now().isoformat(),
     }
@@ -212,9 +219,9 @@ def obtener_imagenes_sin_tags(
     return resultado
 
 
-def guardar_tags_en_db(conn: sqlite3.Connection, media_id: int, tags: list[str]):
+def guardar_en_db(conn: sqlite3.Connection, media_id: int, resultado: dict[str, Any]):
     """
-    Guarda los tags de una imagen en media_metadata.
+    Guarda tags + descripción de una imagen en media_metadata.
 
     Usa INSERT OR REPLACE para sobreescribir si ya existiera (por si
     se quiere re-etiquetar después).
@@ -223,11 +230,17 @@ def guardar_tags_en_db(conn: sqlite3.Connection, media_id: int, tags: list[str])
         conn.execute(
             "INSERT OR REPLACE INTO media_metadata (media_id, key, value) "
             "VALUES (?, ?, ?)",
-            (media_id, KEY_AI_TAGS, json.dumps(tags, ensure_ascii=False)),
+            (media_id, KEY_AI_TAGS,
+             json.dumps(resultado["tags"], ensure_ascii=False)),
+        )
+        conn.execute(
+            "INSERT OR REPLACE INTO media_metadata (media_id, key, value) "
+            "VALUES (?, ?, ?)",
+            (media_id, KEY_AI_DESCRIPCION, resultado["descripcion"]),
         )
         conn.commit()
     except Exception as e:
-        logger.error("  -> Error guardando tags en DB (id=%d): %s", media_id, e)
+        logger.error("  -> Error guardando en DB (id=%d): %s", media_id, e)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -238,9 +251,9 @@ def etiquetar_imagen(
     ruta: str,
     modelo: str = "moondream:latest",
     usar_proxy: bool = True,
-) -> list[str]:
+) -> dict[str, Any]:
     """
-    Extrae keywords de una imagen usando moondream.
+    Extrae keywords + descripción de una imagen usando modelos de visión.
 
     Args:
         ruta: Ruta a la imagen.
@@ -248,20 +261,31 @@ def etiquetar_imagen(
         usar_proxy: Si True, redimensiona la imagen antes de enviar a la IA.
 
     Returns:
-        Lista de keywords.
+        Dict con "tags" (list[str]) y "descripcion" (str).
 
     Raises:
         FileNotFoundError: Si la imagen no existe.
         ValueError: Si falla la extracción.
     """
-    # extraer_keywords ya maneja proxies internamente
+    # extraer_keywords y describir_imagen ya manejan proxies internamente
     keywords = extraer_keywords(
         ruta,
         modelo=modelo,
         temperatura=0.2,
         usar_proxy=usar_proxy,
     )
-    return keywords
+
+    descripcion = describir_imagen(
+        ruta,
+        modelo=modelo,
+        temperatura=0.3,
+        usar_proxy=usar_proxy,
+    )
+
+    return {
+        "tags": keywords,
+        "descripcion": descripcion.strip().strip('"'),
+    }
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -274,26 +298,29 @@ def procesar_imagen(
     usar_proxy: bool,
     sidecar: bool,
     dry_run: bool,
-) -> Optional[list[str]]:
+) -> Optional[dict[str, Any]]:
     """
-    Procesa una imagen: extrae tags y opcionalmente guarda sidecar.
+    Procesa una imagen: extrae tags y descripción, opcionalmente guarda sidecar.
 
     Returns:
-        Lista de tags, o None si falló.
+        Dict con "tags" y "descripcion", o None si falló.
     """
     if dry_run:
         logger.info("  [DRY RUN] Se etiquetaría: %s", Path(ruta).name)
         return None
 
     try:
-        tags = etiquetar_imagen(ruta, modelo=modelo, usar_proxy=usar_proxy)
-        logger.info("  Tags (%d): %s", len(tags), ", ".join(tags))
+        resultado = etiquetar_imagen(ruta, modelo=modelo, usar_proxy=usar_proxy)
+
+        tags_str = ", ".join(resultado["tags"])
+        logger.info("  Tags (%d): %s", len(resultado["tags"]), tags_str)
+        logger.info("  Descripción: %s", resultado["descripcion"][:120])
 
         # Sidecar
         if sidecar:
-            _escribir_sidecar(ruta, tags, modelo)
+            _escribir_sidecar(ruta, resultado, modelo)
 
-        return tags
+        return resultado
 
     except Exception as e:
         logger.error("  Error etiquetando %s: %s", Path(ruta).name, e)
@@ -340,7 +367,7 @@ def procesar_desde_db(
             ok += 1
             continue
 
-        tags = procesar_imagen(
+        resultado = procesar_imagen(
             img["ruta"],
             modelo=modelo,
             usar_proxy=usar_proxy,
@@ -348,8 +375,8 @@ def procesar_desde_db(
             dry_run=False,
         )
 
-        if tags:
-            guardar_tags_en_db(conn, img["id"], tags)
+        if resultado:
+            guardar_en_db(conn, img["id"], resultado)
             ok += 1
         else:
             fail += 1
@@ -402,11 +429,11 @@ def procesar_desde_carpeta(
 
         # Verificar si ya tiene sidecar válido
         if sidecar and not dry_run:
-            tags_existentes = _sidecar_existe_valido(ruta)
-            if tags_existentes is not None:
+            existente = _sidecar_existe_valido(ruta)
+            if existente is not None:
                 logger.info(
                     "  -> Ya tiene sidecar válido (%d tags). Skip.",
-                    len(tags_existentes),
+                    len(existente["tags"]),
                 )
                 ya_etiquetadas += 1
                 continue
@@ -416,7 +443,7 @@ def procesar_desde_carpeta(
             ok += 1
             continue
 
-        tags = procesar_imagen(
+        resultado = procesar_imagen(
             ruta,
             modelo=modelo,
             usar_proxy=usar_proxy,
@@ -424,7 +451,7 @@ def procesar_desde_carpeta(
             dry_run=False,
         )
 
-        if tags:
+        if resultado:
             ok += 1
         else:
             fail += 1
@@ -439,9 +466,33 @@ def procesar_desde_carpeta(
 #  CLI
 # ═══════════════════════════════════════════════════════════════
 
+def listar_modelos():
+    """Muestra los modelos instalados en Ollama."""
+    try:
+        import ollama
+        response = ollama.list()
+        if hasattr(response, "models"):
+            modelos = response.models
+        elif isinstance(response, dict):
+            modelos = response.get("models", [])
+        else:
+            modelos = list(response)
+
+        print("=== Modelos instalados en Ollama ===\n")
+        for m in modelos:
+            nombre = m.model if hasattr(m, "model") else str(m)
+            print(f"  {nombre}")
+        print("\nRecomendados para visión:")
+        for m in MODELOS_RECOMENDADOS:
+            print(f"  - {m}")
+        print()
+    except Exception as e:
+        print(f"Error al conectar con Ollama: {e}")
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Etiquetar imágenes con IA (moondream).\n\n"
+        description="Etiquetar imágenes con IA (modelos de visión Ollama).\n\n"
                     "Dos modos:\n"
                     "  --db ruta    : etiqueta imágenes de la DB (post-ingesta)\n"
                     "  --folder ruta: etiqueta imágenes de una carpeta (genera sidecars)\n",
@@ -455,12 +506,14 @@ def main():
 
     # Opciones generales
     parser.add_argument("--modelo", default="moondream:latest",
-                        choices=MODELOS_VISION,
-                        help="Modelo de visión (default: moondream:latest)")
+                        help="Modelo de visión Ollama. Usar --list-models para ver "
+                             "los instalados. (default: moondream:latest)")
     parser.add_argument("--no-proxy", action="store_true",
                         help="No usar proxies (deshabilita redimensionado automático)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Solo mostrar qué se haría sin ejecutar")
+    parser.add_argument("--list-models", action="store_true",
+                        help="Mostrar modelos Ollama instalados y salir")
 
     # Opciones modo DB
     parser.add_argument("--limit", type=int, default=None,
@@ -469,6 +522,11 @@ def main():
                         help="Generar también sidecar .tags.json (solo modo --db)")
 
     args = parser.parse_args()
+
+    # --list-models es prioridad
+    if args.list_models:
+        listar_modelos()
+        return
 
     # Configurar logging
     logging.basicConfig(

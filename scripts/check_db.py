@@ -1,29 +1,131 @@
+#!/usr/bin/env python3
+"""
+check_db.py - Inspecciona la base de datos de Flujos.
+Muestra todos los registros, metadatos y totales.
+
+Uso:
+    python scripts/check_db.py                        # DB default
+    python scripts/check_db.py --db db/flujos.db      # DB personalizada
+    python scripts/check_db.py --verbose               # Más detalle
+"""
+
+import argparse
 import sqlite3
+import os
 import sys
 
-db_path = sys.argv[1] if len(sys.argv) > 1 else "db/flujos.db"
 
-conn = sqlite3.connect(db_path)
-c = conn.cursor()
+def print_media(conn, verbose: bool):
+    """Muestra los registros de media."""
+    print("=== MEDIA ===")
+    if verbose:
+        cols = ["id", "filename_original", "type", "subtype", "carpeta",
+                "timestamp_utc", "duration_secs", "end_time",
+                "latitude", "longitude", "author",
+                "color_1_name_basic", "ingest_batch_id"]
+        query = f"SELECT {', '.join(cols)} FROM media ORDER BY id"
+    else:
+        query = """
+            SELECT id, filename_original, type, sidecar_parsed,
+                   timestamp_utc, timezone_note
+            FROM media ORDER BY id
+        """
+    cursor = conn.execute(query)
+    rows = cursor.fetchall()
+    if not rows:
+        print("  (vacío)")
+        return
+    for row in rows:
+        if verbose:
+            vals = [str(v)[:30] if v else "-" for v in row]
+            print(f"  id={row[0]:6d} | {' | '.join(vals[1:])}")
+        else:
+            ts = row[4] or "-"
+            print(f"  id={row[0]:6d} | {row[1]:35s} | {row[2]:6s} | ts_utc={ts}")
 
-print("=== MEDIA ===")
-c.execute("SELECT id, filename_original, type, sidecar_parsed, sidecar_xml, timestamp_original, timestamp_utc, timezone_note FROM media ORDER BY id")
-for row in c.fetchall():
-    ts = row[4] or "-"
-    print(f"  id={row[0]:2d} | {row[1]:35s} | {row[2]:6s} | xml={row[3]} | ts_orig={ts}")
 
-print()
-print("=== MEDIA_METADATA (primeros 40) ===")
-c.execute("SELECT m.id, m.filename_original, mm.key, mm.value FROM media_metadata mm JOIN media m ON m.id = mm.media_id ORDER BY m.id, mm.key LIMIT 40")
-for row in c.fetchall():
-    val = str(row[3])[:80]
-    print(f"  id={row[0]:2d} | {row[1]:30s} | {row[2]:45s} = {val}")
+def print_metadata(conn, limit: int = 40):
+    """Muestra los primeros N registros de media_metadata."""
+    print()
+    print(f"=== MEDIA_METADATA (primeros {limit}) ===")
+    cursor = conn.execute("""
+        SELECT m.id, m.filename_original, mm.key, mm.value
+        FROM media_metadata mm
+        JOIN media m ON m.id = mm.media_id
+        ORDER BY m.id, mm.key
+        LIMIT ?
+    """, (limit,))
+    rows = cursor.fetchall()
+    if not rows:
+        print("  (vacío)")
+        return
+    for row in rows:
+        val = str(row[3])[:80]
+        print(f"  id={row[0]:6d} | {row[1]:30s} | {row[2]:45s} = {val}")
 
-print()
-print("=== TOTALES ===")
-c.execute("SELECT COUNT(*) FROM media")
-print(f"  Total media: {c.fetchone()[0]}")
-c.execute("SELECT COUNT(*) FROM media_metadata")
-print(f"  Total metadata: {c.fetchone()[0]}")
 
-conn.close()
+def print_keypoints(conn, limit: int = 20):
+    """Muestra los primeros N keypoints."""
+    print()
+    print(f"=== MEDIA_KEYPOINTS (primeros {limit}) ===")
+    cursor = conn.execute("""
+        SELECT kp.id, m.filename_original, kp.timestamp_offset_secs,
+               kp.key, substr(kp.value, 1, 60) AS val_preview
+        FROM media_keypoints kp
+        JOIN media m ON m.id = kp.media_id
+        ORDER BY kp.id
+        LIMIT ?
+    """, (limit,))
+    rows = cursor.fetchall()
+    if not rows:
+        print("  (vacío)")
+        return
+    for row in rows:
+        print(f"  #{row[0]:6d} | {row[1]:30s} | +{row[2]:8.1f}s | {row[3]:15s} | {row[4]}")
+
+
+def print_totals(conn):
+    """Muestra totales por tabla."""
+    print()
+    print("=== TOTALES ===")
+    for table in ["media", "media_metadata", "config", "media_keypoints"]:
+        try:
+            cnt = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+            print(f"  {table:20s} {cnt:>8d}")
+        except sqlite3.OperationalError:
+            print(f"  {table:20s}   (no existe)")
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Inspecciona la base de datos de Flujos",
+    )
+    parser.add_argument("--db", default=None, help="Ruta a la base de datos")
+    parser.add_argument("--verbose", "-v", action="store_true",
+                        help="Mostrar más columnas de media")
+    parser.add_argument("--limit", type=int, default=40,
+                        help="Límite de filas a mostrar (default: 40)")
+    args = parser.parse_args(argv)
+
+    if args.db:
+        db_path = os.path.abspath(args.db)
+    else:
+        db_path = os.path.join(os.path.dirname(__file__), "..", "db", "flujos.db")
+
+    if not os.path.isfile(db_path):
+        print(f"Error: no se encuentra la DB en {db_path}")
+        sys.exit(1)
+
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+
+    print_media(conn, args.verbose)
+    print_metadata(conn, args.limit)
+    print_keypoints(conn, args.limit)
+    print_totals(conn)
+
+    conn.close()
+
+
+if __name__ == "__main__":
+    main()

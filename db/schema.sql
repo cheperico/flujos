@@ -34,6 +34,14 @@ CREATE TABLE IF NOT EXISTS media (
     altitude          REAL,                   -- altitud en metros
     geolocation_source TEXT,                  -- 'metadata', 'inferido_tiempo', 'track_gps', 'manual'
 
+    -- Geocodificación inversa (GPS → localidad/provincia)
+    provincia         TEXT,                   -- provincia argentina (ej: "Ciudad Autónoma de Buenos Aires")
+    departamento      TEXT,                   -- departamento/partido
+    municipio         TEXT,                   -- municipio
+    localidad         TEXT,                   -- localidad/ciudad
+    geocode_source    TEXT,                   -- 'georef_api', 'georef_offline', 'gazetteer', 'manual'
+    geocode_date      TEXT                    -- timestamp ISO de la geocodificación
+
     -- Autor
     author            TEXT,                   -- nombre de quien creó el medio
     author_source     TEXT,                   -- 'exif', 'carpeta', 'modelo_camara', 'combinado'

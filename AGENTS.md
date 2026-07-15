@@ -109,6 +109,7 @@ scripts/
 | Documento | Descripción |
 |-----------|-------------|
 | `docs/limpieza_tandas_resultados.md` | Comparativa de 4 estrategias de limpieza de tandas (temporal, pHash, tags, embeddings). Decantó por embeddings como favorita. |
+| `docs/geocodificacion_reversa.md` | Estrategia de geocodificación inversa (GPS → localidad/provincia). 3 opciones: Georef API batch, Georef offline, python-gazetteer. |
 
 ## Reglas
 
