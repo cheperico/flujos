@@ -68,6 +68,9 @@ COMANDOS:
   improve-db        Ejecutar pasos de mejora sobre la DB (colores,
                     keywords, transcripcion, keypoints, timestamps, GPS).
 
+  reset-db          Hace backup de la DB actual y crea una nueva
+                    desde cero (schema limpio).
+
   --tui       Menu interactivo (tambien sin argumentos).
 
   --help, --ayuda, -h   Esta ayuda.
@@ -504,7 +507,8 @@ def tui():
         print("  3) Mejorar base de datos")
         print("  4) Consultar base de datos")
         print("  5) Relocalizar medios")
-        print("  6) Ayuda")
+        print("  6) Reset DB (backup + limpiar)")
+        print("  7) Ayuda")
         print("  0) Salir\n")
 
         opc = input("  Opcion: ").strip()
@@ -520,6 +524,8 @@ def tui():
         elif opc == "5">
             opcion_relocalizar()
         elif opc == "6">
+            opcion_reset_db()
+        elif opc == "7">
             opcion_ayuda()
         elif opc == "0":
             limpiar_pantalla()
@@ -588,6 +594,72 @@ def opcion_backfill_end_time():
         conn.close()
 
 
+# ── Reset DB ─────────────────────────────────────────────────────────────────
+
+def opcion_reset_db():
+    """Hace backup de la DB actual y crea una nueva desde cero."""
+    db_path = leer_db()
+    db_dir = os.path.dirname(db_path)
+
+    if not os.path.isfile(db_path):
+        print("  No hay base de datos que respaldar.")
+        r = input("  ?Crear una DB vacia igual? (s/N): ").strip().lower()
+        if r != "s":
+            print("  Cancelado.")
+            return
+        print("  Creando DB vacia...")
+        from scripts.ingest import init_db
+        init_db(db_path)
+        print(f"  DB creada: {db_path}")
+        return
+
+    # Contar registros
+    conn = sqlite3.connect(db_path)
+    try:
+        total = conn.execute("SELECT COUNT(*) FROM media").fetchone()[0]
+    except sqlite3.OperationalError:
+        total = 0
+    conn.close()
+
+    print(f"\n  Base de datos actual: {db_path}")
+    print(f"  Registros en media:   {total}")
+
+    # Confirmar
+    r = input("\n  ?Hacer backup y borrar? (s/N): ").strip().lower()
+    if r != "s":
+        print("  Cancelado.")
+        return
+
+    # Backup
+    from datetime import datetime
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_name = f"flujos_backup_{ts}.db"
+    backup_path = os.path.join(db_dir, backup_name)
+
+    import shutil
+    try:
+        shutil.copy2(db_path, backup_path)
+        print(f"  Backup creado: {backup_name}")
+    except Exception as e:
+        print(f"  Error creando backup: {e}")
+        r = input("  ?Continuar igual? (s/N): ").strip().lower()
+        if r != "s":
+            return
+
+    # Borrar y crear nueva
+    try:
+        os.remove(db_path)
+        print("  DB anterior eliminada.")
+    except Exception as e:
+        print(f"  Error eliminando DB: {e}")
+        return
+
+    from scripts.ingest import init_db
+    init_db(db_path)
+    print(f"  Nueva DB creada: {db_path}")
+    print("  Lista para ingestar.")
+
+
 # ── Entry point ──────────────────────────────────────────────────────────────
 
 def main():
@@ -629,6 +701,9 @@ def main():
     elif comando == "improve-db":
         from scripts import improve_db
         improve_db.main(resto)
+
+    elif comando in ("reset-db", "reset"):
+        opcion_reset_db()
 
     else:
         print(f"Comando desconocido: {comando}")
