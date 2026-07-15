@@ -677,6 +677,7 @@ def init_db(db_path: str):
                 timestamp_utc TEXT,
                 timezone_note TEXT,
                 duration_secs REAL,
+                end_time TEXT,
                 latitude REAL,
                 longitude REAL,
                 altitude REAL,
@@ -740,6 +741,7 @@ def migrate_db(conn):
         ("color_3_name_basic", "TEXT"),
         ("duration_secs", "REAL"),
         ("ingest_batch_id", "INTEGER"),
+        ("end_time", "TEXT"),
     ]
     for col_name, col_type in migrations:
         try:
@@ -782,14 +784,14 @@ def insert_media(conn, record: dict) -> int:
             filename_original, filepath_absoluto, filepath_relativo, carpeta,
             type, subtype, size_bytes, file_hash, content_hash,
             sidecar_xml, sidecar_parsed, sidecar_hash,
-            timestamp_original, timestamp_utc, timezone_note, duration_secs,
+            timestamp_original, timestamp_utc, timezone_note, duration_secs, end_time,
             latitude, longitude, altitude, geolocation_source,
             author, author_source,
             color_1_hex, color_1_name_css, color_1_name_basic,
             color_2_hex, color_2_name_css, color_2_name_basic,
             color_3_hex, color_3_name_css, color_3_name_basic,
             ingest_batch_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                   ?, ?, ?, ?,
                   ?, ?,
                   ?, ?, ?,
@@ -813,6 +815,7 @@ def insert_media(conn, record: dict) -> int:
         record.get("timestamp_utc"),
         record.get("timezone_note"),
         record.get("duration_secs"),
+        record.get("end_time"),
         record.get("latitude"),
         record.get("longitude"),
         record.get("altitude"),
@@ -1055,6 +1058,18 @@ def process_file(
     # --- Promover duration_secs de meta a columna directa (videos/audios) ---
     if "duration_secs" in meta:
         record["duration_secs"] = meta.pop("duration_secs")
+
+    # --- Calcular end_time: timestamp_utc + duration_secs ---
+    if timestamp_utc:
+        dur = record.get("duration_secs")
+        if dur:
+            try:
+                dt_end = datetime.fromisoformat(timestamp_utc) + timedelta(seconds=float(dur))
+                record["end_time"] = dt_end.isoformat()
+            except Exception:
+                record["end_time"] = timestamp_utc  # fallback: punto
+        else:
+            record["end_time"] = timestamp_utc  # punto: mismo timestamp
 
     # --- Detectar contenido duplicado (mismo content_hash, distinto file_hash) ---
     if content_hash:

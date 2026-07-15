@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS media (
     timestamp_utc     TEXT,                   -- normalizado a UTC
     timezone_note     TEXT,                   -- cómo se determinó: "EXIF offset -03:00", "asumido ART", etc.
     duration_secs     REAL,                   -- duración en segundos (videos, audios)
+    end_time          TEXT,                   -- timestamp_utc + duration_secs (para consultas por rango)
 
     -- Geolocalización
     latitude          REAL,                   -- latitud (WGS84)
@@ -72,6 +73,7 @@ CREATE INDEX IF NOT EXISTS idx_media_content_hash ON media(content_hash);
 CREATE INDEX IF NOT EXISTS idx_media_type ON media(type);
 CREATE INDEX IF NOT EXISTS idx_media_carpeta ON media(carpeta);
 CREATE INDEX IF NOT EXISTS idx_media_timestamp_utc ON media(timestamp_utc);
+CREATE INDEX IF NOT EXISTS idx_media_end_time ON media(end_time);
 CREATE INDEX IF NOT EXISTS idx_media_latlon ON media(latitude, longitude);
 CREATE INDEX IF NOT EXISTS idx_media_ingest_batch ON media(ingest_batch_id);
 CREATE INDEX IF NOT EXISTS idx_metadata_key ON media_metadata(key);

@@ -85,18 +85,74 @@ mostrar de lo que hay en el tramo actual, y el grito puede cambiar el
 filtro o desplazar el punto en la línea. Pero la línea provee la
 **continuidad narrativa** del viaje.
 
-## Lo que necesita la DB
+## `end_time` — Columna para consultas por rango
 
-Para que este diseño funcione, la DB debe responder:
+Para responder rápido a "¿qué medios están activos en este instante?", la DB
+tiene la columna `end_time` en la tabla `media`:
 
-- "dame todos los medios entre `t1` y `t2`"
-- "dame los medios del tramo actual filtrados por color/keyword/autor"
-- "dame el siguiente medio después de `t`"
-- "dame el medio anterior antes de `t`"
-- "dame la distribución de medios por hora/día/pueblo"
-- "dame los videos/audios que cubren este instante `t`"
-- "dame los medios puntuales dentro de este segmento de video"
+```
+end_time = timestamp_utc                   → para puntos (fotos, textos)
+end_time = timestamp_utc + duration_secs   → para segmentos (videos, audios)
+```
 
-Con `duration_secs` como columna directa en `media`, estas consultas son
-posibles. Para keypoints dentro de un video, se puede usar una tabla
-`media_keypoints` con `timestamp_offset_secs`.
+Con esta columna, un momento `t` se resuelve con un rango simple:
+
+```sql
+SELECT * FROM media
+WHERE timestamp_utc <= '2025-09-03T10:40:00'
+  AND end_time     >= '2025-09-03T10:40:00'
+```
+
+Hay índices en `timestamp_utc` y `end_time`, así que la consulta es eficiente
+aunque la DB tenga millones de registros.
+
+### Escenario concreto
+
+```
+10:30 ─────── 10:35 ─────── 10:40 ─────── 10:50 ─────── 11:00
+  │              │              │              │
+ foto         INICIO          foto           foto
+              entrevista
+              (20 min)
+
+A las 10:40 → coinciden la foto de las 10:40 Y la entrevista (10:35→10:55)
+```
+
+La consulta a las 10:40 devuelve ambos medios. La instalación decide qué
+hacer: mostrar ambos, priorizar uno, superponerlos, etc.
+
+### Datos relacionales
+
+| medio | tipo | timestamp_utc | duration_secs | end_time |
+|-------|------|---------------|---------------|----------|
+| foto 10:30 | punto | 2025-09-03T10:30:00 | NULL | 2025-09-03T10:30:00 |
+| entrevista | segmento | 2025-09-03T10:35:00 | 1200 | 2025-09-03T10:55:00 |
+| foto 10:40 | punto | 2025-09-03T10:40:00 | NULL | 2025-09-03T10:40:00 |
+| foto 10:50 | punto | 2025-09-03T10:50:00 | NULL | 2025-09-03T10:50:00 |
+
+### Consultas que responde la DB
+
+| Consulta | SQL |
+|----------|-----|
+| "medios activos en t" | `WHERE timestamp_utc <= t AND end_time >= t` |
+| "medios entre t1 y t2" | `WHERE timestamp_utc <= t2 AND end_time >= t1` |
+| "siguiente medio después de t" | `WHERE timestamp_utc > t ORDER BY timestamp_utc LIMIT 1` |
+| "medio anterior antes de t" | `WHERE end_time < t ORDER BY end_time DESC LIMIT 1` |
+| "videos/audios que cubren t" | `WHERE type IN ('video','audio') AND timestamp_utc <= t AND end_time >= t` |
+| "distribución por día" | `SELECT DATE(timestamp_utc), COUNT(*) FROM media GROUP BY 1` |
+| "medios puntuales dentro de segmento" | `WHERE timestamp_utc >= :seg_start AND timestamp_utc <= :seg_end AND type = 'image'` |
+
+### Keypoints dentro de un video
+
+Para marcadores internos (transcripción con timestamp, detección de escenas),
+se puede usar una tabla `media_keypoints` (no implementada aún):
+
+```sql
+CREATE TABLE media_keypoints (
+    id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+    media_id              INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+    timestamp_offset_secs REAL NOT NULL,   -- offset desde el inicio del video
+    key                   TEXT NOT NULL,    -- 'transcription', 'scene_change', etc.
+    value                 TEXT             -- texto de la transcripción, etc.
+);
+```

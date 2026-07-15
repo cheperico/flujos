@@ -60,7 +60,10 @@ COMANDOS:
 
   check-gps   Revisar que archivos tienen GPS en el sistema de archivos.
 
-  undo-ingest Deshacer una ingesta por batch ID.
+  undo-ingest       Deshacer una ingesta por batch ID.
+
+  backfill-end-time Calcular end_time para registros existentes
+                    que no lo tengan (migracion).
 
   --tui       Menu interactivo (tambien sin argumentos).
 
@@ -459,6 +462,64 @@ def tui():
             pausa()
 
 
+# ── Backfill end_time ─────────────────────────────────────────────────────────
+
+def opcion_backfill_end_time():
+    """Calcula end_time para registros existentes que no lo tienen."""
+    db_path = leer_db()
+    if not os.path.isfile(db_path):
+        print("  No se encuentra la base de datos.")
+        return
+
+    conn = sqlite3.connect(db_path)
+    try:
+        # Primero verificar si la columna existe
+        cols = [row[1] for row in conn.execute("PRAGMA table_info(media)")]
+        if "end_time" not in cols:
+            print("  La columna end_time no existe en la DB.")
+            print("  Ejecutá primero una ingesta o el schema.sql.")
+            return
+
+        # Contar cuántos faltan
+        pendientes = conn.execute(
+            "SELECT COUNT(*) FROM media WHERE end_time IS NULL AND timestamp_utc IS NOT NULL"
+        ).fetchone()[0]
+
+        if pendientes == 0:
+            print("  Todos los registros ya tienen end_time.")
+            return
+
+        print(f"  Calculando end_time para {pendientes} registros...")
+
+        # Punto: end_time = timestamp_utc
+        updated_punto = conn.execute("""
+            UPDATE media
+            SET end_time = timestamp_utc
+            WHERE end_time IS NULL
+              AND timestamp_utc IS NOT NULL
+              AND duration_secs IS NULL
+        """).rowcount
+        print(f"    Puntos (fotos/textos): {updated_punto} actualizados.")
+
+        # Segmento: end_time = timestamp_utc + duration_secs
+        updated_seg = conn.execute("""
+            UPDATE media
+            SET end_time = datetime(timestamp_utc, '+' || CAST(duration_secs AS TEXT) || ' seconds')
+            WHERE end_time IS NULL
+              AND timestamp_utc IS NOT NULL
+              AND duration_secs IS NOT NULL
+        """).rowcount
+        print(f"    Segmentos (videos/audios): {updated_seg} actualizados.")
+
+        conn.commit()
+        print(f"\n  Total actualizados: {updated_punto + updated_seg}")
+
+    except sqlite3.OperationalError as e:
+        print(f"  Error: {e}")
+    finally:
+        conn.close()
+
+
 # ── Entry point ──────────────────────────────────────────────────────────────
 
 def main():
@@ -493,6 +554,9 @@ def main():
 
     elif comando in ("undo-ingest", "undo"):
         opcion_undo_ingest()
+
+    elif comando in ("backfill-end-time", "backfill"):
+        opcion_backfill_end_time()
 
     else:
         print(f"Comando desconocido: {comando}")

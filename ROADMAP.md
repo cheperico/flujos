@@ -1,24 +1,26 @@
 # Roadmap — Flujos
 
-Pipeline completo: `Curar → Ingestar → Inferir → Consultar`
+## Pipeline
+
+```
+Etapa 1: PREPARAR MEDIOS     →  Limpieza de tandas, redimensionar, etc.
+Etapa 2: INGESTA              →  Ingesta en DB + metadatos
+Etapa 3: MEJORA DE DB         →  Etiquetado, inferencia, transcripción, color
+Etapa 4: POST-PROCESO (yapa)  →  Escribir metadatos de DB a los archivos
+```
 
 ---
 
-## 1. CURACIÓN (pre-ingesta)
+## Etapa 1: Preparar medios
 
 | Item | Prioridad | Estado |
 |---|---|---|
-| Redimensionar fotos a tamaño manejable | Media | ❌ |
-| Eliminar duplicados pre-ingesta (por hash de contenido) | Media | ❌ |
-| Eliminar malas fotos (borrosas, subexpuestas) | Baja | ❌ Parcial (solo selección por calidad con IA) |
-| Etiquetado con IA (descripciones + keywords IPTC) | Baja | ❌ |
-| Curar videos (transcodificar, samplear) | Baja | ❌ |
-
-**Scripts existentes relacionados:** `limpiar_tandas.py`, `mover_descartadas.py`
+| Limpieza de tandas (seleccionar mejores imágenes por tanda) | Alta | ✅ `limpiar_tandas.py`, `mover_descartadas.py` |
+| Redimensionar fotos | Media | ❌ Se hace con IrfanView |
 
 ---
 
-## 2. INGESTA
+## Etapa 2: Ingesta
 
 | Item | Prioridad | Estado |
 |---|---|---|
@@ -26,69 +28,69 @@ Pipeline completo: `Curar → Ingestar → Inferir → Consultar`
 | Extracción EXIF (GPS, timestamps, cámara, autor) | Alta | ✅ |
 | Extracción de colores dominantes | Alta | ⚠️ Bug webcolors — colores en NULL |
 | Deduplicación por contenido | Alta | ✅ |
-| Guardar raíz de ingesta en config | Alta | ✅ |
 | Ingesta incremental (skip por file_hash) | Alta | ✅ |
-| Flag `--verbose`, `--dry-run`, `--full-hash`, `--compute-video-hash` | Media | ✅ |
-| Keywords IPTC en JSON (hoy están como string Python) | Media | ❌ |
-| **`ingest_batch_id`** para identificar y deshacer ingestas | Alta | ✅ |
+| `ingest_batch_id` + `duration_secs` como columnas | Alta | ✅ |
+| Guardar raíz de ingesta en config | Alta | ✅ |
+| Undo-ingest por batch_id | Alta | ✅ `flujos.py undo-ingest` |
+| `end_time` para consultas por rango temporal | Alta | ✅ Agregado a schema, ingest, flujos.py |
+| Keywords IPTC en JSON (hoy string Python) | Media | ❌ |
 | Content hash de video optimizado | Baja | ❌ |
-| `filename_normalized` (slug limpio) | Baja | ❌ |
 
 ---
 
-## 3. INFERENCIA (post-ingesta)
+## Etapa 3: Mejora de DB
 
-| Item | Prioridad | Estado |
-|---|---|---|
-| **Inferir GPS** desde medios cercanos en el tiempo | Alta | ❌ |
-| Inferir timestamps faltantes | Media | ❌ |
-| Inferir autor desde medios cercanos | Baja | ❌ |
-| Merge de metadatos para contenido duplicado | Baja | ❌ |
-| Soporte para tracks GPS (GPX) | Baja | ❌ |
+| Item | Prioridad | Estado | Script |
+|---|---|---|---|
+| Etiquetado por keywords con IA | Alta | ✅ | `scripts/ai_media/tag_images.py` |
+| Transcripción de audios/videos con timestamp | Alta | ✅ | `scripts/ai_media/transcribe.py` |
+| Descripción de imágenes con IA | Alta | ✅ | `scripts/ai_media/image_analysis.py` |
+| **Inferencia de GPS** desde medios cercanos en el tiempo | **Alta** | ❌ | — |
+| Lectura de color de imágenes (fix webcolors) | Alta | ❌ | `color_utils.py` (bug) |
+| Inferencia de timestamps faltantes | **Alta** | ❌ | — |
+| Inferencia de autor desde medios cercanos | Baja | ❌ | — |
+| Merge de metadatos para contenido duplicado | Baja | ❌ | — |
+| Soporte para tracks GPS (GPX) | Baja | ❌ | — |
 
 ---
 
-## 4. GESTIÓN DE DB
+## Etapa 4: Post-proceso (yapa)
 
 | Item | Prioridad | Estado |
 |---|---|---|
+| Escribir metadatos de DB a archivos (EXIF/IPTC o XML sidecar) | Baja | ❌ |
+
+---
+
+## Gestión de DB
+
+| Item | Prioridad | Estado |
+|---|---|---|
+| `flujos.py` entry point unificado + TUI | Alta | ✅ |
 | `relocate.py` — cambiar raíz de medios | Alta | ✅ |
-| **`reset-db`** — borrar datos y reiniciar | Media | ❌ |
-| **`undo-ingest`** — deshacer una ingesta por batch_id | Alta | ✅ |
-| `duration_secs` como columna en media | Alta | ✅ |
-| `ingest_batch_id` como columna en media | Alta | ✅ |
+| `reset-db` — borrar datos y reiniciar | Media | ❌ |
+| `backfill-end-time` — poblar end_time en registros existentes | Alta | ✅ flujos.py |
 
 ---
 
-## 5. CONSULTAS Y HERRAMIENTAS
+## Instalación (TouchDesigner)
 
 | Item | Prioridad | Estado |
 |---|---|---|
-| `query.py` — consultas por columna, valores únicos, búsqueda | Alta | ✅ |
-| `flujos.py` — entry point unificado con subcomandos y TUI | Alta | ✅ |
-| Inferencia de ubicaciones desde la DB (GIS) | Media | ❌ |
-
----
-
-## 6. INSTALACIÓN (TouchDesigner)
-
-| Item | Prioridad | Estado |
-|---|---|---|
-| Motor de deriva (lógica de navegación no determinista) | Alta | ❌ Concepto definido en VISION.md |
+| Motor de deriva (lógica de navegación no determinista) | Alta | ❌ Concepto en VISION.md |
 | Línea de tiempo como eje ordenador | Alta | ❌ Diseño en docs/linea_de_tiempo.md |
 | Salida a 5 pantallas (1 interacción + 4 360°) | Alta | ❌ |
 | Detección de pico de ruido como input | Media | ❌ |
-| Caché de consultas frecuentes / recorridos predefinidos | Baja | ❌ Nota en docs/flujo_de_medios.md |
+| Caché de consultas frecuentes / recorridos predefinidos | Baja | ❌ |
 
 ---
 
 ## Historial
 
-- **2026-07-13:** Pipeline completo documentado en docs/flujo_de_medios.md.
-  Bug de ExifTool fixeado. Entry point unificado creado (flujos.py).
-  relocate.py creado. Tabla config agregada al schema.
-
-- **2026-07-13 (2da ronda):** duration_secs e ingest_batch_id como columnas
-  en media. undo-ingest implementado en flujos.py. docs/linea_de_tiempo.md
-  actualizado con concepto de segmentos (videos/audios ocupan intervalo,
-  no punto) y velocidad variable.
+- **2026-07-13:** Pipeline completo documentado. Bug ExifTool fixeado.
+  `flujos.py` creado. `relocate.py` creado. Tabla `config` agregada.
+- **2026-07-13 (2da ronda):** `duration_secs` e `ingest_batch_id` en schema.
+  `undo-ingest` implementado. README y ROADMAP actualizados.
+- **2026-07-15:** `end_time` agregado a schema, ingest y flujos.py.
+  `backfill-end-time` subcomando. Timestamps faltantes a prioridad alta.
+  Documentación actualizada.
