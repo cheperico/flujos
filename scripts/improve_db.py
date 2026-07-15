@@ -264,26 +264,48 @@ def run_keywords(conn, db_path, mode, stats):
             stats["errors"] += 1
             return
 
-    ok = 0
-    errors = 0
-    for mid, fpath in tqdm(rows, desc="  Keywords", unit="img", ncols=80):
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    def _process_one(mid, fpath):
         if not os.path.isfile(fpath):
-            log.warning("  Archivo no encontrado: %s", fpath)
-            stats["warnings"] += 1
-            continue
+            return "warning", fpath
         try:
             keywords = extraer_keywords(fpath, modelo="moondream:latest")
-            if keywords:
-                conn.execute(
-                    "INSERT OR REPLACE INTO media_metadata (media_id, key, value) VALUES (?, 'ia_keywords', ?)",
-                    (mid, keywords if isinstance(keywords, str) else ", ".join(keywords)),
-                )
-            ok += 1
+            return "ok", (mid, keywords)
         except Exception as e:
-            log.debug("  Error en imagen %s: %s", fpath, e)
-            errors += 1
+            return "error", (fpath, e)
 
-    conn.commit()
+    ok = 0
+    errors = 0
+    warnings = 0
+    batch = []
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = {pool.submit(_process_one, mid, fpath): (mid, fpath)
+                   for mid, fpath in rows}
+        for f in tqdm(as_completed(futures), total=len(futures),
+                      desc="  Keywords", unit="img", ncols=80):
+            result, data = f.result()
+            if result == "warning":
+                log.warning("  Archivo no encontrado: %s", data)
+                warnings += 1
+            elif result == "ok":
+                mid, keywords = data
+                if keywords:
+                    batch.append((mid, keywords if isinstance(keywords, str)
+                                  else ", ".join(keywords)))
+                ok += 1
+            else:
+                fpath, exc = data
+                log.debug("  Error en imagen %s: %s", fpath, exc)
+                errors += 1
+
+    if batch:
+        conn.executemany(
+            "INSERT OR REPLACE INTO media_metadata (media_id, key, value) "
+            "VALUES (?, 'ia_keywords', ?)", batch)
+        conn.commit()
+
+    stats["warnings"] += warnings
     log.info("  ✅ Keywords generadas: %d  |  Errores: %d", ok, errors)
     stats["keywords_ok"] = ok
     stats["keywords_err"] = errors
@@ -325,26 +347,47 @@ def run_descriptions(conn, db_path, mode, stats):
             stats["errors"] += 1
             return
 
-    ok = 0
-    errors = 0
-    for mid, fpath in tqdm(rows, desc="  Descripciones", unit="img", ncols=80):
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    def _process_one(mid, fpath):
         if not os.path.isfile(fpath):
-            log.warning("  Archivo no encontrado: %s", fpath)
-            stats["warnings"] += 1
-            continue
+            return "warning", fpath
         try:
             desc = describir_imagen(fpath, modelo="qwen2.5vl:latest")
-            if desc:
-                conn.execute(
-                    "INSERT OR REPLACE INTO media_metadata (media_id, key, value) VALUES (?, 'ia_description', ?)",
-                    (mid, desc if isinstance(desc, str) else str(desc)),
-                )
-            ok += 1
+            return "ok", (mid, desc)
         except Exception as e:
-            log.debug("  Error en imagen %s: %s", fpath, e)
-            errors += 1
+            return "error", (fpath, e)
 
-    conn.commit()
+    ok = 0
+    errors = 0
+    warnings = 0
+    batch = []
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = {pool.submit(_process_one, mid, fpath): (mid, fpath)
+                   for mid, fpath in rows}
+        for f in tqdm(as_completed(futures), total=len(futures),
+                      desc="  Descripciones", unit="img", ncols=80):
+            result, data = f.result()
+            if result == "warning":
+                log.warning("  Archivo no encontrado: %s", data)
+                warnings += 1
+            elif result == "ok":
+                mid, desc = data
+                if desc:
+                    batch.append((mid, desc if isinstance(desc, str) else str(desc)))
+                ok += 1
+            else:
+                fpath, exc = data
+                log.debug("  Error en imagen %s: %s", fpath, exc)
+                errors += 1
+
+    if batch:
+        conn.executemany(
+            "INSERT OR REPLACE INTO media_metadata (media_id, key, value) "
+            "VALUES (?, 'ia_description', ?)", batch)
+        conn.commit()
+
+    stats["warnings"] += warnings
     log.info("  ✅ Descripciones generadas: %d  |  Errores: %d", ok, errors)
     stats["descriptions_ok"] = ok
     stats["descriptions_err"] = errors

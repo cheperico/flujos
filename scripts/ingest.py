@@ -120,10 +120,12 @@ def content_hash_image(filepath: str) -> str:
         return sha256_file(filepath)
 
 
-def content_hash_video(filepath: str) -> str:
+def content_hash_video(filepath: str) -> str | None:
     """
     Content hash para videos: extrae un frame keyframe con ffmpeg y lo hashea.
-    Si falla, usa file_hash como fallback.
+    Si falla (formato no soportado, archivo corrupto), devuelve None.
+    content_hash = None es válido en DB; la detección de duplicados visuales
+    quedará pendiente para un post-proceso con mejor soporte de codecs.
     """
     try:
         # Extraer un frame a los 0.5s (keyframe) en PNG a stdout
@@ -148,8 +150,10 @@ def content_hash_video(filepath: str) -> str:
             return sha256_bytes(result.stdout)
     except Exception:
         pass
-    # Fallback: hash del archivo completo
-    return sha256_file(filepath)
+    # No hacer sha256_file(filepath) — sería lentísimo en videos grandes
+    # y además el hash del contenedor no sirve para detectar duplicados visuales.
+    log.warning("No se pudo extraer frame para content_hash: %s", filepath)
+    return None
 
 
 def content_hash_audio(filepath: str) -> str:

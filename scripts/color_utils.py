@@ -291,18 +291,33 @@ def extract_dominant_colors(image_path: str, n_colors: int = 3) -> list:
         # Redimensionar para velocidad (max 200px)
         img.thumbnail((200, 200), Image.LANCZOS)
 
-        # Cuantizar: reducir a N colores
-        quantized = img.quantize(colors=n_colors, method=Image.MEDIANCUT)
+        # Cuantizar: reducir la paleta a n_colores * 4 para tener margen
+        # y luego elegir los n_colores más frecuentes con getcolors()
+        quantized = img.quantize(colors=n_colors * 4, method=Image.MEDIANCUT)
 
-        # Obtener la paleta (puede tener menos colores si la imagen es muy chica)
-        palette = quantized.getpalette()
-        actual_colors = min(n_colors, len(palette) // 3)
-        colors = []
-        for i in range(actual_colors):
-            r = palette[i * 3]
-            g = palette[i * 3 + 1]
-            b = palette[i * 3 + 2]
-            colors.append(rgb_to_hex(r, g, b))
+        # getcolors() devuelve [(frecuencia, indice_paleta), ...] ordenado por freq
+        # Si la imagen tiene pocos colores, getcolors() puede devolver None
+        color_counts = quantized.getcolors()
+        if color_counts:
+            # Ordenar de mayor a menor frecuencia
+            color_counts.sort(key=lambda x: x[0], reverse=True)
+            palette = quantized.getpalette()
+            colors = []
+            for freq, idx in color_counts[:n_colors]:
+                r = palette[idx * 3]
+                g = palette[idx * 3 + 1]
+                b = palette[idx * 3 + 2]
+                colors.append(rgb_to_hex(r, g, b))
+        else:
+            # Fallback: tomar los primeros N colores de la paleta sin orden
+            palette = quantized.getpalette()
+            actual = min(n_colors, len(palette) // 3)
+            colors = []
+            for i in range(actual):
+                r = palette[i * 3]
+                g = palette[i * 3 + 1]
+                b = palette[i * 3 + 2]
+                colors.append(rgb_to_hex(r, g, b))
 
         # Si faltan colores, rellenar con grises
         while len(colors) < n_colors:

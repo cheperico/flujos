@@ -210,9 +210,15 @@ def _parsear_keywords(respuesta: str) -> list[str]:
       - "1. playa 2. atardecer 3. palmeras"
       - "- playa\\n- atardecer\\n- palmeras"
       - "['playa', 'atardecer', 'palmeras']"
+      - "```json\\n[...]\\n```" (Markdown code block)
     """
     # Limpiar
     texto = respuesta.strip().strip("'\"")
+
+    # Limpiar bloques de código Markdown (```json ... ```, ``` ... ```)
+    texto = re.sub(r"^```(?:json|python)?\s*\n?", "", texto)
+    texto = re.sub(r"\n?```\s*$", "", texto)
+    texto = texto.strip()
 
     # Detectar si viene como lista JSON (con comillas dobles o simples)
     if texto.startswith("[") and texto.endswith("]"):
