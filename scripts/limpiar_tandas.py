@@ -399,7 +399,7 @@ def limpiar_tandas(
 
     # 5. Mover descartadas a carpeta excluir
     if not dry_run and descartadas:
-        _mover_a_excluir(descartadas, excluir_path)
+        _mover_a_excluir(descartadas, carpeta, excluir_path)
         logger.info(
             "Movidas %d imágenes a %s", len(descartadas), excluir_path
         )
@@ -430,27 +430,43 @@ def limpiar_tandas(
     return reporte
 
 
-def _mover_a_excluir(rutas: list[str], carpeta_excluir: Path):
+def _mover_a_excluir(rutas: list[str], carpeta_raiz: Path, carpeta_excluir: Path):
     """
-    Mueve las imágenes descartadas a la carpeta de excluir,
-    manteniendo la estructura relativa de subcarpetas.
+    Mueve las imágenes descartadas (y sus sidecars) a la carpeta de excluir,
+    manteniendo la estructura relativa de subcarpetas contra carpeta_raiz.
     """
     for r in rutas:
         ruta = Path(r)
-        # Calcular ruta relativa para mantener estructura
+        # Calcular ruta relativa contra la raíz de escaneo
         try:
-            rel = ruta.relative_to(ruta.parents[1] if len(ruta.parents) > 1 else ruta.parent)
+            rel = ruta.relative_to(carpeta_raiz)
         except ValueError:
             rel = ruta.name
 
         destino = carpeta_excluir / rel
         destino.parent.mkdir(parents=True, exist_ok=True)
 
-        # Evitar colisiones
+        # Evitar colisiones en el destino
         if destino.exists():
             stem = destino.stem
             destino = destino.with_name(f"{stem}_descartada{destino.suffix}")
 
+        # Mover sidecars: archivos que comparten el mismo stem
+        for sidecar in ruta.parent.glob(f"{ruta.stem}.*"):
+            if sidecar.name == ruta.name:
+                continue  # es la imagen misma
+            destino_sidecar = destino.with_suffix(sidecar.suffix)
+            if destino_sidecar.exists():
+                destino_sidecar = destino_sidecar.with_stem(
+                    f"{destino_sidecar.stem}_descartada"
+                )
+            try:
+                sidecar.rename(destino_sidecar)
+                logger.debug("  Sidecar: %s -> %s", sidecar.name, destino_sidecar.name)
+            except Exception as e:
+                logger.error("Error moviendo sidecar %s: %s", sidecar, e)
+
+        # Mover la imagen
         try:
             ruta.rename(destino)
             logger.debug("Movido: %s -> %s", ruta.name, destino)

@@ -78,6 +78,30 @@ KEY_TRANSCRIPT_SEGMENTS = "transcript_segments"
 KEY_TRANSCRIPT_INFO = "transcript_info"
 
 
+# ── Helpers de compatibilidad con info de faster-whisper ──────────────
+# faster-whisper devuelve info como namedtuple en la mayoría de las
+# versiones, pero en algunas configuraciones puede llegar como dict.
+# Estos helpers normalizan el acceso para ambos casos.
+
+
+def _get_idioma(info) -> str:
+    """Extrae el idioma desde info (objeto o dict)."""
+    if hasattr(info, "language"):
+        return info.language
+    if isinstance(info, dict):
+        return info.get("language", "?")
+    return "?"
+
+
+def _get_probabilidad(info) -> float:
+    """Extrae la probabilidad del idioma desde info (objeto o dict)."""
+    if hasattr(info, "language_probability"):
+        return info.language_probability
+    if isinstance(info, dict):
+        return info.get("language_probability", 0.0)
+    return 0.0
+
+
 # ═══════════════════════════════════════════════════════════════
 #  UTILIDADES
 # ═══════════════════════════════════════════════════════════════
@@ -139,11 +163,8 @@ def _escribir_sidecar(ruta_medio: str, segmentos: list[dict],
     data = {
         "file_hash": _hash_rapido(ruta_medio),
         "modelo": modelo,
-        "idioma": info.language if hasattr(info, "language") else info.get("language", "?"),
-        "probabilidad_idioma": round(
-            info.language_probability if hasattr(info, "language_probability")
-            else info.get("language_probability", 0), 2
-        ),
+        "idioma": _get_idioma(info),
+        "probabilidad_idioma": round(_get_probabilidad(info), 2),
         "duracion_seg": round(duracion, 1),
         "transcripcion": obtener_texto_completo(segmentos),
         "segmentos": segmentos,
@@ -244,11 +265,8 @@ def guardar_transcripcion_en_db(
 
     info_data = {
         "modelo": modelo,
-        "idioma": info.language if hasattr(info, "language") else info.get("language", "?"),
-        "probabilidad_idioma": round(
-            info.language_probability if hasattr(info, "language_probability")
-            else info.get("language_probability", 0), 2
-        ),
+        "idioma": _get_idioma(info),
+        "probabilidad_idioma": round(_get_probabilidad(info), 2),
         "duracion_seg": round(duracion, 1),
         "segmentos": len(segmentos),
     }
@@ -386,7 +404,7 @@ def procesar_archivo(
         logger.info(
             "  OK: %d segmentos, %.1fs, idioma=%s",
             len(segmentos), duracion,
-            info.language if hasattr(info, "language") else "?",
+            _get_idioma(info),
         )
 
         # Sidecar
@@ -566,7 +584,7 @@ def procesar_archivo_individual(
 
     duracion = segmentos[-1]["fin"] if segmentos else 0.0
     print(f"\n  OK: {len(segmentos)} segmentos, {duracion:.1f}s")
-    print(f"  Idioma: {info.language} (prob: {info.language_probability:.2f})")
+    print(f"  Idioma: {_get_idioma(info)} (prob: {_get_probabilidad(info):.2f})")
     print()
 
     # Preview
