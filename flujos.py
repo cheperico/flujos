@@ -534,7 +534,8 @@ def opcion_improve_db():
             print("  2) Inferir GPS")
             print("  3) Localizacion (provincia, municipio, localidad)")
             print("  4) Condiciones climaticas")
-            print("  5) Embeddings (proximamente)")
+            print("  5) Dia de la semana")
+            print("  6) Embeddings (proximamente)")
             print("  0) Salir\n")
 
         opc = input("  Opcion: ").strip()
@@ -586,6 +587,8 @@ def opcion_improve_db():
             elif opc == "4":
                 opcion_weather()
             elif opc == "5":
+                opcion_dia_semana()
+            elif opc == "6":
                 limpiar_pantalla()
                 print("=== EMBEDDINGS ===\n")
                 print("  Proximamente.")
@@ -611,6 +614,34 @@ def opcion_weather():
 
     import subprocess
     script = os.path.join(os.path.dirname(__file__), "scripts", "fetch_weather.py")
+    db_flag = ["--db", leer_db()]
+
+    if opc == "1":
+        subprocess.run([sys.executable, script] + db_flag)
+    elif opc == "2":
+        subprocess.run([sys.executable, script] + db_flag + ["--replace"])
+    elif opc == "3":
+        subprocess.run([sys.executable, script] + db_flag + ["--dry-run"])
+    elif opc == "0":
+        return
+
+    pausa()
+
+
+def opcion_dia_semana():
+    """Submenu: calcular día de la semana de cada medio."""
+    limpiar_pantalla()
+    print("=== DIA DE LA SEMANA ===\n")
+
+    print("  1) Calcular para pendientes")
+    print("  2) Recalcular todo (--replace)")
+    print("  3) Solo previsualizar (dry-run)")
+    print("  0) Volver\n")
+
+    opc = input("  Opcion: ").strip()
+
+    import subprocess
+    script = os.path.join(os.path.dirname(__file__), "scripts", "dia_semana.py")
     db_flag = ["--db", leer_db()]
 
     if opc == "1":
