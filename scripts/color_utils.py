@@ -374,16 +374,19 @@ def extract_dominant_colors(image_path: str, n_colors: int = 3) -> list:
             return ["#808080"] * n_colors
 
         # ── 3. Puntuar cada color ──
-        # Score = (freq / n_celdas) * (0.2 + 0.8 * sat)
-        # freq / n_celdas: penaliza colores que aparecen en muchas celdas (dispersos)
+        # Score = freq * concentracion^2 * (0.2 + 0.8 * sat)
+        #   freq:          cantidad de píxeles de ese color
+        #   concentracion: (total_celdas / celdas_que_ocupa)
+        #                  al CUADRADO para dar más peso a colores localizados
+        #                  (un color en 4 celdas recibe boost 16x, no 4x)
+        #   sat:           saturación HSV (colores vibrantes trepan)
         total_celdas = rows * cols
         scored = []
         for hex_c, data in acum.items():
             r, g, b = data["r"], data["g"], data["b"]
             n_celdas = len(data["celdas"])
             sat = _saturacion_hsv(r, g, b)
-            # Concentración: entre más celdas ocupa, menor el score
-            concentracion = total_celdas / max(1, n_celdas)
+            concentracion = (total_celdas / max(1, n_celdas)) ** 2
             score = data["freq"] * concentracion * (0.2 + 0.8 * sat)
             scored.append((score, r, g, b))
 
