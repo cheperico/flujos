@@ -302,20 +302,38 @@ def _calcular_grilla(w: int, h: int, celdas_objetivo: int = 16) -> tuple[int, in
     return cols, rows
 
 
+def _peso_central(col: int, row: int, cols: int, rows: int) -> float:
+    """
+    Peso de centralidad para una celda de la grilla.
+    Las celdas del centro pesan 1.0, las de las esquinas bajan a ~0.3.
+    Útil para dar más importancia a objetos ubicados en el centro de la imagen.
+    """
+    cx = (cols - 1) / 2
+    cy = (rows - 1) / 2
+    dx = (col - cx) / max(1.0, cx)
+    dy = (row - cy) / max(1.0, cy)
+    dist = (dx * dx + dy * dy) ** 0.5  # distancia euclídea normalizada
+    return max(0.3, 1.0 - dist * 0.7)
+
+
 def extract_dominant_colors(image_path: str, n_colors: int = 3) -> list:
     """
     Extrae los N colores más representativos de una imagen.
 
-    Estrategia (concentración por grilla):
+    Estrategia (grilla + concentración + centralidad + sat. relativa):
       1. Divide la imagen en una grilla de ~16 celdas.
-      2. En cada celda, cuantiza y obtiene colores con frecuencias.
-      3. Para cada color único del conjunto global:
-         - Calcula frecuencia TOTAL y cantidad de celdas donde aparece.
-         - Score = (frecuencia / celdas) * (0.2 + 0.8 * saturación)
-         - Esto penaliza colores dispersos (cielo, niebla) y premia
-           colores concentrados en pocas celdas (campera roja, cartel).
-      4. Filtra grises/negros extremos.
-      5. Devuelve los N mejor puntuados en hex.
+      2. Cada celda se pondera por cercanía al centro (peso_central).
+      3. En cada celda, cuantiza y obtiene colores con frecuencias.
+      4. Para cada color único del conjunto global:
+         - Calcula frecuencia (con peso central) y cantidad de celdas.
+         - Score = freq * (total_celdas / n_celdas)^2 * peso_sat
+         - peso_sat usa saturación RELATIVA: si hay al menos un color
+           vibrante en la imagen, los apagados pierden peso drásticamente.
+         - La concentración al cuadrado premia objetos pequeños pero
+           localizados (cartel, bicicleta, bandera).
+         - La centralidad da más peso a objetos en el centro de la toma.
+      5. Filtra grises/negros extremos.
+      6. Devuelve los N mejor puntuados en hex.
 
     Sin dependencias externas: solo Pillow.
     """
@@ -352,6 +370,9 @@ def extract_dominant_colors(image_path: str, n_colors: int = 3) -> list:
                 lower = min(upper + celda_h, h)
                 tile = img.crop((left, upper, right, lower))
 
+                # Peso de centralidad: lo que está al centro pesa más
+                peso_central = _peso_central(col, row, cols, rows)
+
                 # Cuantizar la celda a pocos colores
                 q = tile.quantize(colors=12, method=Image.MEDIANCUT)
                 counts = q.getcolors()
@@ -363,31 +384,52 @@ def extract_dominant_colors(image_path: str, n_colors: int = 3) -> list:
                     r_c = pal[idx * 3]
                     g_c = pal[idx * 3 + 1]
                     b_c = pal[idx * 3 + 2]
-                    # Usar hex como clave única
                     hex_c = rgb_to_hex(r_c, g_c, b_c)
                     if hex_c not in acum:
                         acum[hex_c] = {"freq": 0, "celdas": set(), "r": r_c, "g": g_c, "b": b_c}
-                    acum[hex_c]["freq"] += freq
+                    # La frecuencia se pondera por cercanía al centro
+                    acum[hex_c]["freq"] += freq * peso_central
                     acum[hex_c]["celdas"].add((row, col))
 
         if not acum:
             return ["#808080"] * n_colors
 
         # ── 3. Puntuar cada color ──
-        # Score = freq * concentracion^2 * (0.2 + 0.8 * sat)
-        #   freq:          cantidad de píxeles de ese color
-        #   concentracion: (total_celdas / celdas_que_ocupa)
-        #                  al CUADRADO para dar más peso a colores localizados
-        #                  (un color en 4 celdas recibe boost 16x, no 4x)
-        #   sat:           saturación HSV (colores vibrantes trepan)
+        # Score = freq * concentracion^2 * peso_sat
+        #
+        #   freq:          cantidad de píxeles de ese color (con peso central)
+        #   concentracion: (total_celdas / celdas_que_ocupa)^2
+        #                  colores localizados reciben boost cuadrático
+        #                  (un color en 4 celdas recibe boost 16x)
+        #   peso_sat:      peso por saturación, usando saturación RELATIVA:
+        #                  si en la imagen hay algún color vibrante (sat alta),
+        #                  los colores apagados pierden peso drásticamente.
+        #                  si todo es apagado, todos se nivelan.
+        #
         total_celdas = rows * cols
+
+        # Encontrar la saturación máxima de la imagen
+        sat_max = 0.0
+        for hex_c, data in acum.items():
+            sat = _saturacion_hsv(data["r"], data["g"], data["b"])
+            if sat > sat_max:
+                sat_max = sat
+        # Evitar división por cero en imágenes completamente grises
+        if sat_max < 0.1:
+            sat_max = 0.1
+
         scored = []
         for hex_c, data in acum.items():
             r, g, b = data["r"], data["g"], data["b"]
             n_celdas = len(data["celdas"])
             sat = _saturacion_hsv(r, g, b)
+            # Saturación RELATIVA: qué tan saturado es respecto al más saturado
+            sat_rel = sat / sat_max
+            # Peso agresivo: si hay un color muy saturado en la imagen,
+            # los colores apagados quedan muy abajo
+            peso_sat = 0.05 + 0.95 * sat_rel
             concentracion = (total_celdas / max(1, n_celdas)) ** 2
-            score = data["freq"] * concentracion * (0.2 + 0.8 * sat)
+            score = data["freq"] * concentracion * peso_sat
             scored.append((score, r, g, b))
 
         scored.sort(key=lambda x: x[0], reverse=True)
