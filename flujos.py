@@ -564,6 +564,20 @@ def opcion_undo_ingest(db_path: str | None = None):
     pausa()
 
 
+def _preguntar_modo():
+    """Pregunta modo de ejecución y lo devuelve como string."""
+    print("  Modo:")
+    print("    s) Skip — solo pendientes (default)")
+    print("    u) Update — actualizar existentes")
+    print("    r) Replace — borrar y regenerar")
+    m = input("  Modo (s/u/r) [s]: ").strip().lower()
+    if m == "u":
+        return "update"
+    elif m == "r":
+        return "replace"
+    return "skip"
+
+
 def opcion_improve_db():
     """Menu para ejecutar pasos de mejora sobre la DB (2 partes)."""
     from scripts import improve_db
@@ -604,25 +618,53 @@ def opcion_improve_db():
             elif opc == "2":
                 pasos = input("  Pasos (separados por coma, ej: colors,keywords): ").strip()
                 if pasos:
-                    improve_db.main(["--steps", pasos])
+                    modo = _preguntar_modo()
+                    args = ["--steps", pasos]
+                    if modo != "skip":
+                        args += ["--mode", modo]
+                    improve_db.main(args)
                 pausa()
             elif opc == "3":
-                improve_db.main(["--steps", "colors"])
+                modo = _preguntar_modo()
+                args = ["--steps", "colors"]
+                if modo != "skip":
+                    args += ["--mode", modo]
+                improve_db.main(args)
                 pausa()
             elif opc == "4":
-                improve_db.main(["--steps", "keywords"])
+                modo = _preguntar_modo()
+                args = ["--steps", "keywords"]
+                if modo != "skip":
+                    args += ["--mode", modo]
+                improve_db.main(args)
                 pausa()
             elif opc == "5":
-                improve_db.main(["--steps", "descriptions"])
+                modo = _preguntar_modo()
+                args = ["--steps", "descriptions"]
+                if modo != "skip":
+                    args += ["--mode", modo]
+                improve_db.main(args)
                 pausa()
             elif opc == "6":
-                improve_db.main(["--steps", "keywords,descriptions"])
+                modo = _preguntar_modo()
+                args = ["--steps", "keywords,descriptions"]
+                if modo != "skip":
+                    args += ["--mode", modo]
+                improve_db.main(args)
                 pausa()
             elif opc == "7":
-                improve_db.main(["--steps", "transcribe"])
+                modo = _preguntar_modo()
+                args = ["--steps", "transcribe"]
+                if modo != "skip":
+                    args += ["--mode", modo]
+                improve_db.main(args)
                 pausa()
             elif opc == "8":
-                improve_db.main(["--steps", "keypoints"])
+                modo = _preguntar_modo()
+                args = ["--steps", "keypoints"]
+                if modo != "skip":
+                    args += ["--mode", modo]
+                improve_db.main(args)
                 pausa()
             elif opc == "9":
                 parte = 2
@@ -634,10 +676,18 @@ def opcion_improve_db():
 
         else:  # parte == 2
             if opc == "1":
-                improve_db.main(["--steps", "timestamps"])
+                modo = _preguntar_modo()
+                args = ["--steps", "timestamps"]
+                if modo != "skip":
+                    args += ["--mode", modo]
+                improve_db.main(args)
                 pausa()
             elif opc == "2":
-                improve_db.main(["--steps", "gps"])
+                modo = _preguntar_modo()
+                args = ["--steps", "gps"]
+                if modo != "skip":
+                    args += ["--mode", modo]
+                improve_db.main(args)
                 pausa()
             elif opc == "3":
                 opcion_geocode()
