@@ -249,14 +249,30 @@ def obtener_pendientes(conn: sqlite3.Connection, limit: int = None) -> list[tupl
     return conn.execute(query).fetchall()
 
 
-def geocode_media(db_path: str, limit: int = None, dry_run: bool = False) -> int:
+def _obtener_todos(conn: sqlite3.Connection, limit: int = None) -> list[tuple]:
     """
-    Geocodifica todos los registros de la BD que tienen GPS pero no provincia.
+    Obtiene TODOS los registros con GPS (para update/replace).
+
+    Returns:
+        Lista de (id, lat, lon)
+    """
+    query = "SELECT id, latitude, longitude FROM media WHERE latitude IS NOT NULL"
+    if limit:
+        query += f" LIMIT {limit}"
+    return conn.execute(query).fetchall()
+
+
+def geocode_media(db_path: str, limit: int = None, dry_run: bool = False,
+                   mode: str = "skip") -> int:
+    """
+    Geocodifica registros de la BD que tienen GPS.
 
     Args:
         db_path: ruta a la base de datos SQLite
         limit: máximo de registros a procesar (None = todos)
         dry_run: si True, solo muestra cuántos se procesarían
+        mode: skip → solo pendientes (provincia IS NULL)
+              update/replace → todos los que tienen GPS
 
     Returns:
         Cantidad de registros actualizados
@@ -264,18 +280,38 @@ def geocode_media(db_path: str, limit: int = None, dry_run: bool = False) -> int
     conn = _conectar(db_path)
 
     try:
-        pendientes = contar_pendientes(conn)
+        if mode in ("update", "replace"):
+            # Todos los que tienen GPS (actualizar sobreescribe)
+            query = "SELECT COUNT(*) FROM media WHERE latitude IS NOT NULL"
+            pendientes = conn.execute(query).fetchone()[0]
+            label = "geolocalizados"
+            obtener_fn = _obtener_todos
+        else:
+            pendientes = contar_pendientes(conn)
+            label = "pendientes"
+            obtener_fn = obtener_pendientes
+
         if pendientes == 0:
-            log.info("No hay registros pendientes de geocodificación.")
+            log.info("No hay registros %s de geocodificación.", label)
             return 0
 
         if dry_run:
-            log.info("Dry-run: %d registro(s) pendiente(s) de geocodificar.", pendientes)
+            log.info("Dry-run: %d registro(s) %s de geocodificar.", pendientes, label)
             if limit and limit < pendientes:
                 log.info("  (limit=%d, se procesarían %d de %d)", limit, limit, pendientes)
             return 0
 
-        registros = obtener_pendientes(conn, limit)
+        if mode == "replace":
+            log.info("Modo replace: limpiando geodatos existentes...")
+            conn.execute("""
+                UPDATE media SET provincia = NULL, departamento = NULL,
+                    municipio = NULL, localidad = NULL, geocode_source = NULL,
+                    geocode_date = NULL
+                WHERE latitude IS NOT NULL
+            """)
+            conn.commit()
+
+        registros = obtener_fn(conn, limit)
         if not registros:
             return 0
 
@@ -369,6 +405,10 @@ Ejemplos:
         "--dry-run", action="store_true",
         help="Solo mostrar cuántos registros se procesarían sin ejecutar"
     )
+    parser.add_argument(
+        "--mode", default="skip", choices=["skip", "update", "replace"],
+        help="Modo de ejecución: skip (solo pendientes), update (todos), replace (limpiar y regenerar)"
+    )
 
     args = parser.parse_args(argv)
 
@@ -423,7 +463,7 @@ Ejemplos:
         log.error("Usá --db para especificar una ruta alternativa.")
         sys.exit(1)
 
-    geocode_media(db_path, limit=args.limit, dry_run=args.dry_run)
+    geocode_media(db_path, limit=args.limit, dry_run=args.dry_run, mode=args.mode)
 
 
 if __name__ == "__main__":

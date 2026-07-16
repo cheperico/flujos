@@ -437,7 +437,11 @@ def main():
     )
     parser.add_argument(
         "--replace", action="store_true",
-        help="Re-fetch incluso para medios que ya tienen datos climáticos",
+        help="[DEPRECATED: usar --mode replace] Re-fetch incluso para medios que ya tienen datos climáticos",
+    )
+    parser.add_argument(
+        "--mode", default="skip", choices=["skip", "update", "replace"],
+        help="Modo: skip (solo pendientes), update (todos), replace (limpiar y regenerar)",
     )
     parser.add_argument(
         "--steps", type=int, default=1,
@@ -452,16 +456,19 @@ def main():
         log.error("Creala con: python scripts/ingest.py o ejecutá el schema.sql")
         sys.exit(1)
 
+    # --replace es alias de --mode replace
+    replace = args.replace or args.mode in ("update", "replace")
+
     log.info("Base de datos: %s", db_path)
     log.info("Modo: %s", "DRY RUN" if args.dry_run else "normal")
-    if args.replace:
-        log.info("  --replace activo: se re-fetchearán todos los medios")
+    if replace:
+        log.info("  --mode %s: se re-fetchearán todos los medios", args.mode if not args.replace else "replace")
 
     procesar(
         db_path=db_path,
         dry_run=args.dry_run,
         limit=args.limit,
-        replace=args.replace,
+        replace=replace,
         step_hours=args.steps,
     )
 

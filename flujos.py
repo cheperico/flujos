@@ -81,7 +81,11 @@ COMANDOS:
                     keywords, transcripcion, keypoints, timestamps, GPS).
 
   reset-db          Hace backup de la DB actual y crea una nueva
-                    desde cero (schema limpio).
+                     desde cero (schema limpio).
+
+  backup-db         Solo backup (sin borrar): copia la DB actual con timestamp.
+
+  restore-db        Restaura la DB desde un backup previo.
 
   --tui       Menu interactivo (tambien sin argumentos).
 
@@ -391,7 +395,7 @@ def opcion_gradient():
     limpiar_pantalla()
     print("=== CALCULAR GRADIENTES DE RUTA ===\n")
 
-    print("  1) Calcular gradientes (toda la BD)")
+    print("  1) Calcular gradientes")
     print("  2) Previsualizar (dry-run)")
     print("  3) Previsualizar con detalle (dry-run + verbose)")
     print("  0) Volver\n")
@@ -401,7 +405,11 @@ def opcion_gradient():
     from scripts import gradiente
 
     if opc == "1":
-        gradiente.main(["--db", leer_db()])
+        modo = _preguntar_modo()
+        args = ["--db", leer_db()]
+        if modo != "skip":
+            args += ["--mode", modo]
+        gradiente.main(args)
     elif opc == "2":
         gradiente.main(["--db", leer_db(), "--dry-run"])
     elif opc == "3":
@@ -712,9 +720,8 @@ def opcion_weather():
     limpiar_pantalla()
     print("=== CONDICIONES CLIMATICAS ===\n")
 
-    print("  1) Obtener datos climaticos (pendientes)")
-    print("  2) Re-obtener todo (--replace)")
-    print("  3) Solo previsualizar (dry-run)")
+    print("  1) Obtener datos climaticos")
+    print("  2) Previsualizar (dry-run)")
     print("  0) Volver\n")
 
     opc = input("  Opcion: ").strip()
@@ -724,10 +731,12 @@ def opcion_weather():
     db_flag = ["--db", leer_db()]
 
     if opc == "1":
-        subprocess.run([sys.executable, script] + db_flag)
+        modo = _preguntar_modo()
+        if modo != "skip":
+            subprocess.run([sys.executable, script] + db_flag + ["--mode", modo])
+        else:
+            subprocess.run([sys.executable, script] + db_flag)
     elif opc == "2":
-        subprocess.run([sys.executable, script] + db_flag + ["--replace"])
-    elif opc == "3":
         subprocess.run([sys.executable, script] + db_flag + ["--dry-run"])
     elif opc == "0":
         return
@@ -740,9 +749,8 @@ def opcion_dia_semana():
     limpiar_pantalla()
     print("=== DIA DE LA SEMANA ===\n")
 
-    print("  1) Calcular para pendientes")
-    print("  2) Recalcular todo (--replace)")
-    print("  3) Solo previsualizar (dry-run)")
+    print("  1) Calcular dia de la semana")
+    print("  2) Previsualizar (dry-run)")
     print("  0) Volver\n")
 
     opc = input("  Opcion: ").strip()
@@ -752,10 +760,12 @@ def opcion_dia_semana():
     db_flag = ["--db", leer_db()]
 
     if opc == "1":
-        subprocess.run([sys.executable, script] + db_flag)
+        modo = _preguntar_modo()
+        if modo != "skip":
+            subprocess.run([sys.executable, script] + db_flag + ["--mode", modo])
+        else:
+            subprocess.run([sys.executable, script] + db_flag)
     elif opc == "2":
-        subprocess.run([sys.executable, script] + db_flag + ["--replace"])
-    elif opc == "3":
         subprocess.run([sys.executable, script] + db_flag + ["--dry-run"])
     elif opc == "0":
         return
@@ -768,8 +778,8 @@ def opcion_geocode():
     limpiar_pantalla()
     print("=== LOCALIZACION (Geocodificar GPS) ===\n")
 
-    print("  1) Geocodificar todos los pendientes")
-    print("  2) Ver cuantos hay pendientes (dry-run)")
+    print("  1) Ejecutar geocodificacion")
+    print("  2) Previsualizar (dry-run)")
     print("  0) Volver\n")
 
     opc = input("  Opcion: ").strip()
@@ -777,13 +787,51 @@ def opcion_geocode():
     from scripts import geocode
 
     if opc == "1":
-        geocode.main(["--db", leer_db()])
+        modo = _preguntar_modo()
+        args = ["--db", leer_db()]
+        if modo != "skip":
+            args += ["--mode", modo]
+        geocode.main(args)
     elif opc == "2":
         geocode.main(["--db", leer_db(), "--dry-run"])
     elif opc == "0":
         return
 
     pausa()
+
+
+def opcion_mantenimiento(db_path: str | None = None):
+    """Menu: mantenimiento general de la DB (backup, restore, exportar, gradientes, etc)."""
+    while True:
+        limpiar_pantalla()
+        print("=== MANTENIMIENTO DB ===\n")
+        print("  1) Relocalizar medios (cambio de raiz)")
+        print("  2) Calcular gradientes de ruta")
+        print("  3) Backfill end_time")
+        print("  4) Backup DB (solo backup, sin borrar)")
+        print("  5) Restore DB desde backup")
+        print("  6) Resetear DB (backup + limpiar)")
+        print("  0) Volver\n")
+
+        opc = input("  Opcion: ").strip()
+
+        if opc == "1":
+            opcion_relocalizar(db_path)
+        elif opc == "2":
+            opcion_gradient()
+        elif opc == "3":
+            opcion_backfill_end_time(db_path)
+        elif opc == "4":
+            opcion_backup_db(db_path)
+        elif opc == "5":
+            opcion_restore_db(db_path)
+        elif opc == "6":
+            opcion_reset_db(db_path)
+        elif opc == "0":
+            break
+        else:
+            print("  Opcion invalida.")
+            pausa()
 
 
 def opcion_ayuda():
@@ -898,9 +946,8 @@ def tui():
         print("  2) Ingesta")
         print("  3) Mejorar base de datos")
         print("  4) Consultar base de datos")
-        print("  5) Exportar DB a medios")
-        print("  6) Resetear DB (backup + limpiar)")
-        print("  7) Ayuda")
+        print("  5) Mantenimiento DB")
+        print("  6) Ayuda")
         print("  0) Salir\n")
 
         opc = input("  Opcion: ").strip()
@@ -914,10 +961,8 @@ def tui():
         elif opc == "4":
             opcion_consultar()
         elif opc == "5":
-            opcion_exportar()
+            opcion_mantenimiento()
         elif opc == "6":
-            opcion_reset_db()
-        elif opc == "7":
             opcion_ayuda()
         elif opc == "0":
             limpiar_pantalla()
@@ -945,6 +990,14 @@ def opcion_backfill_end_time(db_path: str | None = None):
             print("  La columna end_time no existe en la DB.")
             print("  Ejecutá primero una ingesta o el schema.sql.")
             return
+
+        # Preguntar modo
+        modo = _preguntar_modo()
+
+        if modo == "replace":
+            print("  Modo replace: limpiando end_time existentes...")
+            conn.execute("UPDATE media SET end_time = NULL WHERE timestamp_utc IS NOT NULL")
+            conn.commit()
 
         # Contar cuántos faltan
         pendientes = conn.execute(
@@ -984,6 +1037,111 @@ def opcion_backfill_end_time(db_path: str | None = None):
         print(f"  Error: {e}")
     finally:
         conn.close()
+
+
+# ── Backup / Restore DB ──────────────────────────────────────────────────────
+
+def listar_backups(db_path: str | None = None) -> list[tuple[str, str, int]]:
+    """Lista archivos de backup en el directorio de la DB.
+    Returns:
+        Lista de (ruta_completa, nombre_archivo, tamaño_bytes) ordenados por fecha descendente.
+    """
+    db_path = leer_db(db_path)
+    db_dir = os.path.dirname(db_path)
+    backups = []
+    for f in os.listdir(db_dir):
+        if f.startswith("flujos_backup_") and f.endswith(".db"):
+            ruta = os.path.join(db_dir, f)
+            backups.append((ruta, f, os.path.getsize(ruta)))
+    backups.sort(key=lambda x: x[0], reverse=True)
+    return backups
+
+
+def opcion_backup_db(db_path: str | None = None):
+    """Solo backup de la DB (sin reset)."""
+    db_path = leer_db(db_path)
+    if not os.path.isfile(db_path):
+        print("  No hay base de datos para respaldar.")
+        pausa()
+        return
+
+    from datetime import datetime
+    import shutil
+
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    db_dir = os.path.dirname(db_path)
+    backup_name = f"flujos_backup_{ts}.db"
+    backup_path = os.path.join(db_dir, backup_name)
+
+    conn = sqlite3.connect(db_path)
+    total = conn.execute("SELECT COUNT(*) FROM media").fetchone()[0]
+    conn.close()
+
+    print(f"\n  DB actual:    {db_path}")
+    print(f"  Registros:    {total}")
+    print(f"  Backup:       {backup_name}")
+    r = input("\n  ?Crear backup? (s/N): ").strip().lower()
+    if r != "s":
+        print("  Cancelado.")
+        pausa()
+        return
+
+    try:
+        shutil.copy2(db_path, backup_path)
+        print(f"  ✅ Backup creado: {backup_name}")
+    except Exception as e:
+        print(f"  ❌ Error creando backup: {e}")
+
+    pausa()
+
+
+def opcion_restore_db(db_path: str | None = None):
+    """Restaura la DB desde un backup."""
+    db_path = leer_db(db_path)
+    db_dir = os.path.dirname(db_path)
+
+    backups = listar_backups(db_path)
+    if not backups:
+        print("  No hay backups disponibles en el directorio de la DB.")
+        pausa()
+        return
+
+    print("  Backups disponibles:\n")
+    for i, (ruta, name, size) in enumerate(backups, 1):
+        size_mb = size / (1024 * 1024)
+        print(f"  {i}) {name}  ({size_mb:.1f} MB)")
+
+    print("  0) Cancelar\n")
+
+    try:
+        sel = int(input("  ?Cual restaurar? (numero): ").strip())
+    except ValueError:
+        sel = 0
+
+    if sel < 1 or sel > len(backups):
+        print("  Cancelado.")
+        pausa()
+        return
+
+    backup_path = backups[sel - 1][0]
+    backup_name = backups[sel - 1][1]
+
+    print(f"\n  Esto REEMPLAZARÁ la DB actual con: {backup_name}")
+    r = input("  ?Confirmar restauracion? (s/N): ").strip().lower()
+    if r != "s":
+        print("  Cancelado.")
+        pausa()
+        return
+
+    import shutil
+    try:
+        # Cerrar cualquier conexión (no podemos forzarlo, pero asumimos que no hay)
+        shutil.copy2(backup_path, db_path)
+        print(f"  ✅ DB restaurada desde: {backup_name}")
+    except Exception as e:
+        print(f"  ❌ Error restaurando backup: {e}")
+
+    pausa()
 
 
 # ── Reset DB ─────────────────────────────────────────────────────────────────
@@ -1112,6 +1270,14 @@ def main():
     elif comando in ("reset-db", "reset"):
         db_val, _ = _extract_db(resto)
         opcion_reset_db(db_val)
+
+    elif comando in ("backup-db", "backup"):
+        db_val, _ = _extract_db(resto)
+        opcion_backup_db(db_val)
+
+    elif comando in ("restore-db", "restore"):
+        db_val, _ = _extract_db(resto)
+        opcion_restore_db(db_val)
 
     elif comando == "geocode":
         from scripts import geocode

@@ -171,7 +171,11 @@ def main():
     )
     parser.add_argument(
         "--replace", action="store_true",
-        help="Recalcular todos, incluso los ya procesados",
+        help="[DEPRECATED: usar --mode replace] Recalcular todos, incluso los ya procesados",
+    )
+    parser.add_argument(
+        "--mode", default="skip", choices=["skip", "update", "replace"],
+        help="Modo: skip (solo pendientes), update (todos), replace (limpiar y regenerar)",
     )
     parser.add_argument(
         "--limit", type=int, default=None,
@@ -186,11 +190,14 @@ def main():
         log.error("Creala con: python scripts/ingest.py o ejecutá el schema.sql")
         sys.exit(1)
 
+    # --replace es alias de --mode replace
+    replace = args.replace or args.mode in ("update", "replace")
+
     log.info("Base de datos: %s", db_path)
     procesar(
         db_path=db_path,
         dry_run=args.dry_run,
-        replace=args.replace,
+        replace=replace,
         limit=args.limit,
     )
 

@@ -5,7 +5,7 @@ Dependencias: Pillow, webcolors
 """
 
 import webcolors
-from webcolors._definitions import _CSS3_HEX_TO_NAMES, _CSS3_NAMES_TO_HEX
+from webcolors._definitions import _CSS3_NAMES_TO_HEX
 
 # -----------------------------------------------------------------------
 # Mapping: nombre CSS inglés → español
