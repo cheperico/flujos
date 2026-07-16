@@ -133,23 +133,13 @@ def resumen_db(conn) -> str:
     audios = conn.execute("SELECT COUNT(*) FROM media WHERE type='audio'").fetchone()[0]
     textos = conn.execute("SELECT COUNT(*) FROM media WHERE type='text'").fetchone()[0]
     otros = total - imagenes - videos - audios - textos
-    con_gps = conn.execute("SELECT COUNT(*) FROM media WHERE latitude IS NOT NULL").fetchone()[0]
-    sin_gps = conn.execute("SELECT COUNT(*) FROM media WHERE latitude IS NULL").fetchone()[0]
-    con_color = conn.execute("SELECT COUNT(*) FROM media WHERE color_1_hex IS NOT NULL").fetchone()[0]
-    sin_color = total - con_color
-    autores = conn.execute("SELECT COUNT(DISTINCT author) FROM media WHERE author IS NOT NULL").fetchone()[0]
     return (
         f"  Total:      {total:>6d}\n"
         f"  Imagenes:   {imagenes:>6d}\n"
         f"  Videos:     {videos:>6d}\n"
         f"  Audios:     {audios:>6d}\n"
         f"  Textos:     {textos:>6d}\n"
-        f"  Otros:      {otros:>6d}\n"
-        f"  Con GPS:    {con_gps:>6d}\n"
-        f"  Sin GPS:    {sin_gps:>6d}\n"
-        f"  Con color:  {con_color:>6d}\n"
-        f"  Sin color:  {sin_color:>6d}\n"
-        f"  Autores:    {autores:>6d}"
+        f"  Otros:      {otros:>6d}"
     )
 
 
