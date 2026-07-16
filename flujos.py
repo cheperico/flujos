@@ -12,6 +12,8 @@ Uso:
   python flujos.py check-gps                         -> Revisar GPS en archivos
   python flujos.py geocode                           -> Geocodificar coordenadas GPS a localidad/provincia
   python flujos.py geocode --limit 100               -> Con limite de registros
+  python flujos.py gradient                          -> Calcular gradientes de ruta (pendiente/esfuerzo fisico entre puntos GPS)
+  python flujos.py gradient --dry-run                -> Previsualizar gradientes sin escribir en DB
   python flujos.py --help | --ayuda | -h             -> Esta ayuda
 """
 
@@ -65,6 +67,10 @@ COMANDOS:
   geocode     Geocodificar coordenadas GPS (lat,lon) a provincia/localidad
               usando la API Georef Argentina (batch).
               Ej: python flujos.py geocode --limit 100
+
+  gradient    Calcular gradientes de ruta entre puntos GPS consecutivos.
+              Calcula distancia, pendiente y esfuerzo fisico acumulado.
+              Ej: python flujos.py gradient --dry-run --verbose
 
   undo-ingest       Deshacer una ingesta por batch ID.
 
@@ -143,92 +149,153 @@ def resumen_db(conn) -> str:
     )
 
 
-def opcion_ingresar(db_path: str | None = None):
-    """Menu para configurar y ejecutar ingesta."""
-    limpiar_pantalla()
-    print("=== INGESTAR MEDIOS ===\n")
+def opcion_preparar(db_path: str | None = None):
+    """Menu: Preparar medios (pre-ingesta)."""
+    while True:
+        limpiar_pantalla()
+        print("=== PREPARAR MEDIOS ===\n")
+        print("  1) Limpieza de tandas")
+        print("  0) Volver\n")
 
-    root = input("  Carpeta raiz a escanear: ").strip()
-    if not root:
-        print("  Cancelado.")
-        pausa()
-        return
-    if not os.path.isdir(root):
-        print(f"  Error: la carpeta '{root}' no existe.")
-        pausa()
-        return
+        opc = input("  Opcion: ").strip()
+        if opc == "1":
+            from scripts import limpiar_tandas
+            ruta = input("  Carpeta a limpiar: ").strip()
+            if ruta and os.path.isdir(ruta):
+                dry_run = input("  ?Solo previsualizar (s/N): ").strip().lower() == "s"
+                limpiar_tandas.main(["--carpeta", ruta] + (["--dry-run"] if dry_run else []))
+            elif ruta:
+                print("  Carpeta no encontrada.")
+            pausa()
+        elif opc == "0":
+            break
+        else:
+            print("  Opcion invalida.")
+            pausa()
 
-    verbose = input("  ?Modo verbose? (s/N): ").strip().lower() == "s"
-    dry_run = input("  ?Solo previsualizar (dry-run)? (s/N): ").strip().lower() == "s"
-    custom_db = input(f"  ?Usar otra DB? (default: {leer_db(db_path)}) [Enter para default]: ").strip()
 
-    print("\n  Ejecutando ingesta...\n")
+def opcion_ingesta(db_path: str | None = None):
+    """Menu: Ingesta de medios."""
+    while True:
+        limpiar_pantalla()
+        print("=== INGESTA ===\n")
+        print("  1) Hacer ingesta")
+        print("  2) Deshacer ingesta")
+        print("  0) Volver\n")
 
-    from scripts import ingest
-    args = ["--root", root]
-    if verbose:
-        args.append("--verbose")
-    if dry_run:
-        args.append("--dry-run")
-    if custom_db:
-        args.extend(["--db", custom_db])
-    elif db_path:
-        args.extend(["--db", db_path])
-    ingest.main(args)
+        opc = input("  Opcion: ").strip()
+        if opc == "1":
+            limpiar_pantalla()
+            print("=== HACER INGESTA ===\n")
+            root = input("  Carpeta raiz a escanear: ").strip()
+            if not root:
+                print("  Cancelado.")
+                pausa()
+                continue
+            if not os.path.isdir(root):
+                print(f"  Error: la carpeta '{root}' no existe.")
+                pausa()
+                continue
 
-    pausa()
+            verbose = input("  ?Modo verbose? (s/N): ").strip().lower() == "s"
+            dry_run = input("  ?Solo previsualizar (dry-run)? (s/N): ").strip().lower() == "s"
+            custom_db = input(f"  ?Usar otra DB? (default: {leer_db(db_path)}) [Enter para default]: ").strip()
+
+            print("\n  Ejecutando ingesta...\n")
+            from scripts import ingest
+            args = ["--root", root]
+            if verbose:
+                args.append("--verbose")
+            if dry_run:
+                args.append("--dry-run")
+            if custom_db:
+                args.extend(["--db", custom_db])
+            elif db_path:
+                args.extend(["--db", db_path])
+            ingest.main(args)
+            pausa()
+
+        elif opc == "2":
+            opcion_undo_ingest(db_path)
+
+        elif opc == "0":
+            break
+        else:
+            print("  Opcion invalida.")
+            pausa()
+
+
+def opcion_listar(db_path: str | None = None):
+    """Submenu: listar distintos aspectos de la DB."""
+    from scripts import query
+    db_flag = ["--db", db_path] if db_path else []
+
+    while True:
+        limpiar_pantalla()
+        print("=== LISTAR ===\n")
+        print("  1) Tipos de medio")
+        print("  2) Autores")
+        print("  3) Carpetas")
+        print("  4) Colores basicos")
+        print("  5) Provincias (geocode)")
+        print("  6) Buscar texto")
+        print("  7) Consulta libre (flags directos a query.py)")
+        print("  8) Inspeccion general de DB")
+        print("  9) Revisar GPS en archivos")
+        print("  0) Volver\n")
+
+        opc = input("  Opcion: ").strip()
+        if opc == "1":
+            query.main(["--distinct", "type", "--count"] + db_flag)
+        elif opc == "2":
+            query.main(["--distinct", "author", "--count"] + db_flag)
+        elif opc == "3":
+            query.main(["--distinct", "carpeta", "--count"] + db_flag)
+        elif opc == "4":
+            query.main(["--distinct", "color_1_name_basic", "--count", "--where",
+                        "color_1_name_basic IS NOT NULL"] + db_flag)
+        elif opc == "5":
+            query.main(["--distinct", "provincia", "--count", "--where",
+                        "provincia IS NOT NULL"] + db_flag)
+        elif opc == "6":
+            texto = input("  Texto a buscar: ").strip()
+            if texto:
+                query.main(["--search", texto] + db_flag)
+        elif opc == "7":
+            flags = input("  Flags (ej: --distinct type --count): ").strip()
+            if flags:
+                query.main(flags.split())
+        elif opc == "8":
+            opcion_check_db(db_path)
+        elif opc == "9":
+            opcion_check_gps(db_path)
+        elif opc == "0":
+            break
+        else:
+            print("  Opcion invalida.")
+        if opc not in ("8", "9", "0"):
+            pausa()
 
 
 def opcion_consultar(db_path: str | None = None):
-    """Menu para consultas comunes."""
-    limpiar_pantalla()
-    print("=== CONSULTAR BASE DE DATOS ===\n")
+    """Menu: Consultar base de datos."""
+    while True:
+        limpiar_pantalla()
+        print("=== CONSULTAR BASE DE DATOS ===\n")
+        print("  1) Ver resumen de la DB")
+        print("  2) Listar...")
+        print("  0) Volver\n")
 
-    from scripts import query
-
-    print("  1) Ver resumen de la DB")
-    print("  2) Listar tipos de medio")
-    print("  3) Listar autores")
-    print("  4) Listar carpetas")
-    print("  5) Listar colores")
-    print("  6) Buscar texto")
-    print("  7) Consulta libre (escribo el flag)")
-    print("  8) Inspeccion general de DB")
-    print("  9) Revisar GPS")
-    print("  0) Volver\n")
-
-    db_flag = ["--db", db_path] if db_path else []
-    opc = input("  Opcion: ").strip()
-
-    if opc == "1":
-        query.main(["--columns"] + db_flag)
-    elif opc == "2":
-        query.main(["--distinct", "type", "--count"] + db_flag)
-    elif opc == "3":
-        query.main(["--distinct", "author", "--count"] + db_flag)
-    elif opc == "4":
-        query.main(["--distinct", "carpeta", "--count"] + db_flag)
-    elif opc == "5":
-        query.main(["--distinct", "color_1_name_basic", "--count", "--where",
-                     "color_1_name_basic IS NOT NULL"] + db_flag)
-    elif opc == "6":
-        texto = input("  Texto a buscar: ").strip()
-        if texto:
-            query.main(["--search", texto] + db_flag)
-    elif opc == "7":
-        flags = input("  Flags (ej: --distinct type --count): ").strip()
-        if flags:
-            query.main(flags.split())
-    elif opc == "8":
-        opcion_check_db(db_path)
-        return
-    elif opc == "9":
-        opcion_check_gps(db_path)
-        return
-    elif opc == "0":
-        return
-
-    pausa()
+        opc = input("  Opcion: ").strip()
+        if opc == "1":
+            opcion_check_db(db_path)
+        elif opc == "2":
+            opcion_listar(db_path)
+        elif opc == "0":
+            break
+        else:
+            print("  Opcion invalida.")
+            pausa()
 
 
 def opcion_relocalizar(db_path: str | None = None):
@@ -300,30 +367,45 @@ def opcion_check_db(db_path: str | None = None):
     pausa()
 
 
-def opcion_geocode():
-    """Menu para geocodificación inversa de coordenadas GPS."""
-    limpiar_pantalla()
-    print("=== GEOCODIFICAR COORDENADAS GPS ===\n")
+def opcion_exportar(db_path: str | None = None):
+    """Menu: Exportar DB a medios (relocalizar)."""
+    while True:
+        limpiar_pantalla()
+        print("=== EXPORTAR DB A MEDIOS ===\n")
+        print("  Actualiza las rutas cuando los archivos se mudan de ubicacion.\n")
+        print("  1) Relocalizar medios (cambiar raiz)")
+        print("  0) Volver\n")
 
-    print("  1) Geocodificar todos los pendientes")
-    print("  2) Geocodificar con límite")
-    print("  3) Ver cuántos hay pendientes (dry-run)")
+        opc = input("  Opcion: ").strip()
+        if opc == "1":
+            opcion_relocalizar(db_path)
+        elif opc == "0":
+            break
+        else:
+            print("  Opcion invalida.")
+            pausa()
+
+
+def opcion_gradient():
+    """Menu para calcular gradientes de ruta entre puntos GPS consecutivos."""
+    limpiar_pantalla()
+    print("=== CALCULAR GRADIENTES DE RUTA ===\n")
+
+    print("  1) Calcular gradientes (toda la BD)")
+    print("  2) Previsualizar (dry-run)")
+    print("  3) Previsualizar con detalle (dry-run + verbose)")
     print("  0) Volver\n")
 
     opc = input("  Opcion: ").strip()
 
-    from scripts import geocode
+    from scripts import gradiente
 
     if opc == "1":
-        geocode.main(["--db", leer_db()])
+        gradiente.main(["--db", leer_db()])
     elif opc == "2":
-        limite = input("  Cantidad maxima: ").strip()
-        if limite.isdigit():
-            geocode.main(["--db", leer_db(), "--limit", limite])
-        else:
-            print("  Cantidad invalida.")
+        gradiente.main(["--db", leer_db(), "--dry-run"])
     elif opc == "3":
-        geocode.main(["--db", leer_db(), "--dry-run"])
+        gradiente.main(["--db", leer_db(), "--dry-run", "--verbose"])
     elif opc == "0":
         return
 
@@ -426,44 +508,147 @@ def opcion_undo_ingest(db_path: str | None = None):
 
 
 def opcion_improve_db():
-    """Menu para ejecutar pasos de mejora sobre la DB."""
-    limpiar_pantalla()
-    print("=== MEJORAR BASE DE DATOS ===\n")
-    print("  1) Todos los pasos (skip)")
-    print("  2) Colores dominantes")
-    print("  3) Keywords con IA")
-    print("  4) Descripciones con IA")
-    print("  5) Transcripcion (audios/videos)")
-    print("  6) Keypoints desde transcripciones")
-    print("  7) Inferir timestamps")
-    print("  8) Inferir GPS")
-    print("  9) Elegir pasos manualmente")
-    print("  0) Volver\n")
-
+    """Menu para ejecutar pasos de mejora sobre la DB (2 partes)."""
     from scripts import improve_db
+
+    parte = 1
+    while True:
+        limpiar_pantalla()
+        print("=== MEJORAR BASE DE DATOS ===\n")
+
+        if parte == 1:
+            print("  -- Pasos de IA y color --\n")
+            print("  1) Todos los pasos (skip)")
+            print("  2) Elegir pasos manualmente")
+            print("  3) Colores dominantes")
+            print("  4) Keywords con IA")
+            print("  5) Descripcion con IA")
+            print("  6) Keywords + Descripcion (pasada unica, mas lenta)")
+            print("  7) Transcripcion (audios/videos)")
+            print("  8) Keypoints de transcripciones")
+            print("  9) Mas...")
+            print("  0) Volver\n")
+        else:
+            print("  -- Pasos de inferencia y enriquecimiento --\n")
+            print("  1) Inferir timestamps")
+            print("  2) Inferir GPS")
+            print("  3) Localizacion (provincia, municipio, localidad)")
+            print("  4) Condiciones climaticas")
+            print("  5) Embeddings (proximamente)")
+            print("  0) Salir\n")
+
+        opc = input("  Opcion: ").strip()
+
+        if parte == 1:
+            if opc == "1":
+                improve_db.main([])
+                pausa()
+            elif opc == "2":
+                pasos = input("  Pasos (separados por coma, ej: colors,keywords): ").strip()
+                if pasos:
+                    improve_db.main(["--steps", pasos])
+                pausa()
+            elif opc == "3":
+                improve_db.main(["--steps", "colors"])
+                pausa()
+            elif opc == "4":
+                improve_db.main(["--steps", "keywords"])
+                pausa()
+            elif opc == "5":
+                improve_db.main(["--steps", "descriptions"])
+                pausa()
+            elif opc == "6":
+                improve_db.main(["--steps", "keywords,descriptions"])
+                pausa()
+            elif opc == "7":
+                improve_db.main(["--steps", "transcribe"])
+                pausa()
+            elif opc == "8":
+                improve_db.main(["--steps", "keypoints"])
+                pausa()
+            elif opc == "9":
+                parte = 2
+            elif opc == "0":
+                break
+            else:
+                print("  Opcion invalida.")
+                pausa()
+
+        else:  # parte == 2
+            if opc == "1":
+                improve_db.main(["--steps", "timestamps"])
+                pausa()
+            elif opc == "2":
+                improve_db.main(["--steps", "gps"])
+                pausa()
+            elif opc == "3":
+                opcion_geocode()
+            elif opc == "4":
+                opcion_weather()
+            elif opc == "5":
+                limpiar_pantalla()
+                print("=== EMBEDDINGS ===\n")
+                print("  Proximamente.")
+                pausa()
+            elif opc == "0":
+                break
+            else:
+                print("  Opcion invalida.")
+                pausa()
+
+
+def opcion_weather():
+    """Submenu: condiciones climaticas desde Open-Meteo."""
+    limpiar_pantalla()
+    print("=== CONDICIONES CLIMATICAS ===\n")
+
+    print("  1) Obtener datos climaticos (pendientes)")
+    print("  2) Re-obtener todo (--replace)")
+    print("  3) Solo previsualizar (dry-run)")
+    print("  0) Volver\n")
 
     opc = input("  Opcion: ").strip()
 
+    import subprocess
+    script = os.path.join(os.path.dirname(__file__), "scripts", "fetch_weather.py")
+    db_flag = ["--db", leer_db()]
+
     if opc == "1":
-        improve_db.main([])
+        subprocess.run([sys.executable, script] + db_flag)
     elif opc == "2":
-        improve_db.main(["--steps", "colors"])
+        subprocess.run([sys.executable, script] + db_flag + ["--replace"])
     elif opc == "3":
-        improve_db.main(["--steps", "keywords"])
-    elif opc == "4":
-        improve_db.main(["--steps", "descriptions"])
-    elif opc == "5":
-        improve_db.main(["--steps", "transcribe"])
-    elif opc == "6":
-        improve_db.main(["--steps", "keypoints"])
-    elif opc == "7":
-        improve_db.main(["--steps", "timestamps"])
-    elif opc == "8":
-        improve_db.main(["--steps", "gps"])
-    elif opc == "9":
-        pasos = input("  Pasos (separados por coma, ej: colors,keywords): ").strip()
-        if pasos:
-            improve_db.main(["--steps", pasos])
+        subprocess.run([sys.executable, script] + db_flag + ["--dry-run"])
+    elif opc == "0":
+        return
+
+    pausa()
+
+
+def opcion_geocode():
+    """Menu para geocodificación inversa de coordenadas GPS."""
+    limpiar_pantalla()
+    print("=== LOCALIZACION (Geocodificar GPS) ===\n")
+
+    print("  1) Geocodificar todos los pendientes")
+    print("  2) Geocodificar con limite")
+    print("  3) Ver cuantos hay pendientes (dry-run)")
+    print("  0) Volver\n")
+
+    opc = input("  Opcion: ").strip()
+
+    from scripts import geocode
+
+    if opc == "1":
+        geocode.main(["--db", leer_db()])
+    elif opc == "2":
+        limite = input("  Cantidad maxima: ").strip()
+        if limite.isdigit():
+            geocode.main(["--db", leer_db(), "--limit", limite])
+        else:
+            print("  Cantidad invalida.")
+    elif opc == "3":
+        geocode.main(["--db", leer_db(), "--dry-run"])
     elif opc == "0":
         return
 
@@ -482,7 +667,8 @@ def opcion_ayuda():
         print("  4) relocate - Relocalizar medios")
         print("  5) improve-db - Mejorar base de datos")
         print("  6) geocode - Geocodificar coordenadas GPS")
-        print("  7) check-db / check-gps")
+        print("  7) gradient - Calcular gradientes de ruta")
+        print("  8) check-db / check-gps")
         print("  0) Volver\n")
 
         opc = input("  Opcion: ").strip()
@@ -530,6 +716,21 @@ def opcion_ayuda():
             pausa()
         elif opc == "7":
             limpiar_pantalla()
+            print("============ GRADIENT ============\n")
+            print("  Calcula pendientes y esfuerzo fisico entre puntos GPS")
+            print("  consecutivos, ordenados por timestamp.\n")
+            print("  Columnas que actualiza:\n")
+            print("    distance_from_prev_m    Distancia Haversine (m)")
+            print("    elevation_gain_m        Cambio de elevacion (m)")
+            print("    gradient_pct            Pendiente porcentual")
+            print("    cumul_distance_m        Distancia acumulada (m)")
+            print("    cumul_elevation_gain_m  Ganancia elevacion acumulada (m)\n")
+            print("  Uso: python flujos.py gradient [--dry-run] [--verbose]\n")
+            print("  Tambien desde consola:")
+            print("    python scripts/gradiente.py --dry-run --verbose")
+            pausa()
+        elif opc == "8":
+            limpiar_pantalla()
             print("============ CHECK-DB ============\n")
             print("  Inspecciona todos los registros de la base de datos.")
             print("  Uso: python flujos.py check-db\n")
@@ -554,40 +755,38 @@ def tui():
         if os.path.isfile(db_path):
             conn = sqlite3.connect(db_path)
             try:
-                print(resumen_db(conn) + "\n")
+                print(resumen_db(conn))
+                print("  Para ver el detalle completo: Menu 4 > Ver resumen\n")
             except sqlite3.OperationalError:
                 print("  (Base de datos vacia o sin schema)\n")
             conn.close()
         else:
-            print("  (Base de datos no encontrada - ejecuta 'ingest' primero)\n")
+            print("  (Base de datos no encontrada - ejecuta 'Ingesta' primero)\n")
 
-        print("  1) Ingestionar medios")
-        print("  2) Deshacer ingesta")
+        print("  1) Preparar medios")
+        print("  2) Ingesta")
         print("  3) Mejorar base de datos")
-        print("  4) Geocodificar coordenadas GPS")
-        print("  5) Consultar base de datos")
-        print("  6) Relocalizar medios")
-        print("  7) Reset DB (backup + limpiar)")
-        print("  8) Ayuda")
+        print("  4) Consultar base de datos")
+        print("  5) Exportar DB a medios")
+        print("  6) Resetear DB (backup + limpiar)")
+        print("  7) Ayuda")
         print("  0) Salir\n")
 
         opc = input("  Opcion: ").strip()
 
         if opc == "1":
-            opcion_ingresar()
+            opcion_preparar()
         elif opc == "2":
-            opcion_undo_ingest()
+            opcion_ingesta()
         elif opc == "3":
             opcion_improve_db()
         elif opc == "4":
-            opcion_geocode()
-        elif opc == "5":
             opcion_consultar()
+        elif opc == "5":
+            opcion_exportar()
         elif opc == "6":
-            opcion_relocalizar()
-        elif opc == "7":
             opcion_reset_db()
-        elif opc == "8":
+        elif opc == "7":
             opcion_ayuda()
         elif opc == "0":
             limpiar_pantalla()
@@ -786,6 +985,10 @@ def main():
     elif comando == "geocode":
         from scripts import geocode
         geocode.main(resto)
+
+    elif comando == "gradient":
+        from scripts import gradiente
+        gradiente.main(resto)
 
     else:
         print(f"Comando desconocido: {comando}")

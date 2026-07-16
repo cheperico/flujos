@@ -31,8 +31,7 @@ import os
 import sqlite3
 import sys
 import time
-from datetime import datetime, date, timezone
-from pathlib import Path
+from datetime import datetime
 from urllib.request import urlopen, Request
 from urllib.error import URLError, HTTPError
 
@@ -320,8 +319,12 @@ def procesar(
 
     if dry_run:
         log.info("=== DRY RUN — no se ejecutarán llamadas ni guardados ===")
+        if step_hours > 1:
+            log.info("  (step_hours=%d: solo se guardarian horas multiplo de %d)", step_hours, step_hours)
         for g in sorted(grupos, key=lambda x: x["date"]):
             horas = sorted(g["hours"].keys())
+            if step_hours > 1:
+                horas = [h for h in horas if h % step_hours == 0]
             log.info(
                 "  %s  (%.1f, %.1f)  → %d medios, %d horas: %s",
                 g["date"], g["lat"], g["lon"],
@@ -336,6 +339,9 @@ def procesar(
     total_ok = 0
     total_skip = 0
     total_media = 0
+
+    # Dict de lookup rápido por id
+    rows_por_id = {r["id"]: r for r in rows}
 
     for g_idx, grupo in enumerate(grupos, 1):
         log.info(
@@ -361,10 +367,10 @@ def procesar(
         # Para cada medio, buscar la hora correspondiente
         for media_id in grupo["media_ids"]:
             # Buscar el timestamp original para determinar hora exacta
-            media_row = [r for r in rows if r["id"] == media_id]
+            media_row = rows_por_id.get(media_id)
             if not media_row:
                 continue
-            ts = media_row[0]["timestamp_utc"]
+            ts = media_row["timestamp_utc"]
             try:
                 dt = datetime.fromisoformat(ts)
                 hora = dt.hour
@@ -378,6 +384,10 @@ def procesar(
                 # Si no está exactamente, buscar la más cercana
                 hora_usar = min(horarios.keys(), key=lambda h: abs(h - hora))
             else:
+                continue
+
+            # Si step_hours > 1, solo guardar si la hora es multiplo del intervalo
+            if step_hours > 1 and hora_usar % step_hours != 0:
                 continue
 
             valores = horarios[hora_usar]
