@@ -291,26 +291,39 @@ def _es_gris_o_negro(r: int, g: int, b: int, umbral_saturacion: float = 0.08) ->
     return False
 
 
+def _calcular_grilla(w: int, h: int, celdas_objetivo: int = 16) -> tuple[int, int]:
+    """
+    Calcula una grilla de celdas adaptativa según el aspect ratio.
+    Ej: 4:3 → 4x4, 16:9 → 5x3, etc.
+    """
+    ratio = w / h
+    cols = max(2, int(round((celdas_objetivo * ratio) ** 0.5)))
+    rows = max(2, int(round(celdas_objetivo / cols)))
+    return cols, rows
+
+
 def extract_dominant_colors(image_path: str, n_colors: int = 3) -> list:
     """
     Extrae los N colores más representativos de una imagen.
 
-    Estrategia:
-      1. Cuantiza la imagen a una paleta amplia (64 colores) con MEDIANCUT.
-      2. Obtiene frecuencias de cada color con getcolors().
-      3. Puntúa cada color combinando frecuencia + saturación HSV.
-         Los colores vibrantes trepan en el ranking aunque sean menos frecuentes.
-      4. Filtra grises/negros casi puros para que no dominen.
+    Estrategia (concentración por grilla):
+      1. Divide la imagen en una grilla de ~16 celdas.
+      2. En cada celda, cuantiza y obtiene colores con frecuencias.
+      3. Para cada color único del conjunto global:
+         - Calcula frecuencia TOTAL y cantidad de celdas donde aparece.
+         - Score = (frecuencia / celdas) * (0.2 + 0.8 * saturación)
+         - Esto penaliza colores dispersos (cielo, niebla) y premia
+           colores concentrados en pocas celdas (campera roja, cartel).
+      4. Filtra grises/negros extremos.
       5. Devuelve los N mejor puntuados en hex.
 
-    Devuelve lista de strings hex: ["#ff0000", "#00ff00", "#0000ff"]
+    Sin dependencias externas: solo Pillow.
     """
     try:
         from PIL import Image
 
+        # ── 1. Abrir y normalizar ──
         img = Image.open(image_path)
-
-        # Convertir a RGB
         if img.mode not in ("RGB", "RGBA"):
             img = img.convert("RGB")
         elif img.mode == "RGBA":
@@ -318,47 +331,75 @@ def extract_dominant_colors(image_path: str, n_colors: int = 3) -> list:
             bg.paste(img, mask=img.split()[3])
             img = bg
 
-        # Redimensionar para velocidad
-        img.thumbnail((200, 200), Image.LANCZOS)
+        # Redimensionar a tamaño de trabajo
+        w, h = img.size
+        img.thumbnail((300, 300), Image.LANCZOS)
+        w, h = img.size
 
-        # Cuantizar a una paleta generosa (64 colores)
-        quantized = img.quantize(colors=64, method=Image.MEDIANCUT)
+        # ── 2. Dividir en grilla ──
+        cols, rows = _calcular_grilla(w, h)
+        celda_w = max(1, w // cols)
+        celda_h = max(1, h // rows)
 
-        color_counts = quantized.getcolors()
-        if not color_counts:
+        # {paleta_idx: {"freq": total, "celdas": set, "r": r, "g": g, "b": b}}
+        acum = {}
+
+        for row in range(rows):
+            for col in range(cols):
+                left = col * celda_w
+                upper = row * celda_h
+                right = min(left + celda_w, w)
+                lower = min(upper + celda_h, h)
+                tile = img.crop((left, upper, right, lower))
+
+                # Cuantizar la celda a pocos colores
+                q = tile.quantize(colors=12, method=Image.MEDIANCUT)
+                counts = q.getcolors()
+                if not counts:
+                    continue
+                pal = q.getpalette()
+
+                for freq, idx in counts:
+                    r_c = pal[idx * 3]
+                    g_c = pal[idx * 3 + 1]
+                    b_c = pal[idx * 3 + 2]
+                    # Usar hex como clave única
+                    hex_c = rgb_to_hex(r_c, g_c, b_c)
+                    if hex_c not in acum:
+                        acum[hex_c] = {"freq": 0, "celdas": set(), "r": r_c, "g": g_c, "b": b_c}
+                    acum[hex_c]["freq"] += freq
+                    acum[hex_c]["celdas"].add((row, col))
+
+        if not acum:
             return ["#808080"] * n_colors
 
-        palette = quantized.getpalette()
-
-        # Puntuar cada color: frecuencia * boost_de_saturación
-        # El boost favorece colores vibrantes sin ignorar los apagados del todo
+        # ── 3. Puntuar cada color ──
+        # Score = (freq / n_celdas) * (0.2 + 0.8 * sat)
+        # freq / n_celdas: penaliza colores que aparecen en muchas celdas (dispersos)
+        total_celdas = rows * cols
         scored = []
-        for freq, idx in color_counts:
-            r = palette[idx * 3]
-            g = palette[idx * 3 + 1]
-            b = palette[idx * 3 + 2]
+        for hex_c, data in acum.items():
+            r, g, b = data["r"], data["g"], data["b"]
+            n_celdas = len(data["celdas"])
             sat = _saturacion_hsv(r, g, b)
-            # Peso base 0.2 para que ningún color quede con score 0
-            score = freq * (0.2 + 0.8 * sat)
+            # Concentración: entre más celdas ocupa, menor el score
+            concentracion = total_celdas / max(1, n_celdas)
+            score = data["freq"] * concentracion * (0.2 + 0.8 * sat)
             scored.append((score, r, g, b))
 
-        # Ordenar por score descendente
         scored.sort(key=lambda x: x[0], reverse=True)
 
-        # Tomar los n_colors mejores, filtrando grises/negros extremos
-        # pero sin ser demasiado agresivos: si todos son grises, que se vean
+        # ── 4. Seleccionar, filtrando grises/negros ──
         colors = []
         for score, r, g, b in scored:
             if len(colors) >= n_colors:
                 break
             if _es_gris_o_negro(r, g, b) and len(colors) > 0:
-                # Solo saltear si ya tenemos al menos un color
-                # (evita devolver todo gris si la imagen es realmente gris)
                 if any(not _es_gris_o_negro(*hex_to_rgb(c)) for c in colors):
                     continue
             colors.append(rgb_to_hex(r, g, b))
 
-        # Si aún faltan colores, tomar los que siguen en el ranking
+        # Rellenar si faltan
         if len(colors) < n_colors:
             for score, r, g, b in scored:
                 if len(colors) >= n_colors:
@@ -367,7 +408,6 @@ def extract_dominant_colors(image_path: str, n_colors: int = 3) -> list:
                 if hex_c not in colors:
                     colors.append(hex_c)
 
-        # Rellenar con grises si es necesario (no debería pasar)
         while len(colors) < n_colors:
             colors.append("#808080")
 
