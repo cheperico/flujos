@@ -240,8 +240,8 @@ def opcion_listar(db_path: str | None = None):
         print("  5) Provincias (geocode)")
         print("  6) Buscar texto")
         print("  7) Consulta libre (flags directos a query.py)")
-        print("  8) Inspeccion general de DB")
-        print("  9) Revisar GPS en archivos")
+        print("  8) Revisar GPS en archivos")
+        print("  9) Detalle completo de registros (todas las columnas)")
         print("  0) Volver\n")
 
         opc = input("  Opcion: ").strip()
@@ -266,14 +266,14 @@ def opcion_listar(db_path: str | None = None):
             if flags:
                 query.main(flags.split())
         elif opc == "8":
-            opcion_check_db(db_path)
-        elif opc == "9":
             opcion_check_gps(db_path)
+        elif opc == "9":
+            opcion_detalle_db(db_path)
         elif opc == "0":
             break
         else:
             print("  Opcion invalida.")
-        if opc not in ("8", "9", "0"):
+        if opc not in ("9", "8", "0"):
             pausa()
 
 
@@ -440,6 +440,63 @@ def opcion_check_gps(db_path: str | None = None):
 
     print()
     print("  Para un analisis completo, usa: python flujos.py check-gps --db ruta")
+    pausa()
+
+
+def opcion_detalle_db(db_path: str | None = None):
+    """Muestra todas las columnas de los ultimos registros."""
+    limpiar_pantalla()
+    print("=== DETALLE COMPLETO DE REGISTROS ===\n")
+
+    db_path = leer_db(db_path)
+    if not os.path.isfile(db_path):
+        print("  No se encuentra la base de datos.")
+        pausa()
+        return
+
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+
+    try:
+        # Obtener nombres de columnas
+        cols = [row[1] for row in conn.execute("PRAGMA table_info(media)")]
+        print(f"  {len(cols)} columnas en media\n")
+
+        # Pedir cantidad
+        try:
+            n = int(input("  Cantidad de registros a mostrar (default 10): ").strip() or "10")
+        except ValueError:
+            n = 10
+
+        cursor = conn.execute(
+            f"SELECT * FROM media ORDER BY id DESC LIMIT {n}"
+        )
+        rows = cursor.fetchall()
+
+        if not rows:
+            print("  No hay registros.")
+            conn.close()
+            pausa()
+            return
+
+        for row in rows:
+            print(f"  ── #{row['id']} ──")
+            for col in cols:
+                val = row[col]
+                if val is not None:
+                    val_str = str(val)
+                    if len(val_str) > 60:
+                        val_str = val_str[:57] + "..."
+                    print(f"    {col:<25s} {val_str}")
+            print()
+
+        print(f"  {len(rows)} registros mostrados.")
+
+    except sqlite3.OperationalError as e:
+        print(f"  Error: {e}")
+    finally:
+        conn.close()
+
     pausa()
 
 
@@ -662,8 +719,7 @@ def opcion_geocode():
     print("=== LOCALIZACION (Geocodificar GPS) ===\n")
 
     print("  1) Geocodificar todos los pendientes")
-    print("  2) Geocodificar con limite")
-    print("  3) Ver cuantos hay pendientes (dry-run)")
+    print("  2) Ver cuantos hay pendientes (dry-run)")
     print("  0) Volver\n")
 
     opc = input("  Opcion: ").strip()
@@ -673,12 +729,6 @@ def opcion_geocode():
     if opc == "1":
         geocode.main(["--db", leer_db()])
     elif opc == "2":
-        limite = input("  Cantidad maxima: ").strip()
-        if limite.isdigit():
-            geocode.main(["--db", leer_db(), "--limit", limite])
-        else:
-            print("  Cantidad invalida.")
-    elif opc == "3":
         geocode.main(["--db", leer_db(), "--dry-run"])
     elif opc == "0":
         return

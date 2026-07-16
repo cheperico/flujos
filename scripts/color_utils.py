@@ -269,62 +269,109 @@ def get_color_names(hex_color: str) -> tuple:
     return css_name_es, basic_name
 
 
+def _saturacion_hsv(r: int, g: int, b: int) -> float:
+    """Calcula saturación HSV (0-1) a partir de RGB."""
+    r_n, g_n, b_n = r / 255.0, g / 255.0, b / 255.0
+    mx = max(r_n, g_n, b_n)
+    mn = min(r_n, g_n, b_n)
+    if mx == 0:
+        return 0.0
+    return (mx - mn) / mx
+
+
+def _es_gris_o_negro(r: int, g: int, b: int, umbral_saturacion: float = 0.08) -> bool:
+    """
+    True si el color es casi gris (muy baja saturación) o casi negro.
+    Útil para filtrar colores poco interesantes.
+    """
+    if max(r, g, b) < 30:  # negro / casi negro
+        return True
+    if _saturacion_hsv(r, g, b) < umbral_saturacion:
+        return True
+    return False
+
+
 def extract_dominant_colors(image_path: str, n_colors: int = 3) -> list:
     """
     Extrae los N colores más representativos de una imagen.
-    Usa cuantización de Pillow para reducir la paleta.
+
+    Estrategia:
+      1. Cuantiza la imagen a una paleta amplia (64 colores) con MEDIANCUT.
+      2. Obtiene frecuencias de cada color con getcolors().
+      3. Puntúa cada color combinando frecuencia + saturación HSV.
+         Los colores vibrantes trepan en el ranking aunque sean menos frecuentes.
+      4. Filtra grises/negros casi puros para que no dominen.
+      5. Devuelve los N mejor puntuados en hex.
+
     Devuelve lista de strings hex: ["#ff0000", "#00ff00", "#0000ff"]
     """
     try:
         from PIL import Image
+
         img = Image.open(image_path)
 
         # Convertir a RGB
         if img.mode not in ("RGB", "RGBA"):
             img = img.convert("RGB")
         elif img.mode == "RGBA":
-            # Fondo blanco para transparencia
             bg = Image.new("RGB", img.size, (255, 255, 255))
             bg.paste(img, mask=img.split()[3])
             img = bg
 
-        # Redimensionar para velocidad (max 200px)
+        # Redimensionar para velocidad
         img.thumbnail((200, 200), Image.LANCZOS)
 
-        # Cuantizar: reducir la paleta a n_colores * 4 para tener margen
-        # y luego elegir los n_colores más frecuentes con getcolors()
-        quantized = img.quantize(colors=n_colors * 4, method=Image.MEDIANCUT)
+        # Cuantizar a una paleta generosa (64 colores)
+        quantized = img.quantize(colors=64, method=Image.MEDIANCUT)
 
-        # getcolors() devuelve [(frecuencia, indice_paleta), ...] ordenado por freq
-        # Si la imagen tiene pocos colores, getcolors() puede devolver None
         color_counts = quantized.getcolors()
-        if color_counts:
-            # Ordenar de mayor a menor frecuencia
-            color_counts.sort(key=lambda x: x[0], reverse=True)
-            palette = quantized.getpalette()
-            colors = []
-            for freq, idx in color_counts[:n_colors]:
-                r = palette[idx * 3]
-                g = palette[idx * 3 + 1]
-                b = palette[idx * 3 + 2]
-                colors.append(rgb_to_hex(r, g, b))
-        else:
-            # Fallback: tomar los primeros N colores de la paleta sin orden
-            palette = quantized.getpalette()
-            actual = min(n_colors, len(palette) // 3)
-            colors = []
-            for i in range(actual):
-                r = palette[i * 3]
-                g = palette[i * 3 + 1]
-                b = palette[i * 3 + 2]
-                colors.append(rgb_to_hex(r, g, b))
+        if not color_counts:
+            return ["#808080"] * n_colors
 
-        # Si faltan colores, rellenar con grises
+        palette = quantized.getpalette()
+
+        # Puntuar cada color: frecuencia * boost_de_saturación
+        # El boost favorece colores vibrantes sin ignorar los apagados del todo
+        scored = []
+        for freq, idx in color_counts:
+            r = palette[idx * 3]
+            g = palette[idx * 3 + 1]
+            b = palette[idx * 3 + 2]
+            sat = _saturacion_hsv(r, g, b)
+            # Peso base 0.2 para que ningún color quede con score 0
+            score = freq * (0.2 + 0.8 * sat)
+            scored.append((score, r, g, b))
+
+        # Ordenar por score descendente
+        scored.sort(key=lambda x: x[0], reverse=True)
+
+        # Tomar los n_colors mejores, filtrando grises/negros extremos
+        # pero sin ser demasiado agresivos: si todos son grises, que se vean
+        colors = []
+        for score, r, g, b in scored:
+            if len(colors) >= n_colors:
+                break
+            if _es_gris_o_negro(r, g, b) and len(colors) > 0:
+                # Solo saltear si ya tenemos al menos un color
+                # (evita devolver todo gris si la imagen es realmente gris)
+                if any(not _es_gris_o_negro(*hex_to_rgb(c)) for c in colors):
+                    continue
+            colors.append(rgb_to_hex(r, g, b))
+
+        # Si aún faltan colores, tomar los que siguen en el ranking
+        if len(colors) < n_colors:
+            for score, r, g, b in scored:
+                if len(colors) >= n_colors:
+                    break
+                hex_c = rgb_to_hex(r, g, b)
+                if hex_c not in colors:
+                    colors.append(hex_c)
+
+        # Rellenar con grises si es necesario (no debería pasar)
         while len(colors) < n_colors:
             colors.append("#808080")
 
         return colors
 
     except Exception as e:
-        # Si falla, devolver grises
         return ["#808080"] * n_colors
