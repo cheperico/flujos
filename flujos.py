@@ -633,6 +633,22 @@ def _ejecutar_improve_db(pasos: str | None = None, modo: str = "skip"):
     improve_db.main(args)
 
 
+def _listar_modelos_ollama():
+    """Muestra los modelos instalados en Ollama usando el cliente Python."""
+    try:
+        import ollama
+        response = ollama.list()
+        modelos = response.models if hasattr(response, "models") else []
+        print("=== Modelos instalados en Ollama ===\n")
+        for m in modelos:
+            nombre = m.model if hasattr(m, "model") else str(m)
+            print(f"  {nombre}")
+        print()
+    except Exception as e:
+        print(f"  Error al conectar con Ollama: {e}")
+        print("  ¿Está Ollama corriendo? (Verificá con 'ollama ps')\n")
+
+
 def _preguntar_modo():
     """Pregunta modo de ejecución y lo devuelve como string.
     Retorna None si el usuario cancela la operación."""
@@ -668,6 +684,8 @@ def opcion_improve_db():
             print("  6) Keywords + Descripcion (pasada unica, mas lenta)")
             print("  7) Transcripcion (audios/videos)")
             print("  8) Keypoints de transcripciones")
+            print("  --")
+            print("  v) Ver modelos Ollama instalados")
             print("  9) Siguiente >>")
             print("  0) Volver\n")
         else:
@@ -744,6 +762,9 @@ def opcion_improve_db():
                     pausa()
                     continue
                 _ejecutar_improve_db(pasos="keypoints", modo=modo)
+                pausa()
+            elif opc == "v":
+                _listar_modelos_ollama()
                 pausa()
             elif opc == "9":
                 parte = 2
@@ -874,7 +895,7 @@ def opcion_embeddings():
     elif opc == "2":
         subprocess.run([sys.executable, script] + db_flag + ["--dry-run"])
     elif opc == "3":
-        subprocess.run([sys.executable, script] + ["--list-models"])
+        _listar_modelos_ollama()
     elif opc == "0":
         return
 

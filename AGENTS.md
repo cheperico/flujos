@@ -301,6 +301,7 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
   │  ├─ 6. Keywords + Descripción       → improve_db --steps keywords,descriptions
   │  ├─ 7. Transcripción                → improve_db --steps transcribe (verif. Ollama)
   │  ├─ 8. Keypoints                    → improve_db --steps keypoints
+  │  ├─ v. Ver modelos Ollama instalados → _listar_modelos_ollama()
   │  └─ 9. Siguiente >> → Parte 2
   └─ Parte 2: Inferencia y enriquecimiento
      ├─ 1. Inferir timestamps           → improve_db --steps timestamps
@@ -308,7 +309,11 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
      ├─ 3. Localización (geocode)       → scripts/geocode.py (con modo)
      ├─ 4. Condiciones climáticas       → scripts/fetch_weather.py (con modo)
      ├─ 5. Día de la semana             → scripts/dia_semana.py (con modo)
-     ├─ 6. Embeddings (próximamente)
+     ├─ 6. Embeddings
+     │   ├─ 1. Generar embeddings (solo pendientes)
+     │   ├─ 2. Previsualizar (dry-run)
+     │   ├─ 3. Ver modelos Ollama instalados
+     │   └─ 0. Volver
      ├─ 9. << Anterior → Parte 1
      └─ 0. Volver
 

@@ -117,6 +117,7 @@ Al ejecutar `python flujos.py` sin argumentos se ingresa al menú TUI:
   │  ├─ 6. Keywords + Descripción
   │  ├─ 7. Transcripción
   │  ├─ 8. Keypoints
+  │  ├─ v. Ver modelos Ollama instalados
   │  └─ 9. Siguiente >> → Parte 2
   └─ Parte 2: Inferencia y enriquecimiento
      ├─ 1. Inferir timestamps
@@ -124,7 +125,11 @@ Al ejecutar `python flujos.py` sin argumentos se ingresa al menú TUI:
      ├─ 3. Localización (geocode)
      ├─ 4. Condiciones climáticas
      ├─ 5. Día de la semana
-     ├─ 6. Embeddings (próximamente)
+     ├─ 6. Embeddings
+     │   ├─ 1. Generar embeddings
+     │   ├─ 2. Previsualizar (dry-run)
+     │   ├─ 3. Ver modelos Ollama instalados
+     │   └─ 0. Volver
      ├─ 9. << Anterior → Parte 1
      └─ 0. Volver
 
