@@ -178,8 +178,7 @@ BASIC_COLORS = {
     "amarillo": ["gold", "yellow", "lightyellow", "lemonchiffon",
                  "lightgoldenrodyellow", "papayawhip", "moccasin",
                  "peachpuff", "palegoldenrod", "khaki", "darkkhaki",
-                 "greenyellow", "chartreuse", "lawngreen",
-                 "yellowgreen", "olivedrab", "olive", "darkolivegreen",
+                 "greenyellow", "chartreuse", "lawngreen", "yellowgreen",
                  "cornsilk", "blanchedalmond", "bisque", "navajowhite",
                  "wheat", "burlywood", "tan", "goldenrod", "darkgoldenrod"],
     "verde": ["lime", "limegreen", "palegreen", "lightgreen",
@@ -188,17 +187,18 @@ BASIC_COLORS = {
               "mediumaquamarine", "darkseagreen", "lightseagreen",
               "darkcyan", "teal", "aqua", "cyan", "lightcyan",
               "paleturquoise", "aquamarine", "turquoise", "mediumturquoise",
-              "darkturquoise"],
+              "darkturquoise",
+              "olivedrab", "olive", "darkolivegreen"],
     "azul": ["cadetblue", "steelblue", "lightsteelblue", "powderblue",
              "lightblue", "skyblue", "lightskyblue", "deepskyblue",
              "dodgerblue", "cornflowerblue", "royalblue", "blue",
              "mediumblue", "darkblue", "navy", "midnightblue",
              "azure", "aliceblue", "ghostwhite"],
     "violeta": ["lavender", "thistle", "plum", "violet", "orchid",
-                "mediumorchid", "mediumpurple", "blueviolet", "darkviolet",
-                "darkorchid", "darkmagenta", "purple", "indigo",
-                "slateblue", "darkslateblue", "mediumslateblue",
-                "magenta", "lavenderblush"],
+                 "mediumorchid", "mediumpurple", "blueviolet", "darkviolet",
+                 "darkorchid", "darkmagenta", "purple", "indigo", "fuchsia",
+                 "slateblue", "darkslateblue", "mediumslateblue",
+                 "magenta", "lavenderblush"],
     "rosa": ["pink", "lightpink", "hotpink", "deeppink",
              "mediumvioletred", "palevioletred",
              "mistyrose", "rosybrown"],
@@ -207,8 +207,13 @@ BASIC_COLORS = {
     "blanco": ["snow", "honeydew", "mintcream", "whitesmoke", "seashell",
                "beige", "oldlace", "floralwhite", "ivory", "antiquewhite",
                "linen", "white"],
-    "gris": ["gainsboro", "lightgray", "silver", "darkgray", "gray",
-             "dimgray", "lightslategray", "slategray", "darkslategray"],
+    "gris": ["gainsboro", "lightgray", "lightgrey",
+             "silver", "darkgray", "darkgrey",
+             "gray", "grey",
+             "dimgray", "dimgrey",
+             "lightslategray", "lightslategrey",
+             "slategray", "slategrey",
+             "darkslategray", "darkslategrey"],
     "negro": ["black"],
 }
 
@@ -217,6 +222,9 @@ _CSS_TO_BASIC = {}
 for basic_name, css_names in BASIC_COLORS.items():
     for css_name in css_names:
         _CSS_TO_BASIC[css_name] = basic_name
+
+# Categorías "no-color": colores que queremos evitar si hay una alternativa real
+_CATEGORIAS_NO_COLOR = {"gris", "negro", "blanco"}
 
 # -----------------------------------------------------------------------
 # Funciones principales
@@ -233,10 +241,39 @@ def rgb_to_hex(r: int, g: int, b: int) -> str:
     return f"#{r:02x}{g:02x}{b:02x}"
 
 
+def _redmean(r1: int, g1: int, b1: int, r2: int, g2: int, b2: int) -> float:
+    """
+    Distancia de color Redmean (una aproximación perceptual simple).
+    Pesa cada canal según la sensibilidad del ojo humano:
+      - Verde: máximo peso (el ojo es más sensible al verde)
+      - Rojo: peso medio, ajustado por luminosidad
+      - Azul: mínimo peso (especialmente en colores oscuros)
+
+    Fórmula: sqrt((2+r̄/256)*Δr² + 4*Δg² + (2+(255-r̄)/256)*Δb²)
+    donde r̄ = (r1+r2)/2
+    """
+    r_avg = (r1 + r2) / 2
+    dr = r1 - r2
+    dg = g1 - g2
+    db = b1 - b2
+    return (
+        (2 + r_avg / 256) * dr * dr +
+        4 * dg * dg +
+        (2 + (255 - r_avg) / 256) * db * db
+    ) ** 0.5
+
+
 def closest_css_color(hex_color: str) -> str:
     """
     Encuentra el nombre CSS más cercano para un color hex dado.
-    Usa distancia euclidiana en espacio RGB.
+    Usa distancia Redmean, que aproxima mejor la percepción humana
+    que la distancia euclidiana RGB simple.
+
+    Además, aplica un sesgo anti-gris: si el mejor match cae en una
+    categoría "no-color" (gris, negro, blanco) pero hay un color real
+    dentro de 1.3× de distancia, prefiere el color real. Esto evita
+    que marrones oscuros o verdes desaturados caigan en "gris" por
+    diferencias mínimas en RGB.
     """
     r, g, b = hex_to_rgb(hex_color)
     min_dist = float("inf")
@@ -244,13 +281,34 @@ def closest_css_color(hex_color: str) -> str:
 
     for css_name, css_hex in _CSS3_NAMES_TO_HEX.items():
         cr, cg, cb = hex_to_rgb(css_hex)
-        # Distancia euclidiana ponderada (percepción humana aproximada)
-        dist = ((r - cr) ** 2 + (g - cg) ** 2 + (b - cb) ** 2) ** 0.5
+        dist = _redmean(r, g, b, cr, cg, cb)
         if dist < min_dist:
             min_dist = dist
             closest = css_name
 
-    return closest or "gray"
+    if not closest:
+        return "gray"
+
+    # Sesgo anti-gris: si el closest es "no-color", buscar el mejor "color real"
+    # que esté dentro de 1.5× de la distancia mínima
+    cat_closest = _CSS_TO_BASIC.get(closest, "gris")
+    if cat_closest in _CATEGORIAS_NO_COLOR:
+        mejor_color = None
+        mejor_dist = float("inf")
+        for css_name, css_hex in _CSS3_NAMES_TO_HEX.items():
+            cat = _CSS_TO_BASIC.get(css_name, "gris")
+            if cat in _CATEGORIAS_NO_COLOR:
+                continue
+            cr, cg, cb = hex_to_rgb(css_hex)
+            dist = _redmean(r, g, b, cr, cg, cb)
+            if dist < mejor_dist:
+                mejor_dist = dist
+                mejor_color = css_name
+        # Si hay un color real dentro de 1.3× de la distancia al gris, usarlo
+        if mejor_color and mejor_dist < min_dist * 1.5:
+            return mejor_color
+
+    return closest
 
 
 def get_color_names(hex_color: str) -> tuple:
