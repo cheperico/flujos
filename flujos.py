@@ -660,7 +660,7 @@ def opcion_improve_db():
             print("  6) Keywords + Descripcion (pasada unica, mas lenta)")
             print("  7) Transcripcion (audios/videos)")
             print("  8) Keypoints de transcripciones")
-            print("  9) Mas...")
+            print("  9) Siguiente >>")
             print("  0) Volver\n")
         else:
             print("  -- Pasos de inferencia y enriquecimiento --\n")
@@ -669,8 +669,9 @@ def opcion_improve_db():
             print("  3) Localizacion (provincia, municipio, localidad)")
             print("  4) Condiciones climaticas")
             print("  5) Dia de la semana")
-            print("  6) Embeddings (proximamente)")
-            print("  0) Salir\n")
+            print("  6) Embeddings")
+            print("  9) << Anterior")
+            print("  0) Volver\n")
 
         opc = input("  Opcion: ").strip()
 
@@ -732,10 +733,9 @@ def opcion_improve_db():
             elif opc == "5":
                 opcion_dia_semana()
             elif opc == "6":
-                limpiar_pantalla()
-                print("=== EMBEDDINGS ===\n")
-                print("  Proximamente.")
-                pausa()
+                opcion_embeddings()
+            elif opc == "9":
+                parte = 1
             elif opc == "0":
                 break
             else:
@@ -795,6 +795,34 @@ def opcion_dia_semana():
             subprocess.run([sys.executable, script] + db_flag)
     elif opc == "2":
         subprocess.run([sys.executable, script] + db_flag + ["--dry-run"])
+    elif opc == "0":
+        return
+
+    pausa()
+
+
+def opcion_embeddings():
+    """Submenu: generar embeddings vectoriales para búsqueda semántica."""
+    import subprocess
+    script = os.path.join(os.path.dirname(__file__), "scripts", "ai_media", "generate_embeddings.py")
+    db_flag = ["--db", leer_db()]
+
+    limpiar_pantalla()
+    print("=== EMBEDDINGS ===\n")
+
+    print("  1) Generar embeddings (solo pendientes)")
+    print("  2) Previsualizar (dry-run)")
+    print("  3) Ver modelos Ollama instalados")
+    print("  0) Volver\n")
+
+    opc = input("  Opcion: ").strip()
+
+    if opc == "1":
+        subprocess.run([sys.executable, script] + db_flag)
+    elif opc == "2":
+        subprocess.run([sys.executable, script] + db_flag + ["--dry-run"])
+    elif opc == "3":
+        subprocess.run([sys.executable, script] + ["--list-models"])
     elif opc == "0":
         return
 

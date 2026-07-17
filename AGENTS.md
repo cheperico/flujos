@@ -301,14 +301,16 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
   │  ├─ 6. Keywords + Descripción       → improve_db --steps keywords,descriptions
   │  ├─ 7. Transcripción                → improve_db --steps transcribe (verif. Ollama)
   │  ├─ 8. Keypoints                    → improve_db --steps keypoints
-  │  └─ 9. Mas... → Parte 2
+  │  └─ 9. Siguiente >> → Parte 2
   └─ Parte 2: Inferencia y enriquecimiento
      ├─ 1. Inferir timestamps           → improve_db --steps timestamps
      ├─ 2. Inferir GPS                  → improve_db --steps gps
      ├─ 3. Localización (geocode)       → scripts/geocode.py (con modo)
      ├─ 4. Condiciones climáticas       → scripts/fetch_weather.py (con modo)
      ├─ 5. Día de la semana             → scripts/dia_semana.py (con modo)
-     └─ 6. Embeddings (próximamente)
+     ├─ 6. Embeddings (próximamente)
+     ├─ 9. << Anterior → Parte 1
+     └─ 0. Volver
 
 4. Consultar base de datos
   ├─ 1. Ver resumen de la DB           → opcion_check_db() (solo Total, Imágenes, Videos, Audios, Textos, Otros)
