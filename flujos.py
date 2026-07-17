@@ -396,6 +396,10 @@ def opcion_gradient():
 
     if opc == "1":
         modo = _preguntar_modo()
+        if modo is None:
+            print("  Cancelado.")
+            pausa()
+            return
         args = ["--db", leer_db()]
         if modo != "skip":
             args += ["--mode", modo]
@@ -630,16 +634,20 @@ def _ejecutar_improve_db(pasos: str | None = None, modo: str = "skip"):
 
 
 def _preguntar_modo():
-    """Pregunta modo de ejecución y lo devuelve como string."""
+    """Pregunta modo de ejecución y lo devuelve como string.
+    Retorna None si el usuario cancela la operación."""
     print("  Modo:")
     print("    s) Skip — solo pendientes (default)")
     print("    u) Update — actualizar existentes")
     print("    r) Replace — borrar y regenerar")
-    m = input("  Modo (s/u/r) [s]: ").strip().lower()
+    print("    c) Cancelar")
+    m = input("  Modo (s/u/r/c) [s]: ").strip().lower()
     if m == "u":
         return "update"
     elif m == "r":
         return "replace"
+    elif m == "c":
+        return None
     return "skip"
 
 
@@ -683,30 +691,58 @@ def opcion_improve_db():
                 pasos = input("  Pasos (separados por coma, ej: colors,keywords): ").strip()
                 if pasos:
                     modo = _preguntar_modo()
+                    if modo is None:
+                        print("  Cancelado.")
+                        pausa()
+                        continue
                     _ejecutar_improve_db(pasos=pasos, modo=modo)
                 pausa()
             elif opc == "3":
                 modo = _preguntar_modo()
+                if modo is None:
+                    print("  Cancelado.")
+                    pausa()
+                    continue
                 _ejecutar_improve_db(pasos="colors", modo=modo)
                 pausa()
             elif opc == "4":
                 modo = _preguntar_modo()
+                if modo is None:
+                    print("  Cancelado.")
+                    pausa()
+                    continue
                 _ejecutar_improve_db(pasos="keywords", modo=modo)
                 pausa()
             elif opc == "5":
                 modo = _preguntar_modo()
+                if modo is None:
+                    print("  Cancelado.")
+                    pausa()
+                    continue
                 _ejecutar_improve_db(pasos="descriptions", modo=modo)
                 pausa()
             elif opc == "6":
                 modo = _preguntar_modo()
+                if modo is None:
+                    print("  Cancelado.")
+                    pausa()
+                    continue
                 _ejecutar_improve_db(pasos="keywords,descriptions", modo=modo)
                 pausa()
             elif opc == "7":
                 modo = _preguntar_modo()
+                if modo is None:
+                    print("  Cancelado.")
+                    pausa()
+                    continue
                 _ejecutar_improve_db(pasos="transcribe", modo=modo)
                 pausa()
             elif opc == "8":
                 modo = _preguntar_modo()
+                if modo is None:
+                    print("  Cancelado.")
+                    pausa()
+                    continue
                 _ejecutar_improve_db(pasos="keypoints", modo=modo)
                 pausa()
             elif opc == "9":
@@ -720,10 +756,18 @@ def opcion_improve_db():
         else:  # parte == 2
             if opc == "1":
                 modo = _preguntar_modo()
+                if modo is None:
+                    print("  Cancelado.")
+                    pausa()
+                    continue
                 _ejecutar_improve_db(pasos="timestamps", modo=modo)
                 pausa()
             elif opc == "2":
                 modo = _preguntar_modo()
+                if modo is None:
+                    print("  Cancelado.")
+                    pausa()
+                    continue
                 _ejecutar_improve_db(pasos="gps", modo=modo)
                 pausa()
             elif opc == "3":
@@ -760,6 +804,10 @@ def opcion_weather():
 
     if opc == "1":
         modo = _preguntar_modo()
+        if modo is None:
+            print("  Cancelado.")
+            pausa()
+            return
         if modo != "skip":
             subprocess.run([sys.executable, script] + db_flag + ["--mode", modo])
         else:
@@ -789,6 +837,10 @@ def opcion_dia_semana():
 
     if opc == "1":
         modo = _preguntar_modo()
+        if modo is None:
+            print("  Cancelado.")
+            pausa()
+            return
         if modo != "skip":
             subprocess.run([sys.executable, script] + db_flag + ["--mode", modo])
         else:
@@ -844,6 +896,10 @@ def opcion_geocode():
 
     if opc == "1":
         modo = _preguntar_modo()
+        if modo is None:
+            print("  Cancelado.")
+            pausa()
+            return
         args = ["--db", leer_db()]
         if modo != "skip":
             args += ["--mode", modo]
@@ -1049,6 +1105,9 @@ def opcion_backfill_end_time(db_path: str | None = None):
 
         # Preguntar modo
         modo = _preguntar_modo()
+        if modo is None:
+            print("  Cancelado.")
+            return
 
         if modo == "replace":
             print("  Modo replace: limpiando end_time existentes...")
