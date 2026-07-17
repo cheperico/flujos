@@ -235,6 +235,43 @@ Claves: `ingest_root`, `current_ingest_batch`, etc.
 
 ---
 
+## Mapa de datos: qué se escribe y dónde
+
+Cada script del pipeline escribe datos específicos en la DB. Esta tabla centraliza
+**qué datos genera cada etapa, en qué tabla y en qué columnas/claves**:
+
+| Etapa | Script | Datos | Tabla | Columnas / Claves |
+|---|---|---|---|---|
+| **INGESTA** | `ingest.py` | Metadatos de archivo (nombre, ruta, tamaño, tipo, subtipo) | `media` | filename_original, filepath_absoluto, filepath_relativo, carpeta, type, subtype, size_bytes |
+| | | Huellas digitales (SHA-256) | `media` | file_hash, content_hash |
+| | | Sidecar Sony XML | `media` | sidecar_xml, sidecar_parsed, sidecar_hash |
+| | | Timestamp original + UTC normalizado | `media` | timestamp_original, timestamp_utc, timezone_note |
+| | | Duración (videos/audios) | `media` | duration_secs |
+| | | GPS (lat, lon, altitud, fuente) | `media` | latitude, longitude, altitude, geolocation_source |
+| | | Autor | `media` | author, author_source |
+| | | Colores dominantes (3 slots: hex, nombre CSS, categoría básica) | `media` | color_{1,2,3}_hex, color_{1,2,3}_name_css, color_{1,2,3}_name_basic |
+| | | Control de ingesta (fecha, batch) | `media` | ingested_at, ingest_batch_id |
+| **COLORES** | `improve_db.py --step colors` | Reprocesa colores dominantes (modos skip/update/replace) | `media` | color_{1,2,3}_hex, color_{1,2,3}_name_css, color_{1,2,3}_name_basic, updated_at |
+| **KEYWORDS** | `improve_db.py --step keywords` | Palabras clave IA (5-7, incluye género fotográfico) | `media_metadata` | key=`ia_keywords`, value=JSON array |
+| **DESCRIPTION** | `improve_db.py --step descriptions` | Descripción breve generada por IA | `media_metadata` | key=`ia_description`, value=texto |
+| **TRANSCRIBE** | `improve_db.py --step transcribe` | Transcripción completa de audio/video | `media_metadata` | key=`transcript`, value=texto |
+| **KEYPOINTS** | `improve_db.py --step keypoints` | Segmentos individuales de transcripción con timestamp | `media_keypoints` | media_id, timestamp_offset_secs, timestamp_absolute, key=`transcript_segment`, value=texto, source |
+| **TIMESTAMPS** | `improve_db.py --step timestamps` | Timestamps inferidos desde EXIF/ExifTool | `media` | timestamp_original, timestamp_utc, timezone_note, updated_at |
+| **GPS** | `improve_db.py --step gps` | GPS inferido desde EXIF/ExifTool | `media` | latitude, longitude, altitude, geolocation_source, updated_at |
+| **GEOCODE** | `geocode.py` | Provincia, municipio, localidad (Georef API Argentina) | `media` | provincia, departamento, municipio, localidad, geocode_source, geocode_date |
+| **WEATHER** | `fetch_weather.py` | Clima histórico (Open-Meteo ERA5-Land) | `media_metadata` | keys: weather_temp_c, weather_humidity_pct, weather_precip_mm, weather_cloud_pct, weather_code, weather_label, weather_hour_utc, weather_source |
+| **DÍA SEMANA** | `dia_semana.py` | Día de la semana en español | `media_metadata` | key=`dia_semana`, value=lunes\|martes\|...\|domingo |
+| **GRADIENTES** | `gradiente.py` | Distancia Haversine, cambio elevación, pendiente % y acumulados | `media` | distance_from_prev_m, elevation_gain_m, gradient_pct, cumul_distance_m, cumul_elevation_gain_m |
+| **BACKFILL** | `flujos.py` backfill-end-time | Precalcula end_time = timestamp_utc + duration_secs | `media` | end_time, updated_at |
+| **RELOCATE** | `relocate.py` | Actualiza rutas cuando los archivos se mudan de carpeta | `media` | filepath_absoluto, filepath_relativo, carpeta, sidecar_xml |
+
+> **Nota**: todas las operaciones que modifican la DB soportan `--mode skip|update|replace`.
+> - `skip`: solo procesa registros donde el dato es NULL
+> - `update`: actualiza todos los registros (sobrescribe)
+> - `replace`: limpia los datos existentes primero, luego regenera
+
+---
+
 ## Catálogo de Scripts
 
 ### Entry point: `flujos.py`

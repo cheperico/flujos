@@ -4,9 +4,10 @@
 
 ```
 Etapa 1: PREPARAR MEDIOS     →  Limpieza de tandas, redimensionar, etc.
-Etapa 2: INGESTA              →  Ingesta en DB + metadatos
-Etapa 3: MEJORA DE DB         →  Etiquetado, inferencia, transcripción, color
-Etapa 4: POST-PROCESO (yapa)  →  Escribir metadatos de DB a los archivos
+Etapa 2: INGESTA              →  Ingesta en DB + metadatos base + colores
+Etapa 3: MEJORA DB            →  Etiquetado IA, transcripción, colores, timestamps, GPS
+Etapa 4: ENRIQUECIMIENTO      →  Geocodificación, clima, día, gradientes
+Etapa 5: INSTALACIÓN          →  TouchDesigner + motor de deriva
 ```
 
 ---
@@ -26,57 +27,52 @@ Etapa 4: POST-PROCESO (yapa)  →  Escribir metadatos de DB a los archivos
 |---|---|---|
 | Escaneo + fingerprint rápido | Alta | ✅ |
 | Extracción EXIF (GPS, timestamps, cámara, autor) | Alta | ✅ |
-| Extracción de colores dominantes | Alta | ⚠️ Bug webcolors — colores en NULL |
+| Extracción de colores dominantes | Alta | ✅ `color_utils.py` (Redmean, anti-gray bias, centrality) |
 | Deduplicación por contenido | Alta | ✅ |
 | Ingesta incremental (skip por file_hash) | Alta | ✅ |
 | `ingest_batch_id` + `duration_secs` como columnas | Alta | ✅ |
 | Guardar raíz de ingesta en config | Alta | ✅ |
-| Undo-ingest por batch_id | Alta | ✅ `flujos.py undo-ingest` |
-| `end_time` para consultas por rango temporal | Alta | ✅ Agregado a schema, ingest, flujos.py |
+| Undo-ingest por batch_id | Alta | ✅ |
+| `end_time` para consultas por rango temporal | Alta | ✅ |
+| GPS sign bug (lat/lon positivo en Argentina) | **Corregido** | ✅ Fixeado en ingest.py (`_es_sur_oeste()`, `_parse_gps_position()`) |
 | Keywords IPTC en JSON (hoy string Python) | Media | ❌ |
 | Content hash de video optimizado | Baja | ❌ |
 
 ---
 
-## Etapa 3: Mejora de DB
+## Etapa 3: Mejora DB
 
 | Item | Prioridad | Estado | Ejecuta vía |
 |---|---|---|---|
-| Etiquetado por keywords con IA | Alta | ✅ | `improve-db --steps keywords` |
-| Transcripción de audios/videos con timestamp | Alta | ✅ | `improve-db --steps transcribe` |
-| Descripción de imágenes con IA | Alta | ✅ | `improve-db --steps descriptions` |
-| Lectura de color de imágenes (fix webcolors) | Alta | ✅ | `improve-db --steps colors` |
-| **Inferencia de GPS** desde medios cercanos | **Alta** | ✅ | `improve-db --steps gps` |
-| **Inferencia de timestamps faltantes** | **Alta** | ✅ | `improve-db --steps timestamps` |
-| Tabla `media_keypoints` + poblar desde transcripciones | Alta | ✅ | `improve-db --steps keypoints` |
+| Colores dominantes (reprocesar) | Alta | ✅ | `improve-db --steps colors --mode` |
+| Etiquetado por keywords con IA (17 géneros) | Alta | ✅ | `improve-db --steps keywords --mode` |
+| Descripción de imágenes con IA | Alta | ✅ | `improve-db --steps descriptions --mode` |
+| Transcripción de audios/videos con timestamp | Alta | ✅ | `improve-db --steps transcribe --mode` |
+| Keypoints (segmentos de transcripción) | Alta | ✅ | `improve-db --steps keypoints --mode` |
+| **Inferencia de GPS** desde medios cercanos | Alta | ✅ | `improve-db --steps gps --mode` |
+| **Inferencia de timestamps faltantes** | Alta | ✅ | `improve-db --steps timestamps --mode` |
+| Pipeline unificado de 7 pasos con skip/update/replace | Alta | ✅ | `improve_db.py` + flujos.py TUI |
+| Verificación de Ollama antes de pasos IA | Alta | ✅ | `_verificar_ollama()` en flujos.py |
+| Threading en llamadas Ollama (2 workers) | Media | ✅ | `ThreadPoolExecutor` en improve_db.py |
 | Inferencia de autor desde medios cercanos | Baja | ❌ | — |
-| Detección/corrección de offset de reloj en cámaras | Media | ❌ Nota: si una cámara tiene la hora mal configurada, todos sus medios tienen timestamp desplazado. Se podría detectar comparando timestamps EXIF vs GPS track o vs medios de otros dispositivos en el mismo momento. |
+| Detección/corrección de offset de reloj en cámaras | Media | ❌ | — |
 | Merge de metadatos para contenido duplicado | Baja | ❌ | — |
-| Soporte para tracks GPS (GPX) | Baja | ❌ | — |
 
 ---
 
-## Etapa 4: Post-proceso (yapa)
+## Etapa 4: Enriquecimiento
 
-| Item | Prioridad | Estado |
-|---|---|---|
-| Escribir metadatos de DB a archivos (EXIF/IPTC o XML sidecar) | Baja | ❌ |
-
----
-
-## Gestión de DB
-
-| Item | Prioridad | Estado |
-|---|---|---|
-| `flujos.py` entry point unificado + TUI | Alta | ✅ |
-| `relocate.py` — cambiar raíz de medios | Alta | ✅ |
-| `reset-db` — borrar datos y reiniciar | Media | ❌ |
-| `backfill-end-time` — poblar end_time en registros existentes | Alta | ✅ flujos.py |
-| `improve-db` — comando unificado de mejora (7 pasos, modos skip/update/replace) | Alta | ✅ `scripts/improve_db.py` + flujos.py |
+| Item | Prioridad | Estado | Ejecuta vía |
+|---|---|---|---|
+| **Geocodificación inversa** (provincia, municipio, localidad) | Alta | ✅ | `geocode.py --mode` (Georef API Argentina) |
+| **Clima histórico** (temperatura, humedad, lluvia, nubes) | Alta | ✅ | `fetch_weather.py --mode` (Open-Meteo ERA5-Land) |
+| **Día de la semana** en español | Alta | ✅ | `dia_semana.py --mode` |
+| **Gradientes de ruta** (distancia Haversine, elevación, pendiente) | Alta | ✅ | `gradiente.py --mode` (Python puro, sin numpy) |
+| Embeddings vectoriales (búsqueda semántica) | Media | ⏳ | `generate_embeddings.py` + `clustering.py` |
 
 ---
 
-## Instalación (TouchDesigner)
+## Etapa 5: Instalación (TouchDesigner)
 
 | Item | Prioridad | Estado |
 |---|---|---|
@@ -88,6 +84,40 @@ Etapa 4: POST-PROCESO (yapa)  →  Escribir metadatos de DB a los archivos
 
 ---
 
+## Gestión de DB
+
+| Item | Prioridad | Estado |
+|---|---|---|
+| `flujos.py` entry point unificado + TUI | Alta | ✅ |
+| `relocate.py` — cambiar raíz de medios | Alta | ✅ |
+| `reset-db` — backup + borrar datos y reiniciar | Media | ✅ |
+| `backup-db` / `restore-db` — copias de seguridad | Media | ✅ |
+| `backfill-end-time` — poblar end_time en registros existentes | Alta | ✅ |
+| `improve-db` — comando unificado de mejora (7 pasos, 3 modos) | Alta | ✅ |
+| Todos los scripts con `--mode skip/update/replace` unificado | Alta | ✅ |
+| `_preguntar_modo()` en TUI para todas las operaciones DB | Alta | ✅ |
+| `_verificar_ollama()` antes de pasos IA en TUI | Alta | ✅ |
+| **Mapa de datos centralizado** (qué escribe cada script y dónde) | Media | ✅ Documentado en AGENTS.md |
+| Soporte para tracks GPS (GPX) | Baja | ❌ |
+| Corrección de signo GPS en registros existentes (144 positivos) | Alta | ⏳ Pendiente: script de fix + re-geocode |
+
+---
+
+## Documentación
+
+| Item | Prioridad | Estado |
+|---|---|---|
+| `AGENTS.md` documentación exhaustiva (schema, mapa de datos, scripts, TUI, convenciones, pitfalls) | Alta | ✅ |
+| `README.md` actualizado con todos los scripts, comandos, TUI, schema, enriquecimiento | Alta | ✅ |
+| `ROADMAP.md` actualizado con todas las etapas | Alta | ✅ |
+| `docs/geocodificacion_reversa.md` — estrategias de geocodificación | Media | ✅ |
+| `docs/limpieza_tandas_resultados.md` — comparativa de estrategias | Media | ✅ |
+| `docs/arquitectura_motor.md` — TD puro vs híbrido | Baja | ✅ |
+| `docs/flujo_de_medios.md` — flujo en el motor | Baja | ✅ |
+| `docs/linea_de_tiempo.md` — diseño de timeline | Baja | ✅ |
+
+---
+
 ## Historial
 
 - **2026-07-13:** Pipeline completo documentado. Bug ExifTool fixeado.
@@ -96,18 +126,22 @@ Etapa 4: POST-PROCESO (yapa)  →  Escribir metadatos de DB a los archivos
   `undo-ingest` implementado. README y ROADMAP actualizados.
 - **2026-07-15:** `end_time` agregado a schema, ingest y flujos.py.
   `backfill-end-time` subcomando. Timestamps faltantes a prioridad alta.
-  Documentación actualizada.
 - **2026-07-15 (2da ronda):** Tabla `media_keypoints` en schema.
-  `scripts/improve_db.py` creado con 7 pasos (colors, keywords,
-  descriptions, transcribe, keypoints, timestamps, gps) y 3 modos
-  (skip/update/replace). Subcomando `improve-db` en flujos.py (CLI + TUI).
-  Dependencias entre pasos resueltas automáticamente.
-- **2026-07-15 (3ra ronda):** Fixes varios:
-  - Fallback timestamp prioriza FileCreateDate de ExifTool antes de getmtime
-  - relocate.py ahora maneja sidecar_xml como ruta relativa correctamente
-  - improve_db.py: serialización numpy fixeada (language_probability)
-  - check_db.py y check_gps.py refactorizados con argparse + main()
-  - flujos.py: TUI acepta --db en ingesta; CLI acepta --db en check-db,
-    check-gps, undo-ingest, backfill-end-time, reset-db
-  - undo_ingest: query de current_ingest_batch movida fuera del loop
-  - ROADMAP: anotado "detectar offset de reloj en cámaras" como media
+  `scripts/improve_db.py` creado con 7 pasos y 3 modos.
+- **2026-07-15 (3ra ronda):** Fixes: timestamp fallback, relocate sidecars,
+  numpy serialization, check_db/check_gps refactor, --db en varios comandos.
+- **2026-07-16:** **Mejoras mayores:**
+  - `color_utils.py`: Redmean distance, anti-gray bias (1.5×), centrality boost,
+    relative saturation, grey variants, olive→verde, fuchsia→violeta
+  - `geocode.py`, `gradiente.py`, `fetch_weather.py`, `dia_semana.py`:
+    todos con `--mode skip/update/replace` unificado
+  - TUI: `_preguntar_modo()` en todas las operaciones DB
+  - TUI: `_verificar_ollama()` verifica Ollama antes de pasos IA
+  - TUI: nuevo submenú "Mantenimiento DB" (relocate, gradient, backfill, backup, restore, reset)
+  - TUI: backup-db / restore-db implementados
+  - TUI: resumen DB simplificado (6 líneas)
+  - GPS sign bug fixeado en `ingest.py` (South/West text completo)
+  - `AGENTS.md`: reescritura completa como documentación exhaustiva
+  - `README.md`: actualización completa con todos los scripts, comandos, TUI, schema, enriquecimiento
+  - `ROADMAP.md`: actualización con todas las etapas y nuevo historial
+  - **Mapa de datos centralizado** agregado a AGENTS.md
