@@ -535,28 +535,37 @@ def is_dot_underscore(filename: str) -> bool:
     return filename.startswith("._")
 
 
+def _es_sur_oeste(ref: str) -> bool:
+    """True si ref indica Sur/South o West/Oeste (acepta abrev. de 1 letra o texto completo)."""
+    return bool(ref) and ref.strip().upper()[0] in ("S", "W")
+
+
 def parse_gps_dms(dms_str: str, ref: str = "") -> float | None:
     """
     Convierte coordenadas DMS (grados, minutos, segundos) a decimal.
     Ejemplo: "34 deg 38' 34.62\" S" -> -34.64295
     También acepta "34.64295" (decimal directo).
+
+    ref acepta tanto "S"/"W" como "South"/"West" (ExifTool sin -n).
     """
     if not dms_str:
         return None
 
     dms_str = dms_str.strip()
+    dms_str = dms_str.rstrip(",")  # Composite:GPSPosition separa con coma
 
-    # Ya es decimal? (ej: "34.64295")
+    # Ya es decimal? (ej: "-34.64295" o "34.64295")
     try:
         val = float(dms_str)
-        if ref and ref in ("S", "W"):
+        if _es_sur_oeste(ref):
             val = -abs(val)
         return val
     except ValueError:
         pass
 
     # Formato DMS: "34 deg 38' 34.62\" S"
-    pattern = r"([\d.]+)\s*deg\s*([\d.]+)\s*['\u2032]\s*([\d.]+)\s*[\"\\\u2033]?\s*([NSEW])?"
+    pattern = r"([\d.]+)\s*deg\s*([\d.]+)\s*['\u2032]\s*([\d.]+)\s*[\"\\\u2033]?\s*([NSEWnsew][a-z]*)?"
+
     match = re.match(pattern, dms_str)
     if match:
         degrees = float(match.group(1))
@@ -565,11 +574,39 @@ def parse_gps_dms(dms_str: str, ref: str = "") -> float | None:
         ref = match.group(4) or ref
 
         decimal = degrees + minutes / 60.0 + seconds / 3600.0
-        if ref in ("S", "W"):
+        if _es_sur_oeste(ref):
             decimal = -decimal
         return round(decimal, 7)
 
     return None
+
+
+def _parse_gps_position(pos_str: str) -> tuple[float | None, float | None]:
+    """
+    Parsea Composite:GPSPosition en cualquiera de sus formatos:
+      - Decimal:  "-34.64295 -58.45678"  (con -n)
+      - DMS:      "31 deg 24' 28.55\" S, 64 deg 11' 23.11\" W"  (sin -n)
+    """
+    pos_str = pos_str.strip()
+    if not pos_str:
+        return None, None
+
+    # Dividir por coma si está en formato DMS
+    if "," in pos_str:
+        halves = pos_str.split(",", 1)
+        if len(halves) == 2:
+            lat = parse_gps_dms(halves[0].strip())
+            lon = parse_gps_dms(halves[1].strip())
+            return lat, lon
+
+    # Formato decimal: "lat lon"
+    parts = pos_str.split()
+    if len(parts) >= 2:
+        lat = parse_gps_dms(parts[0])
+        lon = parse_gps_dms(parts[1])
+        return lat, lon
+
+    return None, None
 
 
 def extract_gps_from_exif(exif_meta: dict) -> dict:
@@ -579,17 +616,14 @@ def extract_gps_from_exif(exif_meta: dict) -> dict:
     """
     geo = {}
 
-    # Buscar GPSPosition (decimal, ej: "-34.64295 -58.45678")
+    # Buscar GPSPosition (decimal con -n, o DMS sin -n)
     gps_pos = exif_meta.get("composite_gpsposition", "")
     if gps_pos:
-        parts = gps_pos.strip().split()
-        if len(parts) >= 2:
-            lat = parse_gps_dms(parts[0])
-            lon = parse_gps_dms(parts[1])
-            if lat is not None and lon is not None:
-                geo["latitude"] = lat
-                geo["longitude"] = lon
-                geo["geolocation_source"] = "metadata"
+        lat, lon = _parse_gps_position(gps_pos)
+        if lat is not None and lon is not None:
+            geo["latitude"] = lat
+            geo["longitude"] = lon
+            geo["geolocation_source"] = "metadata"
 
     # Fallback: GPSLatitude + GPSLatitudeRef (DMS)
     if "latitude" not in geo:
@@ -717,6 +751,7 @@ def init_db(db_path: str):
             CREATE INDEX IF NOT EXISTS idx_media_carpeta ON media(carpeta);
             CREATE INDEX IF NOT EXISTS idx_media_timestamp_utc ON media(timestamp_utc);
             CREATE INDEX IF NOT EXISTS idx_media_latlon ON media(latitude, longitude);
+            CREATE INDEX IF NOT EXISTS idx_media_gps_time ON media(latitude, timestamp_utc) WHERE latitude IS NOT NULL;
             CREATE INDEX IF NOT EXISTS idx_media_ingest_batch ON media(ingest_batch_id);
             CREATE INDEX IF NOT EXISTS idx_metadata_key ON media_metadata(key);
         """)
@@ -752,7 +787,18 @@ def migrate_db(conn):
         ("localidad", "TEXT"),
         ("geocode_source", "TEXT"),
         ("geocode_date", "TEXT"),
+        ("distance_from_prev_m", "REAL"),
+        ("elevation_gain_m", "REAL"),
+        ("gradient_pct", "REAL"),
+        ("cumul_distance_m", "REAL"),
+        ("cumul_elevation_gain_m", "REAL"),
     ]
+
+    # Indices utiles
+    try:
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_media_gps_time ON media(latitude, timestamp_utc) WHERE latitude IS NOT NULL")
+    except sqlite3.OperationalError:
+        pass
     for col_name, col_type in migrations:
         try:
             conn.execute(f"ALTER TABLE media ADD COLUMN {col_name} {col_type}")
