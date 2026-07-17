@@ -562,6 +562,73 @@ def opcion_undo_ingest(db_path: str | None = None):
     pausa()
 
 
+def _verificar_ollama(modelos: list[str] | None = None) -> bool:
+    """Verifica que Ollama esté corriendo y (opcional) que los modelos estén disponibles.
+    
+    Args:
+        modelos: lista de nombres de modelo a verificar (ej: ["qwen2.5vl:7b"])
+    
+    Returns:
+        True si Ollama está disponible (y los modelos si se pidieron), False si no.
+    """
+    import urllib.request
+    import json
+
+    try:
+        req = urllib.request.Request("http://localhost:11434/api/tags",
+                                     method="GET")
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            data = json.loads(resp.read().decode())
+    except Exception:
+        print("  ⚠️  Ollama NO está corriendo.")
+        print("     Los pasos de IA (keywords, descripciones, transcripcion)")
+        print("     requieren Ollama con los modelos necesarios.")
+        print("     Ejecutá: ollama serve  (o abrí Ollama Desktop)\n")
+        return False
+
+    if modelos:
+        disponibles = [m["name"] for m in data.get("models", [])]
+        faltan = [m for m in modelos if m not in disponibles]
+        if faltan:
+            print(f"  ⚠️  Modelos faltantes en Ollama: {', '.join(faltan)}")
+            print("     Ejecutá: ollama pull " + " ".join(faltan))
+            print()
+            return False
+
+    return True
+
+
+_PASOS_IA = {"keywords", "descriptions", "transcribe"}
+
+
+def _ejecutar_improve_db(pasos: str | None = None, modo: str = "skip"):
+    """Ejecuta improve_db, verificando Ollama si el/los paso(s) lo requieren."""
+    from scripts import improve_db
+
+    # Determinar si los pasos requieren IA
+    pasos_set = set()
+    if pasos:
+        pasos_set = set(p.strip() for p in pasos.split(","))
+    else:
+        # Sin --steps, improve_db corre todos los pasos
+        pasos_set = {"keywords", "descriptions", "transcribe", "colors",
+                     "keypoints", "timestamps", "gps"}
+
+    if pasos_set & _PASOS_IA:
+        if not _verificar_ollama():
+            r = input("  ?Continuar de todos modos? (s/N): ").strip().lower()
+            if r != "s":
+                print("  Cancelado.")
+                return
+
+    args = []
+    if pasos:
+        args += ["--steps", pasos]
+    if modo != "skip":
+        args += ["--mode", modo]
+    improve_db.main(args)
+
+
 def _preguntar_modo():
     """Pregunta modo de ejecución y lo devuelve como string."""
     print("  Modo:")
@@ -578,8 +645,6 @@ def _preguntar_modo():
 
 def opcion_improve_db():
     """Menu para ejecutar pasos de mejora sobre la DB (2 partes)."""
-    from scripts import improve_db
-
     parte = 1
     while True:
         limpiar_pantalla()
@@ -611,58 +676,37 @@ def opcion_improve_db():
 
         if parte == 1:
             if opc == "1":
-                improve_db.main([])
+                _ejecutar_improve_db()
                 pausa()
             elif opc == "2":
                 pasos = input("  Pasos (separados por coma, ej: colors,keywords): ").strip()
                 if pasos:
                     modo = _preguntar_modo()
-                    args = ["--steps", pasos]
-                    if modo != "skip":
-                        args += ["--mode", modo]
-                    improve_db.main(args)
+                    _ejecutar_improve_db(pasos=pasos, modo=modo)
                 pausa()
             elif opc == "3":
                 modo = _preguntar_modo()
-                args = ["--steps", "colors"]
-                if modo != "skip":
-                    args += ["--mode", modo]
-                improve_db.main(args)
+                _ejecutar_improve_db(pasos="colors", modo=modo)
                 pausa()
             elif opc == "4":
                 modo = _preguntar_modo()
-                args = ["--steps", "keywords"]
-                if modo != "skip":
-                    args += ["--mode", modo]
-                improve_db.main(args)
+                _ejecutar_improve_db(pasos="keywords", modo=modo)
                 pausa()
             elif opc == "5":
                 modo = _preguntar_modo()
-                args = ["--steps", "descriptions"]
-                if modo != "skip":
-                    args += ["--mode", modo]
-                improve_db.main(args)
+                _ejecutar_improve_db(pasos="descriptions", modo=modo)
                 pausa()
             elif opc == "6":
                 modo = _preguntar_modo()
-                args = ["--steps", "keywords,descriptions"]
-                if modo != "skip":
-                    args += ["--mode", modo]
-                improve_db.main(args)
+                _ejecutar_improve_db(pasos="keywords,descriptions", modo=modo)
                 pausa()
             elif opc == "7":
                 modo = _preguntar_modo()
-                args = ["--steps", "transcribe"]
-                if modo != "skip":
-                    args += ["--mode", modo]
-                improve_db.main(args)
+                _ejecutar_improve_db(pasos="transcribe", modo=modo)
                 pausa()
             elif opc == "8":
                 modo = _preguntar_modo()
-                args = ["--steps", "keypoints"]
-                if modo != "skip":
-                    args += ["--mode", modo]
-                improve_db.main(args)
+                _ejecutar_improve_db(pasos="keypoints", modo=modo)
                 pausa()
             elif opc == "9":
                 parte = 2
@@ -675,17 +719,11 @@ def opcion_improve_db():
         else:  # parte == 2
             if opc == "1":
                 modo = _preguntar_modo()
-                args = ["--steps", "timestamps"]
-                if modo != "skip":
-                    args += ["--mode", modo]
-                improve_db.main(args)
+                _ejecutar_improve_db(pasos="timestamps", modo=modo)
                 pausa()
             elif opc == "2":
                 modo = _preguntar_modo()
-                args = ["--steps", "gps"]
-                if modo != "skip":
-                    args += ["--mode", modo]
-                improve_db.main(args)
+                _ejecutar_improve_db(pasos="gps", modo=modo)
                 pausa()
             elif opc == "3":
                 opcion_geocode()
