@@ -133,27 +133,6 @@ timestamp_utc + lat/lon con APIs externas. La deriva puede filtrar por
 
 ---
 
-## Semántica del Color (Kuleshov effect)
-
-### Significados del color (pendiente)
-Ir más allá del color como dato físico (hex → rojo) y agregar una capa
-semántica: el rojo no es solo "rojo", también es "pasión", "peligro", "amor",
-"urgencia", "sangre". Propuesta:
-
-- **Tabla `color_meanings`**: mapping fijo de categoría básica → significados
-  culturales/emocionales con peso.
-- **JOIN en query-time**: un medio con `color_1_name_basic = 'rojo'` hereda
-  automáticamente los significados de rojo. Buscar "peligro" encuentra medios
-  rojos sin necesidad de keyword explícito.
-- **IA contextual (opcional)**: Ollama evalúa qué significa cada color en el
-  contexto específico de la imagen (una rosa → amor, una ambulancia → urgencia).
-- **Kuleshov effect**: el color de fondo en la instalación modifica la
-  percepción del contenido (fondo rojo + video de camión = peligro).
-- **Cross-modal retrieval**: buscar por emoción/símbolo (ej: "tristeza")
-  encuentra medios azules/violetas aunque no tengan la palabra.
-
----
-
 ## Hilos de Entrevistas
 
 ### Hilos de Diálogo

@@ -598,6 +598,7 @@ elif mode == "skip":
 | `docs/linea_de_tiempo.md` | Timeline y navegación temporal de medios. |
 | `docs/geocodificacion_reversa.md` | Estrategias de geocodificación: Georef API batch, Georef offline, python-gazetteer. |
 | `docs/limpieza_tandas_resultados.md` | Comparativa de 4 estrategias de limpieza de tandas (temporal, pHash, tags, embeddings). Embeddings fue la favorita. |
+| `docs/semantica_color.md` | Capa semántica del color: significados emocionales/culturales, Kuleshov effect, cross-modal retrieval. |
 | `docs/ideas_externas.md` | 22 ideas externas recopiladas para la instalación. |
 
 ## Archivos raíz

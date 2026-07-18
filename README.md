@@ -442,6 +442,7 @@ pip install ollama                    # Cliente Python para Ollama
 | `docs/linea_de_tiempo.md` | Diseño conceptual de la línea de tiempo |
 | `docs/geocodificacion_reversa.md` | Estrategias de geocodificación |
 | `docs/limpieza_tandas_resultados.md` | Comparativa de estrategias de limpieza |
+| `docs/semantica_color.md` | Capa semántica del color: significados, Kuleshov effect, cross-modal retrieval |
 | `docs/ideas_externas.md` | Ideas de terceros para la instalación |
 
 ---
