@@ -14,7 +14,7 @@ Flujo:
        b. Si file_hash ya existe en DB -> SKIP
        c. Detecta tipo por extensión
        d. Extrae metadatos según tipo:
-          - Imagen: exiftool (EXIF: GPS, fecha, cámara, colores)
+          - Imagen: exiftool (EXIF: GPS, fecha, cámara)
           - Video: ffprobe + XML sidecar SONY si existe
           - Audio: ffprobe
        e. Calcula content_hash (contenido puro, sin metadatos)
@@ -35,7 +35,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timezone, timedelta
 
 from tqdm import tqdm
-from color_utils import extract_dominant_colors, get_color_names
+
 
 # ---------------------------------------------------------------------------
 # Configuración
@@ -1034,21 +1034,6 @@ def process_file(
         if os.path.isfile(aae_path):
             meta["sidecar_aae"] = aae_path
             log.debug("  -> Tiene sidecar AAE: %s", os.path.basename(aae_path))
-
-        # Colores dominantes
-        try:
-            colors = extract_dominant_colors(filepath, n_colors=3)
-            for i, hex_color in enumerate(colors, 1):
-                name_css, name_basic = get_color_names(hex_color)
-                record[f"color_{i}_hex"] = hex_color
-                record[f"color_{i}_name_css"] = name_css
-                record[f"color_{i}_name_basic"] = name_basic
-            log.debug("  -> Colores: %s, %s, %s",
-                      record.get("color_1_name_css", "?"),
-                      record.get("color_2_name_css", "?"),
-                      record.get("color_3_name_css", "?"))
-        except Exception as e:
-            log.debug("  No se pudieron extraer colores: %s", e)
 
         # Autor
         author, author_source = infer_author(filepath, carpeta, meta, filetype)
