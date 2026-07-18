@@ -1231,6 +1231,11 @@ Ejemplos:
         help="Modo verbose (debug logging)",
     )
     parser.add_argument(
+        "--recursive", "-r",
+        action="store_true",
+        help="Escanea subcarpetas recursivamente (default: solo raíz)",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Solo escanea y muestra qué haría, no escribe en DB",
@@ -1342,8 +1347,15 @@ Ejemplos:
     log.info("Escaneando %s ...", root)
     all_files = []
     for dirpath, dirnames, filenames in os.walk(root):
-        # Saltar carpetas ocultas
-        dirnames[:] = [d for d in dirnames if not d.startswith(".")]
+        # Saltar carpetas ocultas y excluir/
+        dirnames[:] = [
+            d for d in dirnames
+            if not d.startswith(".") and d.lower() != "excluir"
+        ]
+        # Si no es recursivo, solo procesar la raíz
+        if not args.recursive and dirpath != root:
+            dirnames.clear()
+            continue
         for f in filenames:
             all_files.append(os.path.join(dirpath, f))
 

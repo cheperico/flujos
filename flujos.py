@@ -161,7 +161,7 @@ def opcion_preparar(db_path: str | None = None):
             ruta = input("  Carpeta a limpiar: ").strip()
             if ruta and os.path.isdir(ruta):
                 dry_run = input("  ?Solo previsualizar (s/N): ").strip().lower() == "s"
-                limpiar_tandas.main(["--carpeta", ruta] + (["--dry-run"] if dry_run else []))
+                limpiar_tandas.main([ruta] + (["--dry-run"] if dry_run else []))
             elif ruta:
                 print("  Carpeta no encontrada.")
             pausa()
@@ -195,7 +195,7 @@ def opcion_ingesta(db_path: str | None = None):
                 pausa()
                 continue
 
-            verbose = input("  ?Modo verbose? (s/N): ").strip().lower() == "s"
+            verbose = input("  ?Modo verbose (incluye subcarpetas)? (s/N): ").strip().lower() == "s"
             dry_run = input("  ?Solo previsualizar (dry-run)? (s/N): ").strip().lower() == "s"
             custom_db = input(f"  ?Usar otra DB? (default: {leer_db(db_path)}) [Enter para default]: ").strip()
 
@@ -204,6 +204,7 @@ def opcion_ingesta(db_path: str | None = None):
             args = ["--root", root]
             if verbose:
                 args.append("--verbose")
+                args.append("--recursive")
             if dry_run:
                 args.append("--dry-run")
             if custom_db:
