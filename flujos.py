@@ -195,15 +195,14 @@ def opcion_ingesta(db_path: str | None = None):
                 pausa()
                 continue
 
-            verbose = input("  ?Modo verbose (incluye subcarpetas)? (s/N): ").strip().lower() == "s"
+            recursive = input("  ?Incluir subcarpetas? (s/N): ").strip().lower() == "s"
             dry_run = input("  ?Solo previsualizar (dry-run)? (s/N): ").strip().lower() == "s"
             custom_db = input(f"  ?Usar otra DB? (default: {leer_db(db_path)}) [Enter para default]: ").strip()
 
             print("\n  Ejecutando ingesta...\n")
             from scripts import ingest
             args = ["--root", root]
-            if verbose:
-                args.append("--verbose")
+            if recursive:
                 args.append("--recursive")
             if dry_run:
                 args.append("--dry-run")
