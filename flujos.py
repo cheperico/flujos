@@ -80,6 +80,10 @@ COMANDOS:
   improve-db        Ejecutar pasos de mejora sobre la DB (colores,
                     keywords, transcripcion, keypoints, timestamps, GPS).
 
+  mapa              Generar un mapa HTML interactivo con Folium
+                    a partir de los GPS de la BD.
+                    Ej: python flujos.py mapa --heatmap --road-colors
+
   reset-db          Hace backup de la DB actual y crea una nueva
                      desde cero (schema limpio).
 
@@ -633,22 +637,6 @@ def _ejecutar_improve_db(pasos: str | None = None, modo: str = "skip"):
     improve_db.main(args)
 
 
-def _listar_modelos_ollama():
-    """Muestra los modelos instalados en Ollama usando el cliente Python."""
-    try:
-        import ollama
-        response = ollama.list()
-        modelos = response.models if hasattr(response, "models") else []
-        print("=== Modelos instalados en Ollama ===\n")
-        for m in modelos:
-            nombre = m.model if hasattr(m, "model") else str(m)
-            print(f"  {nombre}")
-        print()
-    except Exception as e:
-        print(f"  Error al conectar con Ollama: {e}")
-        print("  ¿Está Ollama corriendo? (Verificá con 'ollama ps')\n")
-
-
 def _preguntar_modo():
     """Pregunta modo de ejecución y lo devuelve como string.
     Retorna None si el usuario cancela la operación."""
@@ -684,8 +672,6 @@ def opcion_improve_db():
             print("  6) Keywords + Descripcion (pasada unica, mas lenta)")
             print("  7) Transcripcion (audios/videos)")
             print("  8) Keypoints de transcripciones")
-            print("  --")
-            print("  v) Ver modelos Ollama instalados")
             print("  9) Siguiente >>")
             print("  0) Volver\n")
         else:
@@ -762,9 +748,6 @@ def opcion_improve_db():
                     pausa()
                     continue
                 _ejecutar_improve_db(pasos="keypoints", modo=modo)
-                pausa()
-            elif opc == "v":
-                _listar_modelos_ollama()
                 pausa()
             elif opc == "9":
                 parte = 2
@@ -885,7 +868,6 @@ def opcion_embeddings():
 
     print("  1) Generar embeddings (solo pendientes)")
     print("  2) Previsualizar (dry-run)")
-    print("  3) Ver modelos Ollama instalados")
     print("  0) Volver\n")
 
     opc = input("  Opcion: ").strip()
@@ -894,8 +876,6 @@ def opcion_embeddings():
         subprocess.run([sys.executable, script] + db_flag)
     elif opc == "2":
         subprocess.run([sys.executable, script] + db_flag + ["--dry-run"])
-    elif opc == "3":
-        _listar_modelos_ollama()
     elif opc == "0":
         return
 
@@ -1081,6 +1061,7 @@ def tui():
         print("  4) Consultar base de datos")
         print("  5) Mantenimiento DB")
         print("  6) Ayuda")
+        print("  7) Mapa de ruta (Folium)")
         print("  0) Salir\n")
 
         opc = input("  Opcion: ").strip()
@@ -1097,6 +1078,8 @@ def tui():
             opcion_mantenimiento()
         elif opc == "6":
             opcion_ayuda()
+        elif opc == "7":
+            opcion_mapa()
         elif opc == "0":
             limpiar_pantalla()
             print("  Chau.")
@@ -1104,6 +1087,48 @@ def tui():
         else:
             print("  Opcion invalida.")
             pausa()
+
+
+# ── Mapa de ruta (Folium) ─────────────────────────────────────────────────────
+
+def opcion_mapa():
+    """Menu para generar mapa HTML interactivo con Folium."""
+    limpiar_pantalla()
+    print("=== MAPA DE RUTA (Folium) ===\n")
+    print("  Genera un mapa HTML interactivo con los puntos GPS de la BD.\n")
+    print("  El mapa se guarda como archivo HTML en el directorio actual")
+    print("  (o en la ruta que se indique).\n")
+    print("  Opciones:")
+    print("    --output PATH  Ruta de salida (default: mapa_ruta.html)")
+    print("    --no-markers   Sin marcadores en los puntos")
+    print("    --heatmap      Agregar capa de mapa de calor")
+    print("    --road-colors  Colorear segmentos por pendiente")
+    print("    --verbose      Mostrar detalles en consola\n")
+
+    output = input("  Archivo de salida [mapa_ruta.html]: ").strip() or "mapa_ruta.html"
+    heatmap = input("  ?Incluir mapa de calor? (s/N): ").strip().lower() == "s"
+    road_colors = input("  ?Colorear segmentos por pendiente? (s/N): ").strip().lower() == "s"
+    no_markers = input("  ?Omitir marcadores? (s/N): ").strip().lower() == "s"
+    verbose = input("  ?Modo verbose? (s/N): ").strip().lower() == "s"
+    custom_db = input(f"  ?Usar otra DB? (default: {leer_db()}) [Enter para default]: ").strip()
+
+    print("\n  Generando mapa...\n")
+
+    from scripts import mapa_ruta
+    args = ["--output", output]
+    if heatmap:
+        args.append("--heatmap")
+    if road_colors:
+        args.append("--road-colors")
+    if no_markers:
+        args.append("--no-markers")
+    if verbose:
+        args.append("--verbose")
+    if custom_db:
+        args.extend(["--db", custom_db])
+    mapa_ruta.main(args)
+
+    pausa()
 
 
 # ── Backfill end_time ─────────────────────────────────────────────────────────
@@ -1422,6 +1447,10 @@ def main():
     elif comando == "gradient":
         from scripts import gradiente
         gradiente.main(resto)
+
+    elif comando == "mapa":
+        from scripts import mapa_ruta
+        mapa_ruta.main(resto)
 
     else:
         print(f"Comando desconocido: {comando}")
