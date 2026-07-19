@@ -9,12 +9,14 @@ Estrategias:
 import logging
 from typing import Optional
 
+from scripts.ai_media.image_analysis import MODELO_VISION_DEFAULT
+
 logger = logging.getLogger(__name__)
 
 
 def agrupar_por_tags(
     grupo: list[str],
-    modelo_vision: str = "moondream:latest",
+    modelo_vision: str = MODELO_VISION_DEFAULT,
     compartir_min: int = 1,
 ) -> list[list[str]]:
     """
@@ -90,7 +92,7 @@ def agrupar_por_tags(
 
 def agrupar_por_embeddings(
     grupo: list[str],
-    modelo_vision: str = "moondream:latest",
+    modelo_vision: str = MODELO_VISION_DEFAULT,
     modelo_embed: str = "nomic-embed-text",
     umbral_similitud: float = 0.7,
 ) -> list[list[str]]:

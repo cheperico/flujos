@@ -253,11 +253,11 @@ def run_keywords(conn, db_path, mode, stats):
         return
 
     try:
-        from scripts.ai_media.image_analysis import extraer_keywords
+        from scripts.ai_media.image_analysis import extraer_keywords, MODELO_VISION_DEFAULT
     except ImportError:
         try:
             sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-            from scripts.ai_media.image_analysis import extraer_keywords
+            from scripts.ai_media.image_analysis import extraer_keywords, MODELO_VISION_DEFAULT
         except ImportError as e:
             log.error("  No se pudo importar extraer_keywords: %s", e)
             log.error("  Asegurate de que scripts/ai_media/image_analysis.py existe.")
@@ -270,7 +270,7 @@ def run_keywords(conn, db_path, mode, stats):
         if not os.path.isfile(fpath):
             return "warning", fpath
         try:
-            keywords = extraer_keywords(fpath, modelo="moondream:latest")
+            keywords = extraer_keywords(fpath, modelo=MODELO_VISION_DEFAULT)
             return "ok", (mid, keywords)
         except Exception as e:
             return "error", (fpath, e)
@@ -337,11 +337,11 @@ def run_descriptions(conn, db_path, mode, stats):
         return
 
     try:
-        from scripts.ai_media.image_analysis import describir_imagen
+        from scripts.ai_media.image_analysis import describir_imagen, MODELO_VISION_DEFAULT
     except ImportError:
         try:
             sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-            from scripts.ai_media.image_analysis import describir_imagen
+            from scripts.ai_media.image_analysis import describir_imagen, MODELO_VISION_DEFAULT
         except ImportError as e:
             log.error("  No se pudo importar describir_imagen: %s", e)
             stats["errors"] += 1
@@ -353,7 +353,7 @@ def run_descriptions(conn, db_path, mode, stats):
         if not os.path.isfile(fpath):
             return "warning", fpath
         try:
-            desc = describir_imagen(fpath, modelo="qwen2.5vl:latest")
+            desc = describir_imagen(fpath, modelo=MODELO_VISION_DEFAULT)
             return "ok", (mid, desc)
         except Exception as e:
             return "error", (fpath, e)

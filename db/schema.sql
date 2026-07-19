@@ -35,12 +35,20 @@ CREATE TABLE IF NOT EXISTS media (
     geolocation_source TEXT,                  -- 'metadata', 'inferido_tiempo', 'track_gps', 'manual'
 
     -- Geocodificación inversa (GPS → localidad/provincia)
+    -- Jerarquía: provincia > municipio > localidad
     provincia         TEXT,                   -- provincia argentina (ej: "Ciudad Autónoma de Buenos Aires")
-    departamento      TEXT,                   -- departamento/partido
-    municipio         TEXT,                   -- municipio
-    localidad         TEXT,                   -- localidad/ciudad
+    departamento      TEXT,                   -- poco usado en Argentina (equivalente a municipio en algunos casos)
+    municipio         TEXT,                   -- municipio (ej: "Tafí Viejo", "Luján de Cuyo")
+    localidad         TEXT,                   -- localidad/ciudad (ej: "El Mollar", "La Banda")
     geocode_source    TEXT,                   -- 'georef_api', 'georef_offline', 'gazetteer', 'manual'
-    geocode_date      TEXT                    -- timestamp ISO de la geocodificación
+    geocode_date      TEXT,                   -- timestamp ISO de la geocodificación
+
+    -- Gradientes / esfuerzo físico (calculado post-ingesta por scripts/gradiente.py)
+    distance_from_prev_m  REAL,               -- distancia horizontal desde el medio anterior (Haversine, metros)
+    elevation_gain_m      REAL,               -- cambio de elevación desde el medio anterior (+ subida, - bajada)
+    gradient_pct          REAL,               -- pendiente porcentual = (elevation_gain / distance) * 100
+    cumul_distance_m      REAL,               -- distancia acumulada desde el inicio del viaje (metros)
+    cumul_elevation_gain_m REAL,              -- ganancia de elevación acumulada (metros)
 
     -- Autor
     author            TEXT,                   -- nombre de quien creó el medio
@@ -94,6 +102,7 @@ CREATE INDEX IF NOT EXISTS idx_media_carpeta ON media(carpeta);
 CREATE INDEX IF NOT EXISTS idx_media_timestamp_utc ON media(timestamp_utc);
 CREATE INDEX IF NOT EXISTS idx_media_end_time ON media(end_time);
 CREATE INDEX IF NOT EXISTS idx_media_latlon ON media(latitude, longitude);
+CREATE INDEX IF NOT EXISTS idx_media_gps_time ON media(latitude, timestamp_utc) WHERE latitude IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_media_ingest_batch ON media(ingest_batch_id);
 CREATE INDEX IF NOT EXISTS idx_metadata_key ON media_metadata(key);
 CREATE INDEX IF NOT EXISTS idx_kp_absolute ON media_keypoints(timestamp_absolute);

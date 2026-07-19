@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import Optional
 
 from scripts.ai_media.ollama_client import OllamaVision
-from scripts.ai_media.image_analysis import extraer_keywords, describir_imagen
+from scripts.ai_media.image_analysis import extraer_keywords, describir_imagen, MODELO_VISION_DEFAULT
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ PROMPT_EVALUAR_CALIDAD = (
 def seleccionar_mejor_imagen(
     rutas_imagenes: list[str],
     criterio: str = "calidad",
-    modelo: str = "moondream:latest",
+    modelo: str = MODELO_VISION_DEFAULT,
     tema: Optional[str] = None,
     temperatura: float = 0.2,
 ) -> dict:
@@ -296,7 +296,7 @@ def seleccionar_mejores_n(
     rutas_imagenes: list[str],
     n: int = 3,
     criterio: str = "calidad",
-    modelo: str = "moondream:latest",
+    modelo: str = MODELO_VISION_DEFAULT,
     tema: Optional[str] = None,
 ) -> list[dict]:
     """
@@ -337,11 +337,8 @@ if __name__ == "__main__":
                         choices=["calidad", "tema", "diversidad", "descripcion"],
                         help="Criterio de selección")
     parser.add_argument("--tema", help="Tema deseado (requerido si criterio=tema)")
-    parser.add_argument("--modelo", default="moondream:latest",
-                        choices=["moondream:latest", "qwen2.5vl:latest",
-                                 "qwen2.5vl:3b", "llama3.2-vision:latest",
-                                 "gemma4:e4b"],
-                        help="Modelo de visión")
+    parser.add_argument("--modelo", default=MODELO_VISION_DEFAULT,
+                        help=f"Modelo de visión (default: {MODELO_VISION_DEFAULT})")
     parser.add_argument("--n", type=int, default=1,
                         help="Número de mejores imágenes a mostrar (default: 1)")
     parser.add_argument("--json", help="Exportar resultados a JSON")

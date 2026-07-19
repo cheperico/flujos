@@ -7,11 +7,11 @@ Proporciona una interfaz unificada para:
   - Listar y seleccionar modelos disponibles
 
 Modelos de visión recomendados (ordenados por capacidad):
-  1. qwen2.5vl:latest (6.0 GB) — mejor equilibrio calidad/velocidad
-  2. llama3.2-vision:latest (7.8 GB) — buena calidad general
-  3. gemma4:e4b (9.6 GB) — multimodal potente
-  4. moondream:latest (1.7 GB) — rápido y ligero
-  5. qwen2.5vl:3b (3.2 GB) — liviano
+  1. moondream:latest (1.7 GB) — rápido y ligero (default)
+  2. qwen2.5vl:3b (3.2 GB) — liviano
+  3. qwen2.5vl:latest (6.0 GB) — mejor equilibrio calidad/velocidad
+  4. llama3.2-vision:latest (7.8 GB) — buena calidad general
+  5. gemma4:e4b (9.6 GB) — multimodal potente
 
 Uso básico:
     from scripts.ai_media.ollama_client import OllamaVision
@@ -52,7 +52,7 @@ MODELOS_TEXTO = [
 class OllamaVision:
     """Cliente para analizar imágenes usando modelos de visión de Ollama."""
 
-    def __init__(self, modelo: str = "qwen2.5vl:latest", timeout: int = 120):
+    def __init__(self, modelo: str = "moondream:latest", timeout: int = 120):
         """
         Args:
             modelo: Nombre del modelo de visión a usar.
@@ -164,42 +164,37 @@ class OllamaVision:
         self.modelo = nuevo_modelo
 
 
-class OllamaTexto:
-    """Cliente para consultar modelos de texto de Ollama."""
+class OllamaEmbedding:
+    """Cliente para generar embeddings vectoriales usando Ollama.
 
-    def __init__(self, modelo: str = "qwen3.5:9b", timeout: int = 120):
+    Uso:
+        cliente = OllamaEmbedding(modelo="nomic-embed-text")
+        vector = cliente.embed("Texto a embedder")
+        print(len(vector))  # 768 para nomic-embed-text
+    """
+
+    def __init__(self, modelo: str = "nomic-embed-text", timeout: int = 60):
         self.modelo = modelo
         self.timeout = timeout
 
-    def consultar(
-        self,
-        prompt: str,
-        sistema: Optional[str] = None,
-        temperatura: float = 0.3,
-    ) -> str:
+    def embed(self, texto: str) -> list[float]:
         """
-        Consulta un modelo de texto.
+        Genera un embedding vectorial para el texto dado.
 
         Args:
-            prompt: Instrucción/pregunta.
-            sistema: Prompt de sistema opcional.
-            temperatura: Control de creatividad.
+            texto: Texto a embedder.
 
         Returns:
-            Texto con la respuesta.
+            Lista de floats con el vector de embedding.
         """
-        messages = []
-        if sistema:
-            messages.append({"role": "system", "content": sistema})
-        messages.append({"role": "user", "content": prompt})
-
         try:
-            response = ollama.chat(
-                model=self.modelo,
-                messages=messages,
-                options={"temperature": temperatura},
-            )
-            return response["message"]["content"].strip()
+            response = ollama.embeddings(model=self.modelo, prompt=texto)
+            vector = response.get("embedding", [])
+            if not vector:
+                raise ValueError("Ollama devolvió un embedding vacío")
+            return vector
         except Exception as e:
-            logger.error("Error en consulta a %s: %s", self.modelo, e)
+            logger.error("Error generando embedding con %s: %s", self.modelo, e)
             raise
+
+

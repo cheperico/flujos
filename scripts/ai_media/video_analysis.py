@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Optional
 
 from scripts.ai_media.ollama_client import OllamaVision
-from scripts.ai_media.image_analysis import _parsear_keywords
+from scripts.ai_media.image_analysis import _parsear_keywords, MODELO_VISION_DEFAULT
 
 logger = logging.getLogger(__name__)
 
@@ -154,7 +154,7 @@ def _consolidar_keywords(resultados_por_frame: list[dict]) -> list[str]:
 
 def analizar_video_keywords(
     ruta_video: str,
-    modelo: str = "moondream:latest",
+    modelo: str = MODELO_VISION_DEFAULT,
     fps: float = 0.5,
     max_frames: int = 20,
     limpiar_frames: bool = True,
@@ -254,7 +254,7 @@ def analizar_video_keywords(
 
 def analizar_video_descripcion(
     ruta_video: str,
-    modelo: str = "qwen2.5vl:latest",
+    modelo: str = MODELO_VISION_DEFAULT,
     fps: float = 0.5,
     max_frames: int = 10,
 ) -> str:
@@ -314,11 +314,8 @@ if __name__ == "__main__":
         description="Analizar videos con modelos de visión Ollama"
     )
     parser.add_argument("video", help="Ruta al archivo de video")
-    parser.add_argument("--modelo", default="moondream:latest",
-                        choices=["moondream:latest", "qwen2.5vl:latest",
-                                 "qwen2.5vl:3b", "llama3.2-vision:latest",
-                                 "gemma4:e4b"],
-                        help="Modelo de visión")
+    parser.add_argument("--modelo", default=MODELO_VISION_DEFAULT,
+                        help=f"Modelo de visión (default: {MODELO_VISION_DEFAULT})")
     parser.add_argument("--fps", type=float, default=0.5,
                         help="Frames por segundo a extraer (0.5 = 1 cada 2s)")
     parser.add_argument("--max-frames", type=int, default=20,

@@ -55,7 +55,7 @@ from typing import Any, Optional
 # Permitir importar scripts/ como paquete
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from scripts.ai_media.image_analysis import extraer_keywords, describir_imagen
+from scripts.ai_media.image_analysis import extraer_keywords, describir_imagen, MODELO_VISION_DEFAULT
 
 logger = logging.getLogger(__name__)
 
@@ -372,7 +372,7 @@ def guardar_en_db(
 
 def analizar_fotograma(
     ruta_fotograma: str,
-    modelo: str = "moondream:latest",
+    modelo: str = MODELO_VISION_DEFAULT,
     usar_proxy: bool = True,
 ) -> dict[str, Any]:
     """
@@ -407,7 +407,7 @@ def analizar_fotograma(
 
 def analizar_video(
     ruta: str,
-    modelo: str = "moondream:latest",
+    modelo: str = MODELO_VISION_DEFAULT,
     intervalo: float = 30.0,
     sensibilidad: float = SENSIBILIDAD_ESCENA,
     usar_proxy: bool = True,
@@ -516,7 +516,7 @@ def analizar_video(
 
 def procesar_desde_db(
     ruta_db: str,
-    modelo: str = "moondream:latest",
+    modelo: str = MODELO_VISION_DEFAULT,
     intervalo: float = 30.0,
     sensibilidad: float = SENSIBILIDAD_ESCENA,
     usar_proxy: bool = True,
@@ -584,7 +584,7 @@ def procesar_desde_db(
 
 def procesar_desde_carpeta(
     carpeta: str,
-    modelo: str = "moondream:latest",
+    modelo: str = MODELO_VISION_DEFAULT,
     intervalo: float = 30.0,
     sensibilidad: float = SENSIBILIDAD_ESCENA,
     usar_proxy: bool = True,
@@ -644,7 +644,7 @@ def procesar_desde_carpeta(
 
 def procesar_archivo_individual(
     ruta: str,
-    modelo: str = "moondream:latest",
+    modelo: str = MODELO_VISION_DEFAULT,
     intervalo: float = 30.0,
     sensibilidad: float = SENSIBILIDAD_ESCENA,
     usar_proxy: bool = True,
@@ -735,9 +735,9 @@ def main():
     modo.add_argument("--db", help="Ruta a la base de datos SQLite")
     modo.add_argument("--folder", help="Ruta a carpeta con videos")
 
-    parser.add_argument("--modelo", default="moondream:latest",
-                        help="Modelo de visión Ollama. Usar --list-models para "
-                             "ver los instalados. (default: moondream:latest)")
+    parser.add_argument("--modelo", default=MODELO_VISION_DEFAULT,
+                        help=f"Modelo de visión. Usar --list-models para "
+                             f"ver los instalados. (default: {MODELO_VISION_DEFAULT})")
     parser.add_argument("--interval", type=float, default=30.0,
                         help="Segundos máximos entre fotogramas (default: 30)")
     parser.add_argument("--sensibilidad", type=float, default=SENSIBILIDAD_ESCENA,

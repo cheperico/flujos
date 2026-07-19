@@ -41,7 +41,6 @@ Uso:
 import argparse
 import json
 import logging
-import os
 import sqlite3
 import sys
 from datetime import datetime
@@ -51,7 +50,12 @@ from typing import Any, Optional
 # Permitir importar scripts/ como paquete
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from scripts.ai_media.image_analysis import extraer_keywords, describir_imagen
+from scripts.ai_media.image_analysis import (
+    extraer_keywords,
+    describir_imagen,
+    analizar_imagen_completo,
+    MODELO_VISION_DEFAULT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -59,8 +63,13 @@ logger = logging.getLogger(__name__)
 EXT_IMAGEN = {".jpg", ".jpeg", ".png", ".tiff", ".tif", ".bmp", ".webp", ".heic", ".heif"}
 
 # Claves en media_metadata
-KEY_AI_TAGS = "ai_tags"
-KEY_AI_DESCRIPCION = "ai_description"
+KEY_AI_TAGS = "ia_keywords"
+KEY_AI_DESCRIPCION = "ia_description"
+
+# Modos de etiquetado
+MODE_COMBINADO = "combinado"      # keywords + descripción en UNA llamada (default)
+MODE_KEYWORDS = "keywords"        # solo keywords (rápido)
+MODE_DESCRIPCION = "descripcion"   # solo descripción
 
 # Modelos de visión recomendados (usar --list-models para ver los instalados)
 MODELOS_RECOMENDADOS = ["moondream:latest", "qwen2.5vl:latest", "qwen2.5vl:3b",
@@ -172,27 +181,70 @@ def conectar_db(ruta_db: str) -> sqlite3.Connection:
     return conn
 
 
-def obtener_imagenes_sin_tags(
-    conn: sqlite3.Connection, limite: Optional[int] = None
+def obtener_imagenes_sin_procesar(
+    conn: sqlite3.Connection, modo: str, limite: Optional[int] = None
 ) -> list[dict]:
     """
-    Busca imágenes en la DB que aún no tienen ai_tags en media_metadata.
+    Busca imágenes en la DB que aún no tienen procesado el campo
+    correspondiente al modo indicado.
+
+    Args:
+        conn: Conexión a la DB.
+        modo: "combinado", "keywords" o "descripcion".
+        limite: Máximo de imágenes a retornar.
 
     Returns:
         Lista de dicts con id, filepath_absoluto, filename_original.
     """
-    query = """
-        SELECT m.id, m.filepath_absoluto, m.filename_original
-        FROM media m
-        WHERE m.type = 'image'
-        AND m.id NOT IN (
-            SELECT mm.media_id
-            FROM media_metadata mm
-            WHERE mm.key = ?
-        )
-        ORDER BY m.id
-    """
-    params = [KEY_AI_TAGS]
+    if modo == MODE_COMBINADO:
+        # Faltan AMBOS: ni ai_tags ni ai_description
+        query = """
+            SELECT m.id, m.filepath_absoluto, m.filename_original
+            FROM media m
+            WHERE m.type = 'image'
+            AND m.id NOT IN (
+                SELECT DISTINCT mm1.media_id
+                FROM media_metadata mm1
+                WHERE mm1.key = ?
+            )
+            AND m.id NOT IN (
+                SELECT DISTINCT mm2.media_id
+                FROM media_metadata mm2
+                WHERE mm2.key = ?
+            )
+            ORDER BY m.id
+        """
+        params = [KEY_AI_TAGS, KEY_AI_DESCRIPCION]
+
+    elif modo == MODE_DESCRIPCION:
+        # Faltan solo descripciones (pueden tener tags)
+        query = """
+            SELECT m.id, m.filepath_absoluto, m.filename_original
+            FROM media m
+            WHERE m.type = 'image'
+            AND m.id NOT IN (
+                SELECT mm.media_id
+                FROM media_metadata mm
+                WHERE mm.key = ?
+            )
+            ORDER BY m.id
+        """
+        params = [KEY_AI_DESCRIPCION]
+
+    else:  # MODE_KEYWORDS
+        # Faltan solo tags (pueden tener descripción)
+        query = """
+            SELECT m.id, m.filepath_absoluto, m.filename_original
+            FROM media m
+            WHERE m.type = 'image'
+            AND m.id NOT IN (
+                SELECT mm.media_id
+                FROM media_metadata mm
+                WHERE mm.key = ?
+            )
+            ORDER BY m.id
+        """
+        params = [KEY_AI_TAGS]
 
     if limite:
         query += " LIMIT ?"
@@ -219,25 +271,38 @@ def obtener_imagenes_sin_tags(
     return resultado
 
 
-def guardar_en_db(conn: sqlite3.Connection, media_id: int, resultado: dict[str, Any]):
+def guardar_en_db(conn: sqlite3.Connection, media_id: int, resultado: dict[str, Any], modo: str = MODE_COMBINADO):
     """
-    Guarda tags + descripción de una imagen en media_metadata.
+    Guarda tags y/o descripción de una imagen en media_metadata,
+    según el modo de etiquetado.
 
-    Usa INSERT OR REPLACE para sobreescribir si ya existiera (por si
-    se quiere re-etiquetar después).
+    Args:
+        conn: Conexión a la DB.
+        media_id: ID del medio en la tabla media.
+        resultado: Dict con "tags" y "descripcion".
+        modo: "combinado", "keywords" o "descripcion".
+              Solo guarda los campos que corresponden al modo.
     """
     try:
-        conn.execute(
-            "INSERT OR REPLACE INTO media_metadata (media_id, key, value) "
-            "VALUES (?, ?, ?)",
-            (media_id, KEY_AI_TAGS,
-             json.dumps(resultado["tags"], ensure_ascii=False)),
-        )
-        conn.execute(
-            "INSERT OR REPLACE INTO media_metadata (media_id, key, value) "
-            "VALUES (?, ?, ?)",
-            (media_id, KEY_AI_DESCRIPCION, resultado["descripcion"]),
-        )
+        if modo in (MODE_COMBINADO, MODE_KEYWORDS):
+            # Guardar tags (pueden ser vacíos si es descripcion-only, por eso check)
+            if resultado.get("tags"):
+                conn.execute(
+                    "INSERT OR REPLACE INTO media_metadata (media_id, key, value) "
+                    "VALUES (?, ?, ?)",
+                    (media_id, KEY_AI_TAGS,
+                     json.dumps(resultado["tags"], ensure_ascii=False)),
+                )
+
+        if modo in (MODE_COMBINADO, MODE_DESCRIPCION):
+            # Guardar descripción (puede ser vacía si es keywords-only)
+            if resultado.get("descripcion"):
+                conn.execute(
+                    "INSERT OR REPLACE INTO media_metadata (media_id, key, value) "
+                    "VALUES (?, ?, ?)",
+                    (media_id, KEY_AI_DESCRIPCION, resultado["descripcion"]),
+                )
+
         conn.commit()
     except Exception as e:
         logger.error("  -> Error guardando en DB (id=%d): %s", media_id, e)
@@ -249,43 +314,71 @@ def guardar_en_db(conn: sqlite3.Connection, media_id: int, resultado: dict[str, 
 
 def etiquetar_imagen(
     ruta: str,
-    modelo: str = "moondream:latest",
+    modelo: str = MODELO_VISION_DEFAULT,
     usar_proxy: bool = True,
+    modo: str = MODE_COMBINADO,
 ) -> dict[str, Any]:
     """
-    Extrae keywords + descripción de una imagen usando modelos de visión.
+    Extrae tags y/o descripción de una imagen usando modelos de visión.
 
     Args:
         ruta: Ruta a la imagen.
         modelo: Modelo de visión.
         usar_proxy: Si True, redimensiona la imagen antes de enviar a la IA.
+        modo: "combinado" -> una sola llamada (default, recomendado),
+              "keywords"  -> solo tags (rápido),
+              "descripcion" -> solo descripción.
 
     Returns:
         Dict con "tags" (list[str]) y "descripcion" (str).
+        En modo keywords, "descripcion" será "".
+        En modo descripcion, "tags" será [].
 
     Raises:
         FileNotFoundError: Si la imagen no existe.
         ValueError: Si falla la extracción.
     """
-    # extraer_keywords y describir_imagen ya manejan proxies internamente
-    keywords = extraer_keywords(
-        ruta,
-        modelo=modelo,
-        temperatura=0.2,
-        usar_proxy=usar_proxy,
-    )
+    if modo == MODE_COMBINADO:
+        # Una sola llamada a la IA para ambos
+        resultado = analizar_imagen_completo(
+            ruta,
+            modelo=modelo,
+            temperatura=0.2,
+            usar_proxy=usar_proxy,
+        )
+        return {
+            "tags": resultado.get("keywords", []),
+            "descripcion": resultado.get("description", "").strip().strip('"'),
+        }
 
-    descripcion = describir_imagen(
-        ruta,
-        modelo=modelo,
-        temperatura=0.3,
-        usar_proxy=usar_proxy,
-    )
+    elif modo == MODE_KEYWORDS:
+        # Solo keywords (rápido, una llamada)
+        keywords = extraer_keywords(
+            ruta,
+            modelo=modelo,
+            temperatura=0.2,
+            usar_proxy=usar_proxy,
+        )
+        return {
+            "tags": keywords,
+            "descripcion": "",
+        }
 
-    return {
-        "tags": keywords,
-        "descripcion": descripcion.strip().strip('"'),
-    }
+    elif modo == MODE_DESCRIPCION:
+        # Solo descripción (una llamada)
+        descripcion = describir_imagen(
+            ruta,
+            modelo=modelo,
+            temperatura=0.3,
+            usar_proxy=usar_proxy,
+        )
+        return {
+            "tags": [],
+            "descripcion": descripcion.strip().strip('"'),
+        }
+
+    else:
+        raise ValueError(f"Modo desconocido: {modo}. Usar: combinado, keywords, descripcion")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -298,19 +391,33 @@ def procesar_imagen(
     usar_proxy: bool,
     sidecar: bool,
     dry_run: bool,
+    modo: str = MODE_COMBINADO,
 ) -> Optional[dict[str, Any]]:
     """
     Procesa una imagen: extrae tags y descripción, opcionalmente guarda sidecar.
+
+    Args:
+        ruta: Ruta a la imagen.
+        modelo: Modelo de visión.
+        usar_proxy: Si True, usa proxy redimensionado.
+        sidecar: Si True, genera sidecar .tags.json.
+        dry_run: Si True, solo muestra qué haría.
+        modo: "combinado", "keywords", "descripcion".
 
     Returns:
         Dict con "tags" y "descripcion", o None si falló.
     """
     if dry_run:
-        logger.info("  [DRY RUN] Se etiquetaría: %s", Path(ruta).name)
+        etiqueta_modo = {
+            MODE_COMBINADO: "etiquetaría (keywords + descripción)",
+            MODE_KEYWORDS: "extraería keywords",
+            MODE_DESCRIPCION: "describiría",
+        }
+        logger.info("  [DRY RUN] Se %s: %s", etiqueta_modo.get(modo, "procesaría"), Path(ruta).name)
         return None
 
     try:
-        resultado = etiquetar_imagen(ruta, modelo=modelo, usar_proxy=usar_proxy)
+        resultado = etiquetar_imagen(ruta, modelo=modelo, usar_proxy=usar_proxy, modo=modo)
 
         tags_str = ", ".join(resultado["tags"])
         logger.info("  Tags (%d): %s", len(resultado["tags"]), tags_str)
@@ -329,11 +436,12 @@ def procesar_imagen(
 
 def procesar_desde_db(
     ruta_db: str,
-    modelo: str = "moondream:latest",
+    modelo: str = MODELO_VISION_DEFAULT,
     limite: Optional[int] = None,
     sidecar: bool = False,
     usar_proxy: bool = True,
     dry_run: bool = False,
+    modo: str = MODE_COMBINADO,
 ):
     """
     Modo post-ingesta: etiqueta imágenes de la DB.
@@ -341,7 +449,7 @@ def procesar_desde_db(
     logger.info("Conectando a DB: %s", ruta_db)
     conn = conectar_db(ruta_db)
 
-    imagenes = obtener_imagenes_sin_tags(conn, limite=limite)
+    imagenes = obtener_imagenes_sin_procesar(conn, modo=modo, limite=limite)
 
     if not imagenes:
         logger.info("No hay imágenes sin etiquetar en la DB.")
@@ -363,7 +471,12 @@ def procesar_desde_db(
         )
 
         if dry_run:
-            logger.info("  [DRY RUN] Se etiquetaría: %s", img["nombre"])
+            etiqueta_modo = {
+                MODE_COMBINADO: "etiquetaría (keywords + descripción)",
+                MODE_KEYWORDS: "extraería keywords de",
+                MODE_DESCRIPCION: "describiría",
+            }
+            logger.info("  [DRY RUN] Se %s: %s", etiqueta_modo.get(modo, "procesaría"), img["nombre"])
             ok += 1
             continue
 
@@ -373,28 +486,37 @@ def procesar_desde_db(
             usar_proxy=usar_proxy,
             sidecar=sidecar,
             dry_run=False,
+            modo=modo,
         )
 
         if resultado:
-            guardar_en_db(conn, img["id"], resultado)
+            guardar_en_db(conn, img["id"], resultado, modo=modo)
             ok += 1
         else:
             fail += 1
 
     conn.close()
 
+    if modo == MODE_KEYWORDS:
+        resumen = "keywords extraídas"
+    elif modo == MODE_DESCRIPCION:
+        resumen = "descripciones generadas"
+    else:
+        resumen = "etiquetadas"
+
     logger.info(
-        "=== RESUMEN: %d etiquetadas, %d fallos (de %d) ===",
-        ok, fail, len(imagenes),
+        "=== RESUMEN: %d %s, %d fallos (de %d) ===",
+        ok, resumen, fail, len(imagenes),
     )
 
 
 def procesar_desde_carpeta(
     carpeta: str,
-    modelo: str = "moondream:latest",
+    modelo: str = MODELO_VISION_DEFAULT,
     sidecar: bool = True,
     usar_proxy: bool = True,
     dry_run: bool = False,
+    modo: str = MODE_COMBINADO,
 ):
     """
     Modo autónomo: etiqueta imágenes de una carpeta y genera sidecars.
@@ -449,6 +571,7 @@ def procesar_desde_carpeta(
             usar_proxy=usar_proxy,
             sidecar=sidecar,
             dry_run=False,
+            modo=modo,
         )
 
         if resultado:
@@ -456,9 +579,16 @@ def procesar_desde_carpeta(
         else:
             fail += 1
 
+    if modo == MODE_KEYWORDS:
+        resumen_nuevas = "nuevas con keywords"
+    elif modo == MODE_DESCRIPCION:
+        resumen_nuevas = "nuevas con descripción"
+    else:
+        resumen_nuevas = "nuevas"
+
     logger.info(
-        "=== RESUMEN: %d nuevas, %d ya tenían sidecar, %d fallos (de %d) ===",
-        ok, ya_etiquetadas, fail, len(rutas),
+        "=== RESUMEN: %d %s, %d ya tenían sidecar, %d fallos (de %d) ===",
+        ok, resumen_nuevas, ya_etiquetadas, fail, len(rutas),
     )
 
 
@@ -505,9 +635,9 @@ def main():
     modo.add_argument("--folder", help="Ruta a carpeta con imágenes (modo autónomo)")
 
     # Opciones generales
-    parser.add_argument("--modelo", default="moondream:latest",
-                        help="Modelo de visión Ollama. Usar --list-models para ver "
-                             "los instalados. (default: moondream:latest)")
+    parser.add_argument("--modelo", default=MODELO_VISION_DEFAULT,
+                        help=f"Modelo de visión Ollama. Usar --list-models para ver "
+                             f"los instalados. (default: {MODELO_VISION_DEFAULT})")
     parser.add_argument("--no-proxy", action="store_true",
                         help="No usar proxies (deshabilita redimensionado automático)")
     parser.add_argument("--dry-run", action="store_true",
@@ -520,6 +650,14 @@ def main():
                         help="Limitar cantidad de imágenes a procesar (solo modo --db)")
     parser.add_argument("--sidecar", action="store_true",
                         help="Generar también sidecar .tags.json (solo modo --db)")
+
+    # Modo de etiquetado
+    modo_group = parser.add_argument_group("Modo de etiquetado")
+    modo_excl = modo_group.add_mutually_exclusive_group()
+    modo_excl.add_argument("--keywords-only", action="store_true",
+                           help="Solo extraer keywords (más rápido)")
+    modo_excl.add_argument("--description-only", action="store_true",
+                           help="Solo generar descripción")
 
     args = parser.parse_args()
 
@@ -541,6 +679,16 @@ def main():
 
     usar_proxy = not args.no_proxy
 
+    # Determinar modo de etiquetado
+    if args.keywords_only:
+        modo = MODE_KEYWORDS
+    elif args.description_only:
+        modo = MODE_DESCRIPCION
+    else:
+        modo = MODE_COMBINADO
+
+    logger.info("Modo de etiquetado: %s", modo)
+
     try:
         if args.db:
             procesar_desde_db(
@@ -550,6 +698,7 @@ def main():
                 sidecar=args.sidecar,
                 usar_proxy=usar_proxy,
                 dry_run=args.dry_run,
+                modo=modo,
             )
 
         if args.folder:
@@ -560,6 +709,7 @@ def main():
                 sidecar=True,
                 usar_proxy=usar_proxy,
                 dry_run=args.dry_run,
+                modo=modo,
             )
 
     except KeyboardInterrupt:
