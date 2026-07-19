@@ -159,11 +159,16 @@ def opcion_preparar(db_path: str | None = None):
         if opc == "1":
             from scripts import limpiar_tandas
             ruta = input("  Carpeta a limpiar: ").strip()
-            if ruta and os.path.isdir(ruta):
-                dry_run = input("  ?Solo previsualizar (s/N): ").strip().lower() == "s"
-                limpiar_tandas.main([ruta] + (["--dry-run"] if dry_run else []))
-            elif ruta:
+            if not ruta:
+                print("  Cancelado.")
+                pausa()
+                continue
+            if not os.path.isdir(ruta):
                 print("  Carpeta no encontrada.")
+                pausa()
+                continue
+            dry_run = input("  ?Solo previsualizar (s/N): ").strip().lower() == "s"
+            limpiar_tandas.main([ruta] + (["--dry-run"] if dry_run else []))
             pausa()
         elif opc == "0":
             break
@@ -198,6 +203,13 @@ def opcion_ingesta(db_path: str | None = None):
             recursive = input("  ?Incluir subcarpetas? (s/N): ").strip().lower() == "s"
             dry_run = input("  ?Solo previsualizar (dry-run)? (s/N): ").strip().lower() == "s"
             custom_db = input(f"  ?Usar otra DB? (default: {leer_db(db_path)}) [Enter para default]: ").strip()
+
+            print(f"\n  Resumen: root={root}  recursivo={'SI' if recursive else 'NO'}  dry_run={'SI' if dry_run else 'NO'}")
+            confirm = input("  ?Ejecutar ingesta? (s/N): ").strip().lower()
+            if confirm != "s":
+                print("  Cancelado.")
+                pausa()
+                continue
 
             print("\n  Ejecutando ingesta...\n")
             from scripts import ingest
@@ -1060,8 +1072,8 @@ def tui():
         print("  3) Mejorar base de datos")
         print("  4) Consultar base de datos")
         print("  5) Mantenimiento DB")
-        print("  6) Ayuda")
-        print("  7) Mapa de ruta (Folium)")
+        print("  6) Mapa de ruta (Folium)")
+        print("  9) Ayuda")
         print("  0) Salir\n")
 
         opc = input("  Opcion: ").strip()
@@ -1077,9 +1089,9 @@ def tui():
         elif opc == "5":
             opcion_mantenimiento()
         elif opc == "6":
-            opcion_ayuda()
-        elif opc == "7":
             opcion_mapa()
+        elif opc == "9":
+            opcion_ayuda()
         elif opc == "0":
             limpiar_pantalla()
             print("  Chau.")
@@ -1111,6 +1123,15 @@ def opcion_mapa():
     no_markers = input("  ?Omitir marcadores? (s/N): ").strip().lower() == "s"
     verbose = input("  ?Modo verbose? (s/N): ").strip().lower() == "s"
     custom_db = input(f"  ?Usar otra DB? (default: {leer_db()}) [Enter para default]: ").strip()
+
+    print(f"\n  Resumen: output={output}  heatmap={'SI' if heatmap else 'NO'}  "
+          f"road_colors={'SI' if road_colors else 'NO'}  "
+          f"no_markers={'SI' if no_markers else 'NO'}")
+    confirm = input("  ?Generar mapa? (s/N): ").strip().lower()
+    if confirm != "s":
+        print("  Cancelado.")
+        pausa()
+        return
 
     print("\n  Generando mapa...\n")
 

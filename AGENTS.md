@@ -336,7 +336,9 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
   ├─ 5. Restore DB desde backup         → opcion_restore_db()
   └─ 6. Resetear DB (backup + limpiar)  → opcion_reset_db()
 
-6. Ayuda → opcion_ayuda() (ayuda detallada por comando)
+6. Mapa de ruta (Folium) → opcion_mapa() (mapa HTML con Folium)
+
+9. Ayuda → opcion_ayuda() (ayuda detallada por comando)
 ```
 
 #### CLI — Comandos disponibles

@@ -143,7 +143,9 @@ Al ejecutar `python flujos.py` sin argumentos se ingresa al menú TUI:
   ├─ 5. Restore DB desde backup
   └─ 6. Resetear DB
 
-6. Ayuda
+6. Mapa de ruta (Folium)
+
+9. Ayuda
 ```
 
 Todas las operaciones que modifican la DB preguntan el modo
