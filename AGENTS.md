@@ -371,7 +371,7 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 
 ### Pipeline scripts (scripts/)
 
-#### `ingest.py` (~1470 lines)
+#### `ingest.py` (~1485 lines)
 - **Propósito**: Escanea una carpeta, extrae metadados (ExifTool, ffprobe), calcula hashes, inserta en DB. La extracción de colores dominantes se eliminó de la ingesta (delegada a `improve_db.py --step colors`).
 - **Args CLI**: `--root` (obligatorio), `--recursive`/`-r`, `--types` (image,video,audio,text), `--allow-no-timestamp`, `--full-hash`, `--dry-run`, `--verbose`, `--db`, `--exiftool`, `--compute-video-hash`
 - **DB que modifica**: `media` (insert), `media_metadata` (insert)
@@ -619,8 +619,12 @@ elif mode == "skip":
 
 ## Notas históricas importantes
 
-- **GPS Sign Bug (Jul 2026)**: durante semanas los GPS se guardaron con signo positivo (lat=+31 en vez de -31). La DB actual puede tener coordenadas incorrectas. Fixeado en `ingest.py` con `_es_sur_oeste()`.
+- **GPS Sign Bug (Jul 2026)**: durante semanas los GPS se guardaron con signo positivo (lat=+31 en vez de -31). La DB actual puede tener coordenadas incorrectas. Fixeado en `ingest.py` con `_es_sur_oeste()`. (Nota: verificado que los 226 registros con GPS tienen signo negativo correcto.)
 - **Color anti-gray bias**: implementado después de que usuarios reportaran que verdes desaturados y marrones oscuros caían en "gris". La distancia Redmean + umbral 1.5x resolvió el caso.
 - **Open-Meteo**: se eligió sobre otras APIs climáticas por ser gratuito, sin API key, y cubrir datos históricos desde 1940 (ERA5-Land).
 - **Georef**: API del gobierno argentino, gratuita, sin key. Soporta batch de hasta 5000 coordenadas.
-- **gradiente.py**: implementado en Python puro (Haversine, sin numpy/gdal) para mantener cero dependencias pesadas.
+- **gradiente.py**: implementado en Python puro (Haversine, sin numpy/gdal) para mantener cero dependencias pesadas. Fix: `min(a, 1.0)` en `asin` para evitar NaN por error de punto flotante.
+- **--types filter (Jul 2026)**: se corrigió el filtro de tipos en `ingest.py` para que XML no-sidecar no pase cuando se usan `--types image,video` (antes cualquier `.xml` pasaba por ser extensión de sidecar).
+- **mode update vs replace (Jul 2026)**: se unificó el comportamiento en `improve_db.py` (`run_keypoints`, `run_timestamps`, `run_gps`), `fetch_weather.py` y `dia_semana.py`: `--mode update` reprocesa todos los registros sin limpiar primero, `--mode replace` limpia y regenera.
+- **gradiente NULL timestamp (Jul 2026)**: se agregó `AND timestamp_utc IS NOT NULL` a la query de `gradiente.py` para evitar que puntos GPS sin timestamp se ordenen al inicio (NULLs primero en SQLite) generando distancias sin sentido.
+- **viento_direccion_a_texto (Jul 2026)**: helper que convierte grados (0-360) a punto cardinal (N, NE, E, etc.) usando 16 rumbos. Agregado en `fetch_weather.py` junto con las variables `wind_speed_10m`, `wind_direction_10m`, `surface_pressure`.

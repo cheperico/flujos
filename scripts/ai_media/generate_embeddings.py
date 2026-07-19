@@ -298,7 +298,7 @@ def procesar_un_medio(
         logger.warning("  (Modo folder) No se dispone de DB; se generará side‑car vacío.")
         # Para propósitos de demo, generamos un embedding vacío (cero)
         embedding = [0.0] * EMBEDDING_DIM
-        modelo = args.modelo
+        modelo = modelo_embedding
     else:
         # Imagen: obtener su descripción desde la DB
         # (En modo folder no hay DB, así que este caso no se usa aquí)

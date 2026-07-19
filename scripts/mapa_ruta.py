@@ -287,6 +287,7 @@ def generar_mapa(
 
     # ---- Guardar ----
     output_abs = os.path.abspath(output)
+    os.makedirs(os.path.dirname(output_abs), exist_ok=True)
     m.save(output_abs)
     log.info("Mapa guardado: %s", output_abs)
 

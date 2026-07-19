@@ -71,19 +71,21 @@ def procesar(
     dry_run: bool = False,
     replace: bool = False,
     limit: int | None = None,
+    mode: str = "skip",
 ):
     conn = conectar(db_path)
 
     # Obtener medios con timestamp_utc
-    if replace:
+    if replace:  # --mode update o replace → TODOS
         query = """
             SELECT id, timestamp_utc FROM media
             WHERE timestamp_utc IS NOT NULL
             ORDER BY id
         """
         rows = conn.execute(query).fetchall()
-        log.info("Modo --replace: procesando TODOS los medios con timestamp (%d)", len(rows))
-    else:
+        log.info("Modo %s: procesando TODOS los medios con timestamp (%d)",
+                 "replace" if mode == "replace" else "update", len(rows))
+    else:  # --mode skip → solo pendientes
         query = """
             SELECT m.id, m.timestamp_utc FROM media m
             WHERE m.timestamp_utc IS NOT NULL
@@ -101,7 +103,7 @@ def procesar(
         conn.close()
         return
 
-    if limit:
+    if limit and len(rows) > limit:
         rows = rows[:limit]
         log.info("  Limitado a %d registros.", limit)
 
@@ -125,7 +127,7 @@ def procesar(
             ok += 1
             continue
 
-        if replace:
+        if mode == "replace":
             conn.execute(
                 "DELETE FROM media_metadata WHERE media_id = ? AND key = 'dia_semana'",
                 (media_id,),
@@ -199,6 +201,7 @@ def main():
         dry_run=args.dry_run,
         replace=replace,
         limit=args.limit,
+        mode=args.mode if not args.replace else "replace",
     )
 
 

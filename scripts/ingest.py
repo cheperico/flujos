@@ -1437,8 +1437,9 @@ Ejemplos:
             pbar.update(1)
             continue
 
-        # Filtrar por tipo de medio seleccionado (sidecars siempre pasan)
-        if filetype not in tipos_permitidos and ext not in EXT_SIDECAR_XML and ext not in EXT_SIDECAR_AAE:
+        # Filtrar por tipo de medio seleccionado (sidecars Sony/Apple siempre pasan)
+        es_sidecar = (ext in EXT_SIDECAR_XML and is_sidecar_xml(basename)) or ext in EXT_SIDECAR_AAE
+        if filetype not in tipos_permitidos and not es_sidecar:
             stats["skipped_type"] += 1
             log.debug("  Saltado (tipo no seleccionado): %s", basename)
             pbar.update(1)

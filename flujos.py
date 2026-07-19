@@ -1167,8 +1167,6 @@ def opcion_mapa():
         args.append("--road-colors")
     if no_markers:
         args.append("--no-markers")
-    if verbose:
-        args.append("--verbose")
     if custom_db:
         args.extend(["--db", custom_db])
     mapa_ruta.main(args)

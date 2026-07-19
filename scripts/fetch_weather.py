@@ -325,15 +325,17 @@ def procesar(
     limit: int | None = None,
     replace: bool = False,
     step_hours: int = 1,
+    mode: str = "skip",
 ):
     """Pipeline principal: agrupa, fetchea, guarda."""
     conn = conectar(db_path)
 
     # 1. Obtener medios
-    if replace:
+    if replace:  # --mode update o replace → procesar TODOS
         rows = todos_los_medios(conn, limit=limit)
-        log.info("Modo --replace: procesando TODOS los medios con GPS (%d)", len(rows))
-    else:
+        log.info("Modo %s: procesando TODOS los medios con GPS (%d)",
+                 "replace" if mode == "replace" else "update", len(rows))
+    else:  # --mode skip → solo pendientes
         rows = medios_sin_clima(conn, limit=limit)
         log.info("Medios sin datos climáticos: %d", len(rows))
 
@@ -426,8 +428,8 @@ def procesar(
             if not valores:
                 continue
 
-            # Si es --replace, limpiar datos viejos
-            if replace:
+            # Modo replace: limpiar datos viejos antes de insertar
+            if mode == "replace":
                 limpiar_clima(conn, media_id)
 
             guardar_clima(conn, media_id, hora_usar, valores)
@@ -502,6 +504,7 @@ def main():
         limit=args.limit,
         replace=replace,
         step_hours=args.steps,
+        mode=args.mode if not args.replace else "replace",
     )
 
 

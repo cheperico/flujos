@@ -469,7 +469,7 @@ def run_keypoints(conn, db_path, mode, stats):
     """
     log.info("Paso: keypoints — Poblando keypoints desde transcripciones")
 
-    if mode == "replace":
+    if mode in ("replace", "update"):
         conn.execute("DELETE FROM media_keypoints")
         conn.commit()
 
@@ -532,7 +532,7 @@ def run_timestamps(conn, db_path, mode, stats):
     """
     log.info("Paso: timestamps — Infiriendo timestamps faltantes")
 
-    if mode == "replace":
+    if mode in ("replace", "update"):
         # Marcar los inferidos para reprocesarlos
         conn.execute("""
             UPDATE media SET
@@ -625,7 +625,7 @@ def run_gps(conn, db_path, mode, stats):
     """
     log.info("Paso: gps — Infiriendo GPS desde medios cercanos")
 
-    if mode == "replace":
+    if mode in ("replace", "update"):
         # Marcar inferidos como NULL para reprocesarlos
         conn.execute("""
             UPDATE media SET latitude = NULL, longitude = NULL, altitude = NULL,

@@ -153,13 +153,20 @@ CSS_COLORS_ES = {
     # Grises
     "gainsboro": "gainsboro",
     "lightgray": "gris claro",
+    "lightgrey": "gris claro",
     "silver": "plata",
     "darkgray": "gris oscuro",
+    "darkgrey": "gris oscuro",
     "gray": "gris",
+    "grey": "gris",
     "dimgray": "gris tenue",
+    "dimgrey": "gris tenue",
     "lightslategray": "gris pizarra claro",
+    "lightslategrey": "gris pizarra claro",
     "slategray": "gris pizarra",
+    "slategrey": "gris pizarra",
     "darkslategray": "gris pizarra oscuro",
+    "darkslategrey": "gris pizarra oscuro",
     # Blancos
     "white": "blanco",
     # Negros

@@ -74,7 +74,8 @@ def haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
         * math.cos(math.radians(lat2))
         * math.sin(dlon / 2) ** 2
     )
-    c = 2 * math.asin(math.sqrt(a))
+    # Clamp por error de punto flotante (a puede ser > 1.0 por precisión)
+    c = 2 * math.asin(math.sqrt(min(a, 1.0)))
     return R * c
 
 
@@ -133,11 +134,12 @@ def calcular_gradientes(conn: sqlite3.Connection, dry_run: bool = False,
         """)
         conn.commit()
 
-    # Obtener medios con GPS ordenados por timestamp
+    # Obtener medios con GPS y timestamp, ordenados por timestamp
     rows = conn.execute("""
         SELECT id, latitude, longitude, altitude, timestamp_utc
         FROM media
         WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+          AND timestamp_utc IS NOT NULL
         ORDER BY timestamp_utc ASC
     """).fetchall()
 
