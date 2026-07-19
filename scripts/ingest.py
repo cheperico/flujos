@@ -407,6 +407,45 @@ def parse_timestamp_iso(ts_str: str):
     return ts_str, None, "no se pudo determinar"
 
 
+def parse_timestamp_from_filename(basename: str):
+    """Parsea timestamp del nombre de archivo con formato YYYY-MM-DD-HH-MM-SS_
+
+    Lectura de derecha a izquierda: lo que falta se completa con 00.
+    El guión bajo _ marca el fin del campo temporal.
+
+    Ejemplos válidos:
+      2025-05-03-11-34-04_archivo.mp4  → completo
+      2025-05-03-11-34_archivo.mp4     → segundos=00
+      2025-05-03-11_archivo.mp4        → minutos=00, segundos=00
+      2025-05-03_archivo.mp4           → hora=00, minutos=00, segundos=00
+    """
+    import re
+    basename = basename.strip()
+    patterns = [
+        (r'^(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d{2})_', 6),
+        (r'^(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})_', 5),
+        (r'^(\d{4})-(\d{2})-(\d{2})-(\d{2})_', 4),
+        (r'^(\d{4})-(\d{2})-(\d{2})_', 3),
+    ]
+    for pattern, n_campos in patterns:
+        match = re.match(pattern, basename)
+        if match:
+            grupos = list(match.groups())
+            # Completar con 00 los campos faltantes (de derecha a izquierda)
+            while len(grupos) < 6:
+                grupos.append("00")
+            y, mo, d, h, mi, s = grupos
+            try:
+                dt = datetime(int(y), int(mo), int(d), int(h), int(mi), int(s),
+                              tzinfo=timezone(timedelta(hours=-3)))
+                original = dt.isoformat()
+                utc = dt.astimezone(timezone.utc).isoformat()
+                return original, utc, "desde nombre de archivo"
+            except ValueError:
+                return None, None, None
+    return None, None, None
+
+
 def extract_timestamp_image(exif_meta: dict) -> tuple:
     """Extrae timestamp de metadatos EXIF. Devuelve (original, utc, note)."""
     # Orden de preferencia: DateTimeOriginal, CreateDate, ModifyDate
@@ -1108,7 +1147,16 @@ def process_file(
 
     record["content_hash"] = content_hash
 
-    # --- Fallback: timestamp desde sistema o metadatos del archivo ---
+    # --- Fallback 1: timestamp desde nombre de archivo (convención YYYY-MM-DD-HH-MM-SS_) ---
+    if not timestamp_original:
+        ts_orig, ts_utc, ts_note = parse_timestamp_from_filename(basename)
+        if ts_orig:
+            timestamp_original = ts_orig
+            timestamp_utc = ts_utc
+            timezone_note = ts_note
+            log.info("  Timestamp: desde nombre de archivo")
+
+    # --- Fallback 2: timestamp desde metadatos del archivo o sistema ---
     if not timestamp_original and filetype in ("image", "video", "audio"):
         # 1. FileCreateDate de ExifTool (imágenes con exiftool)
         for key in ("file_filecreatedate", "file_filemodifydate"):
