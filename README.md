@@ -77,7 +77,7 @@ python flujos.py --help         # Ayuda general
 
 | Comando | Qué hace |
 |---------|----------|
-| `ingest --root CARPETA` | Ingerir medios desde una carpeta |
+| `ingest --root CARPETA [--types TIPOS] [--recursive] [--allow-no-timestamp] [--dry-run]` | Ingerir medios desde una carpeta. `--types` filtra por tipo (image,video,audio,text). `--allow-no-timestamp` ingiere archivos sin timestamp. |
 | `improve-db [--mode] [--steps]` | Post-procesamiento (7 pasos: colors, keywords, descriptions, transcribe, keypoints, timestamps, gps) |
 | `geocode [--mode]` | Geocodificación inversa (GPS → provincia/municipio/localidad) |
 | `gradient [--mode]` | Calcular gradientes de ruta entre puntos GPS |
@@ -158,7 +158,7 @@ Todas las operaciones que modifican la DB preguntan el modo
 | Script | Propósito | Pipeline |
 |--------|-----------|----------|
 | `flujos.py` | Entry point unificado con subcomandos y TUI | — |
-| `scripts/ingest.py` | Escanea, extrae metadatos e ingiere en DB | Ingesta |
+| `scripts/ingest.py` | Escanea, extrae metadatos e ingiere en DB. `--types` filtra por tipo. `--allow-no-timestamp` permite archivos sin timestamp. | Ingesta |
 | `scripts/improve_db.py` | 7 pasos post-ingesta (colors, keywords, descriptions, transcribe, keypoints, timestamps, gps) | Mejora |
 | `scripts/query.py` | Consultas a la DB | Consulta |
 | `scripts/relocate.py` | Actualiza rutas absolutas cuando los archivos se mudan | Gestión |
@@ -264,6 +264,10 @@ Metadatos variables en formato clave-valor:
 | `weather_cloud_pct` | Cobertura nubosa % | fetch_weather.py |
 | `weather_code` | Código WMO de clima | fetch_weather.py |
 | `weather_label` | Descripción textual del clima | fetch_weather.py |
+| `weather_wind_speed_kmh` | Velocidad del viento a 10 m (km/h) | fetch_weather.py |
+| `weather_wind_dir_deg` | Dirección del viento en grados (0-360) | fetch_weather.py |
+| `weather_wind_dir_text` | Dirección del viento (N, NE, E, SE, S, SO, O, NO) | fetch_weather.py |
+| `weather_pressure_hpa` | Presión atmosférica superficial (hPa) | fetch_weather.py |
 | `weather_hour_utc` | Hora del dato climático | fetch_weather.py |
 | `weather_source` | `open-meteo-era5` | fetch_weather.py |
 

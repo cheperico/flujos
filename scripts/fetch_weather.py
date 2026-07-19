@@ -15,13 +15,17 @@ Uso:
     python scripts/fetch_weather.py --steps 3                    # Intervalo horario (default: 1 = cada hora)
 
 Variables climáticas guardadas en media_metadata:
-    weather_temp_c         Temperatura a 2 m (°C)
-    weather_humidity_pct   Humedad relativa (%)
-    weather_precip_mm      Precipitación (mm)
-    weather_cloud_pct      Cobertura nubosa (%)
-    weather_code           Código WMO (0=despejado, 61=lluvia, etc.)
-    weather_hour_utc       Hora UTC del dato
-    weather_source         Siempre "open-meteo"
+    weather_temp_c          Temperatura a 2 m (°C)
+    weather_humidity_pct    Humedad relativa (%)
+    weather_precip_mm       Precipitación (mm)
+    weather_cloud_pct       Cobertura nubosa (%)
+    weather_code            Código WMO (0=despejado, 61=lluvia, etc.)
+    weather_wind_speed_kmh  Velocidad del viento a 10 m (km/h)
+    weather_wind_dir_deg    Dirección del viento a 10 m (°)
+    weather_wind_dir_text   Dirección del viento (punto cardinal: N, S, SO, etc.)
+    weather_pressure_hpa    Presión atmosférica superficial (hPa)
+    weather_hour_utc        Hora UTC del dato
+    weather_source          Siempre "open-meteo"
 """
 
 import argparse
@@ -51,6 +55,9 @@ HOURLY_VARS = [
     "precipitation",
     "cloud_cover",
     "weather_code",
+    "wind_speed_10m",
+    "wind_direction_10m",
+    "surface_pressure",
 ]
 
 # Códigos WMO que nos interesa etiquetar
@@ -104,6 +111,21 @@ def codigo_wmo_a_texto(code: int | None) -> str:
     if code is None:
         return "desconocido"
     return WMO_LABELS.get(int(code), f"codigo_{code}")
+
+
+def viento_direccion_a_texto(grados: int | float | None) -> str:
+    """Convierte grados (0-360) a punto cardinal en español."""
+    if grados is None:
+        return "desconocida"
+    # 16 rumbos
+    rumbos = [
+        "N", "NNE", "NE", "ENE",
+        "E", "ESE", "SE", "SSE",
+        "S", "SSO", "SO", "OSO",
+        "O", "ONO", "NO", "NNO",
+    ]
+    idx = round(int(grados) % 360 / 22.5) % 16
+    return rumbos[idx]
 
 
 # ── Query de medios pendientes ──────────────────────────────────────────────
@@ -258,6 +280,12 @@ def extraer_horarios(resp: dict) -> dict[int, dict]:
 
 def guardar_clima(conn, media_id: int, hora: int, valores: dict):
     """Guarda los datos climáticos de una hora en media_metadata."""
+    # Velocidad del viento: convertir m/s → km/h (redondear a 1 decimal)
+    wind_ms = valores.get("wind_speed_10m")
+    wind_kmh = round(wind_ms * 3.6, 1) if wind_ms is not None else None
+
+    wind_dir = valores.get("wind_direction_10m")
+
     pairs = [
         ("weather_temp_c", valores.get("temperature_2m")),
         ("weather_humidity_pct", valores.get("relative_humidity_2m")),
@@ -265,6 +293,10 @@ def guardar_clima(conn, media_id: int, hora: int, valores: dict):
         ("weather_cloud_pct", valores.get("cloud_cover")),
         ("weather_code", valores.get("weather_code")),
         ("weather_label", codigo_wmo_a_texto(valores.get("weather_code"))),
+        ("weather_wind_speed_kmh", wind_kmh),
+        ("weather_wind_dir_deg", wind_dir),
+        ("weather_wind_dir_text", viento_direccion_a_texto(wind_dir)),
+        ("weather_pressure_hpa", valores.get("surface_pressure")),
         ("weather_hour_utc", hora),
         ("weather_source", "open-meteo"),
     ]

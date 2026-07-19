@@ -259,7 +259,7 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 | **TIMESTAMPS** | `improve_db.py --step timestamps` | Timestamps inferidos desde EXIF/ExifTool | `media` | timestamp_original, timestamp_utc, timezone_note, updated_at |
 | **GPS** | `improve_db.py --step gps` | GPS inferido desde EXIF/ExifTool | `media` | latitude, longitude, altitude, geolocation_source, updated_at |
 | **GEOCODE** | `geocode.py` | Provincia, municipio, localidad (Georef API Argentina) | `media` | provincia, departamento, municipio, localidad, geocode_source, geocode_date |
-| **WEATHER** | `fetch_weather.py` | Clima histórico (Open-Meteo ERA5-Land) | `media_metadata` | keys: weather_temp_c, weather_humidity_pct, weather_precip_mm, weather_cloud_pct, weather_code, weather_label, weather_hour_utc, weather_source |
+| **WEATHER** | `fetch_weather.py` | Clima histórico (Open-Meteo ERA5-Land) | `media_metadata` | keys: weather_temp_c, weather_humidity_pct, weather_precip_mm, weather_cloud_pct, weather_code, weather_label, weather_wind_speed_kmh, weather_wind_dir_deg, weather_wind_dir_text, weather_pressure_hpa, weather_hour_utc, weather_source |
 | **DÍA SEMANA** | `dia_semana.py` | Día de la semana en español | `media_metadata` | key=`dia_semana`, value=lunes\|martes\|...\|domingo |
 | **GRADIENTES** | `gradiente.py` | Distancia Haversine, cambio elevación, pendiente % y acumulados | `media` | distance_from_prev_m, elevation_gain_m, gradient_pct, cumul_distance_m, cumul_elevation_gain_m |
 | **BACKFILL** | `flujos.py` backfill-end-time | Precalcula end_time = timestamp_utc + duration_secs | `media` | end_time, updated_at |
@@ -371,15 +371,20 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 
 ### Pipeline scripts (scripts/)
 
-#### `ingest.py` (1375 lines)
-- **Propósito**: Escanea una carpeta, extrae metadados (ExifTool, ffprobe), calcula hashes, extrae colores dominantes, inserta en DB.
-- **Args CLI**: `--root` (obligatorio), `--full-hash`, `--sidecar-xml`, `--colors`, `--no-proxy`, `--verbose`, `--dry-run`, `--db`
+#### `ingest.py` (~1470 lines)
+- **Propósito**: Escanea una carpeta, extrae metadados (ExifTool, ffprobe), calcula hashes, inserta en DB. La extracción de colores dominantes se eliminó de la ingesta (delegada a `improve_db.py --step colors`).
+- **Args CLI**: `--root` (obligatorio), `--recursive`/`-r`, `--types` (image,video,audio,text), `--allow-no-timestamp`, `--full-hash`, `--dry-run`, `--verbose`, `--db`, `--exiftool`, `--compute-video-hash`
 - **DB que modifica**: `media` (insert), `media_metadata` (insert)
-- **Dependencias**: Pillow, webcolors, subprocess (exiftool, ffprobe)
+- **Dependencias**: subprocess (exiftool, ffprobe), Pillow (proxy)
 - **Notas**: 
   - `parse_gps_dms()` — convierte DMS a decimal. **ATENCIÓN**: ExifTool sin `-n` devuelve `"South"`/`"West"` (texto completo), NO `"S"`/`"W"`. La función ahora lo maneja con `_es_sur_oeste()` y `_parse_gps_position()`.
   - `extract_gps_from_exif()` — usa `Composite:GPSPosition` primero, fallback a `EXIF:GPSLatitude+Ref`.
   - `init_db()` — crea el schema desde cero (usado también por reset-db).
+  - `parse_timestamp_from_filename()` — extrae timestamp de nombres con formato `YYYY-MM-DD-HH-MM-SS_`.
+  - `--types` filtra por tipo de medio al ingerir (default: todos los tipos).
+  - `--allow-no-timestamp`: por defecto los archivos sin timestamp se saltan. Con este flag se ingieren igual.
+  - `--recursive` escanea subcarpetas (default: solo raíz). Carpetas `excluir/` y ocultas siempre se excluyen.
+  - Color extraction removido de ingest (ver `improve_db.py --step colors`).
 
 #### `improve_db.py` (903 lines)
 - **Propósito**: Pipeline de 7 pasos post-ingesta con skip/update/replace.
@@ -443,10 +448,10 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 #### `fetch_weather.py`
 - **Propósito**: Obtener datos climáticos históricos desde Open-Meteo ERA5-Land API.
 - **Args CLI**: `--db`, `--dry-run`, `--limit`, `--replace` (deprecated), `--mode`, `--steps` (intervalo horario)
-- **DB que modifica**: `media_metadata` (weather_temp_c, weather_humidity_pct, weather_precip_mm, weather_cloud_pct, weather_code, weather_label, weather_hour_utc, weather_source)
+- **DB que modifica**: `media_metadata` (weather_temp_c, weather_humidity_pct, weather_precip_mm, weather_cloud_pct, weather_code, weather_label, weather_wind_speed_kmh, weather_wind_dir_deg, weather_wind_dir_text, weather_pressure_hpa, weather_hour_utc, weather_source)
 - **API**: Open-Meteo Historical API (gratis, sin API key).
 - **Estrategia**: agrupa medios por (fecha, celda de 0.5° ≈ 55 km). Cada grupo hace una sola llamada a la API. Luego empareja cada medio con la hora más cercana disponible.
-- **Notas**: `--steps` filtra horas (ej: --steps 3 = cada 3 horas). `--replace` es alias de `--mode replace`.
+- **Notas**: `--steps` filtra horas (ej: --steps 3 = cada 3 horas). `--replace` es alias de `--mode replace`. La velocidad del viento se convierte de m/s a km/h. La dirección se guarda en grados (0-360) y como texto cardinal (N, NE, E, etc.).
 
 #### `dia_semana.py`
 - **Propósito**: Calcula el día de la semana (lunes..domingo) desde `timestamp_utc` de cada medio.
