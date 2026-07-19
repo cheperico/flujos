@@ -985,6 +985,7 @@ def process_file(
     use_full_hash: bool,
     ingest_stats: dict,
     ingest_batch_id: int | None = None,
+    allow_no_timestamp: bool = False,
 ):
     """Procesa un archivo: extrae metadatos y lo inserta en DB."""
 
@@ -1147,7 +1148,7 @@ def process_file(
 
     record["content_hash"] = content_hash
 
-    # --- Fallback 1: timestamp desde nombre de archivo (convención YYYY-MM-DD-HH-MM-SS_) ---
+    # --- Fallback: timestamp desde nombre de archivo (convención YYYY-MM-DD-HH-MM-SS_) ---
     if not timestamp_original:
         ts_orig, ts_utc, ts_note = parse_timestamp_from_filename(basename)
         if ts_orig:
@@ -1155,29 +1156,6 @@ def process_file(
             timestamp_utc = ts_utc
             timezone_note = ts_note
             log.info("  Timestamp: desde nombre de archivo")
-
-    # --- Fallback 2: timestamp desde metadatos del archivo o sistema ---
-    if not timestamp_original and filetype in ("image", "video", "audio"):
-        # 1. FileCreateDate de ExifTool (imágenes con exiftool)
-        for key in ("file_filecreatedate", "file_filemodifydate"):
-            val = meta.get(key)
-            if val:
-                ts_orig, ts_utc, ts_note = parse_timestamp_iso(val)
-                if ts_orig:
-                    timestamp_original = ts_orig
-                    timestamp_utc = ts_utc
-                    timezone_note = f"fallback: {key}"
-                    log.info("  Timestamp: usando %s", key)
-                    break
-
-        # 2. Último recurso: modified_at del archivo (poco confiable en copias)
-        if not timestamp_original:
-            mtime = os.path.getmtime(filepath)
-            dt = datetime.fromtimestamp(mtime, tz=timezone(timedelta(hours=-3)))
-            timestamp_original = dt.isoformat()
-            timestamp_utc = dt.astimezone(timezone.utc).isoformat()
-            timezone_note = "fallback: file modified_at (asumido ART)"
-            log.info("  Timestamp: usando modified_at del archivo")
 
     record["timestamp_original"] = timestamp_original
     record["timestamp_utc"] = timestamp_utc
@@ -1199,6 +1177,12 @@ def process_file(
         else:
             record["end_time"] = timestamp_utc  # punto: mismo timestamp
 
+    # --- Verificar timestamp (si no está permitido sin él, saltar) ---
+    if not timestamp_utc and not allow_no_timestamp:
+        log.info("  Saltado (sin timestamp): %s", basename)
+        ingest_stats["skipped_no_timestamp"] += 1
+        return
+
     # --- Detectar contenido duplicado (mismo content_hash, distinto file_hash) ---
     if content_hash:
         duplicates = find_content_hash_duplicates(conn, content_hash)
@@ -1216,6 +1200,8 @@ def process_file(
             insert_metadata(conn, media_id, meta)
         log.debug("  ✅ Insertado (id=%s)", media_id)
         ingest_stats["inserted"] += 1
+        if not timestamp_utc:
+            ingest_stats["ingested_no_timestamp"] += 1
     except Exception as e:
         log.error("  ❌ Error insertando: %s", e)
         ingest_stats["errors"] += 1
@@ -1287,6 +1273,22 @@ Ejemplos:
         help=(
             "Usar SHA-256 completo como file_hash (lento en archivos grandes). "
             "Por defecto usa fingerprint rápido: tamaño + fecha de modificación."
+        ),
+    )
+    parser.add_argument(
+        "--types",
+        default=None,
+        help=(
+            "Tipos de medio a ingerir, separados por coma. "
+            "Ej: --types image,video  (default: todos)"
+        ),
+    )
+    parser.add_argument(
+        "--allow-no-timestamp",
+        action="store_true",
+        help=(
+            "Ingerir archivos incluso si no tienen timestamp. "
+            "Por defecto se saltan archivos sin timestamp."
         ),
     )
 
@@ -1363,6 +1365,18 @@ Ejemplos:
     if args.dry_run:
         log.info("=== DRY RUN - No se escribirá en la DB ===")
 
+    # Determinar tipos de medio a ingerir
+    tipos_permitidos = {"image", "video", "audio", "text"}
+    if args.types:
+        tipos_seleccionados = set(t.strip().lower() for t in args.types.split(","))
+        tipos_permitidos = tipos_seleccionados & tipos_permitidos
+        if not tipos_permitidos:
+            log.error("Ningún tipo válido en --types. Válidos: image, video, audio, text")
+            sys.exit(1)
+        log.info("Tipos a ingerir: %s", ", ".join(sorted(tipos_permitidos)))
+    else:
+        log.info("Tipos a ingerir: todos (image, video, audio, text)")
+
     # Estadísticas
     stats = {
         "scanned": 0,
@@ -1374,6 +1388,8 @@ Ejemplos:
         "skipped_dot_underscore": 0,
         "errors": 0,
         "skipped_type": 0,
+        "skipped_no_timestamp": 0,
+        "ingested_no_timestamp": 0,
     }
 
     # Escanear archivos
@@ -1421,12 +1437,21 @@ Ejemplos:
             pbar.update(1)
             continue
 
+        # Filtrar por tipo de medio seleccionado (sidecars siempre pasan)
+        if filetype not in tipos_permitidos and ext not in EXT_SIDECAR_XML and ext not in EXT_SIDECAR_AAE:
+            stats["skipped_type"] += 1
+            log.debug("  Saltado (tipo no seleccionado): %s", basename)
+            pbar.update(1)
+            continue
+
         if args.dry_run:
             stats["inserted"] += 1
             pbar.update(1)
             continue
 
-        process_file(filepath, root, conn, exiftool_path, args.compute_video_hash, args.full_hash, stats, ingest_batch_id)
+        process_file(filepath, root, conn, exiftool_path, args.compute_video_hash,
+                     args.full_hash, stats, ingest_batch_id,
+                     allow_no_timestamp=args.allow_no_timestamp)
         pbar.update(1)
 
     pbar.close()
@@ -1444,6 +1469,9 @@ Ejemplos:
     log.info("  Sidecars AAE saltados:         %s", f"{stats['sidecar_aae_skipped']:,}")
     log.info("  Saltados (._ macOS):           %s", f"{stats['skipped_dot_underscore']:,}")
     log.info("  Saltados (tipo):               %s", f"{stats['skipped_type']:,}")
+    log.info("  Saltados (sin timestamp):      %s", f"{stats['skipped_no_timestamp']:,}")
+    if args.allow_no_timestamp:
+        log.info("  Ingeridos sin timestamp:        %s", f"{stats['ingested_no_timestamp']:,}")
     log.info("  Errores:                       %s", f"{stats['errors']:,}")
     log.info("=" * 60)
 

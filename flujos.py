@@ -202,9 +202,29 @@ def opcion_ingesta(db_path: str | None = None):
 
             recursive = input("  ?Incluir subcarpetas? (s/N): ").strip().lower() == "s"
             dry_run = input("  ?Solo previsualizar (dry-run)? (s/N): ").strip().lower() == "s"
+
+            # Selección de tipos de medio
+            print("\n  Tipos de medio a ingerir (Enter = todos):")
+            incluir_img = input("  ?Fotos? (s/N): ").strip().lower() == "s"
+            incluir_vid = input("  ?Videos? (s/N): ").strip().lower() == "s"
+            incluir_aud = input("  ?Audios? (s/N): ").strip().lower() == "s"
+            incluir_txt = input("  ?Textos? (s/N): ").strip().lower() == "s"
+            tipos_seleccionados = []
+            if incluir_img: tipos_seleccionados.append("image")
+            if incluir_vid: tipos_seleccionados.append("video")
+            if incluir_aud: tipos_seleccionados.append("audio")
+            if incluir_txt: tipos_seleccionados.append("text")
+
+            # Manejo de archivos sin timestamp
+            print("")
+            permitir_sin_ts = input("  ?Ingerir archivos sin timestamp? (s/N): ").strip().lower() == "s"
+
             custom_db = input(f"  ?Usar otra DB? (default: {leer_db(db_path)}) [Enter para default]: ").strip()
 
-            print(f"\n  Resumen: root={root}  recursivo={'SI' if recursive else 'NO'}  dry_run={'SI' if dry_run else 'NO'}")
+            tipo_str = ", ".join(tipos_seleccionados) if tipos_seleccionados else "todos"
+            print(f"\n  Resumen: root={root}  recursivo={'SI' if recursive else 'NO'}  "
+                  f"tipos={tipo_str}  sin_ts={'SI' if permitir_sin_ts else 'NO -> se salta'}"
+                  f"  dry_run={'SI' if dry_run else 'NO'}")
             confirm = input("  ?Ejecutar ingesta? (s/N): ").strip().lower()
             if confirm != "s":
                 print("  Cancelado.")
@@ -216,6 +236,10 @@ def opcion_ingesta(db_path: str | None = None):
             args = ["--root", root]
             if recursive:
                 args.append("--recursive")
+            if tipos_seleccionados:
+                args.extend(["--types", ",".join(tipos_seleccionados)])
+            if permitir_sin_ts:
+                args.append("--allow-no-timestamp")
             if dry_run:
                 args.append("--dry-run")
             if custom_db:
@@ -1115,13 +1139,13 @@ def opcion_mapa():
     print("    --no-markers   Sin marcadores en los puntos")
     print("    --heatmap      Agregar capa de mapa de calor")
     print("    --road-colors  Colorear segmentos por pendiente")
-    print("    --verbose      Mostrar detalles en consola\n")
 
-    output = input("  Archivo de salida [mapa_ruta.html]: ").strip() or "mapa_ruta.html"
+
+
+    output = input("  Archivo de salida [mapas/mapa_ruta.html]: ").strip() or "mapas/mapa_ruta.html"
     heatmap = input("  ?Incluir mapa de calor? (s/N): ").strip().lower() == "s"
     road_colors = input("  ?Colorear segmentos por pendiente? (s/N): ").strip().lower() == "s"
     no_markers = input("  ?Omitir marcadores? (s/N): ").strip().lower() == "s"
-    verbose = input("  ?Modo verbose? (s/N): ").strip().lower() == "s"
     custom_db = input(f"  ?Usar otra DB? (default: {leer_db()}) [Enter para default]: ").strip()
 
     print(f"\n  Resumen: output={output}  heatmap={'SI' if heatmap else 'NO'}  "

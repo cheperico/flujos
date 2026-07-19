@@ -7,13 +7,12 @@ interactivo con marcadores informativos, y opcionalmente colorea los segmentos
 por pendiente y agrega una capa de calor.
 
 Uso:
-    python scripts/mapa_ruta.py                            # Genera mapa_ruta.html
+    python scripts/mapa_ruta.py                            # Genera mapas/mapa_ruta.html
     python scripts/mapa_ruta.py --output ruta.html          # Nombre de salida
     python scripts/mapa_ruta.py --no-markers                # Solo línea, sin marcadores
     python scripts/mapa_ruta.py --heatmap                   # Incluir heatmap
     python scripts/mapa_ruta.py --road-colors               # Colorear segmentos por gradiente
     python scripts/mapa_ruta.py --db ruta.db                # BD alternativa
-    python scripts/mapa_ruta.py --verbose                   # Mostrar progreso
 """
 
 import argparse
@@ -170,11 +169,10 @@ def leer_puntos_gps(conn: sqlite3.Connection) -> list[dict]:
 
 def generar_mapa(
     db_path: str,
-    output: str = "mapa_ruta.html",
+    output: str = "mapas/mapa_ruta.html",
     markers: bool = True,
     heatmap: bool = False,
     road_colors: bool = False,
-    verbose: bool = False,
 ) -> str:
     """
     Genera un mapa HTML interactivo con Folium desde la base de datos.
@@ -185,8 +183,6 @@ def generar_mapa(
         markers: Si True, agrega marcadores con popups en cada punto GPS.
         heatmap: Si True, agrega capa de mapa de calor.
         road_colors: Si True, colorea los segmentos de ruta según el gradiente.
-        verbose: Si True, muestra información detallada durante el proceso.
-
     Returns:
         Ruta absoluta del archivo HTML generado, o None si no hay datos.
 
@@ -221,8 +217,7 @@ def generar_mapa(
 
     total = len(puntos)
     log.info("Leídos %d puntos GPS desde la BD.", total)
-    if verbose:
-        log.info("  Rango: %s → %s", puntos[0]["timestamp"], puntos[-1]["timestamp"])
+    log.info("  Rango: %s → %s", puntos[0]["timestamp"], puntos[-1]["timestamp"])
 
     # ---- Calcular centro y bounds ----
     lats = [p["lat"] for p in puntos]
@@ -284,25 +279,24 @@ def generar_mapa(
 
     # ---- Agregar marcadores ----
     if markers:
-        _agregar_marcadores(m, puntos, verbose)
+        _agregar_marcadores(m, puntos)
 
     # ---- Agregar heatmap ----
     if heatmap:
-        _agregar_heatmap(m, puntos, verbose)
+        _agregar_heatmap(m, puntos)
 
     # ---- Guardar ----
     output_abs = os.path.abspath(output)
     m.save(output_abs)
     log.info("Mapa guardado: %s", output_abs)
 
-    if verbose:
-        n_con_grad = sum(1 for p in puntos if p["gradiente"] is not None)
-        n_con_dist = sum(1 for p in puntos if p["distancia_m"] is not None)
-        log.info("  Puntos con gradiente: %d/%d", n_con_grad, total)
-        log.info("  Puntos con distancia: %d/%d", n_con_dist, total)
-        if puntos[-1].get("cumul_dist_m"):
-            log.info("  Distancia total ruta: %s",
-                     formatear_distancia(puntos[-1]["cumul_dist_m"]))
+    n_con_grad = sum(1 for p in puntos if p["gradiente"] is not None)
+    n_con_dist = sum(1 for p in puntos if p["distancia_m"] is not None)
+    log.info("  Puntos con gradiente: %d/%d", n_con_grad, total)
+    log.info("  Puntos con distancia: %d/%d", n_con_dist, total)
+    if puntos[-1].get("cumul_dist_m"):
+        log.info("  Distancia total ruta: %s",
+                 formatear_distancia(puntos[-1]["cumul_dist_m"]))
 
     return output_abs
 
@@ -311,7 +305,7 @@ def generar_mapa(
 # Marcadores con popups
 # ---------------------------------------------------------------------------
 
-def _agregar_marcadores(mapa, puntos: list[dict], verbose: bool):
+def _agregar_marcadores(mapa, puntos: list[dict]):
     """Agrega marcadores a cada punto GPS con popup informativo."""
     # Agregar marcador de inicio (verde) con icono especial
     if puntos:
@@ -410,7 +404,7 @@ def _crear_popup(punto: dict, es_inicio: bool = False, es_fin: bool = False) -> 
 # Heatmap
 # ---------------------------------------------------------------------------
 
-def _agregar_heatmap(mapa, puntos: list[dict], verbose: bool):
+def _agregar_heatmap(mapa, puntos: list[dict]):
     """Agrega una capa de mapa de calor basada en la densidad de puntos."""
 
     # Preparar datos: [lat, lon, peso]
@@ -507,14 +501,14 @@ Ejemplos:
   python scripts/mapa_ruta.py --heatmap                           # Con capa de calor
   python scripts/mapa_ruta.py --road-colors                       # Segmentos coloreados por pendiente
   python scripts/mapa_ruta.py --road-colors --heatmap             # Todo incluido
-  python scripts/mapa_ruta.py --db db/flujos.db --verbose         # BD explícita con detalle
+  python scripts/mapa_ruta.py --db db/flujos.db                   # BD explícita
         """,
     )
 
     parser.add_argument(
         "--output", "-o",
-        default="mapa_ruta.html",
-        help="Archivo HTML de salida (default: mapa_ruta.html)",
+        default="mapas/mapa_ruta.html",
+        help="Archivo HTML de salida (default: mapas/mapa_ruta.html)",
     )
     parser.add_argument(
         "--db", default=None,
@@ -535,12 +529,6 @@ Ejemplos:
         action="store_true",
         help="Colorear segmentos de ruta según pendiente: verde=bajada, rojo=subida",
     )
-    parser.add_argument(
-        "--verbose", "-v",
-        action="store_true",
-        help="Mostrar información detallada durante el proceso",
-    )
-
     args = parser.parse_args(argv)
 
     # Resolver ruta de DB
@@ -565,7 +553,6 @@ Ejemplos:
         markers=not args.no_markers,
         heatmap=args.heatmap,
         road_colors=args.road_colors,
-        verbose=args.verbose,
     )
 
     if resultado:
@@ -579,7 +566,6 @@ Ejemplos:
         log.info("  --heatmap       Con capa de calor")
         log.info("  --road-colors   Segmentos coloreados por pendiente")
         log.info("  --output PATH   Ruta de salida personalizada")
-        log.info("  --verbose       Más detalles en consola")
     else:
         log.error("No se pudo generar el mapa.")
         sys.exit(1)

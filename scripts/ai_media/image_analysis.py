@@ -91,8 +91,10 @@ PROMPT_KEYWORDS = (
 )
 
 PROMPT_DESCRIBIR = (
-    "Describí esta imagen en una o dos oraciones en español. "
-    "Mencioná los elementos principales, colores, composición y atmósfera."
+    "Describí esta imagen en UNA oración en español, empezando por el sujeto principal. "
+    "No uses frases como 'la imagen muestra', 'la foto presenta', 'en esta imagen se ve' "
+    "ni ningún otro encabezado. Arrancá directo: 'Un perro...', 'Dos personas...', "
+    "'Un paisaje...', etc. Incluí elementos principales, colores y acción si la hay."
 )
 
 PROMPT_COMBINADO = (
@@ -103,9 +105,10 @@ PROMPT_COMBINADO = (
     + _GENEROS_STR + ".\n"
     "   Si ningún género encaja bien, elegí 'otras'.\n"
     '   Las siguientes describen elementos, colores, escena.\n'
-    '2. "description": una descripción breve en una o dos oraciones en español. '
-    "Mencioná elementos principales, colores, composición y atmósfera.\n\n"
-    'Formato exacto: {"keywords": ["paisaje", "montaña", "lago"], "description": "Un lago rodeado de montañas..."}\n'
+    '2. "description": UNA oración en español, arrancando por el sujeto principal. '
+    "No uses frases como 'la imagen muestra' ni similares. "
+    "Incluí elementos principales, colores y acción.\n\n"
+    'Formato exacto: {"keywords": ["paisaje", "montaña", "lago"], "description": "Un lago rodeado de montañas bajo un cielo despejado."}\n'
     "No incluyas nada más que el JSON."
 )
 
