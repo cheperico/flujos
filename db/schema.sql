@@ -110,6 +110,19 @@ CREATE INDEX IF NOT EXISTS idx_kp_media ON media_keypoints(media_id);
 CREATE INDEX IF NOT EXISTS idx_kp_key ON media_keypoints(key);
 
 -- ------------------------------------------------------------------------
+-- Embeddings: vectores para búsqueda semántica
+-- ------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS media_embeddings (
+    media_id    INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+    embedding   BLOB NOT NULL,
+    modelo      TEXT NOT NULL DEFAULT 'nomic-embed-text',
+    fecha       TEXT DEFAULT (datetime('now')),
+    UNIQUE(media_id, modelo)
+);
+
+CREATE INDEX IF NOT EXISTS idx_emb_media ON media_embeddings(media_id);
+
+-- ------------------------------------------------------------------------
 -- Tracks GPS: archivos GPX ingestados (rutas completas)
 -- ------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS tracks (

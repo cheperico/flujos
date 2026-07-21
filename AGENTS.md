@@ -53,7 +53,8 @@ con SQLite como índice central y TouchDesigner como motor de reproducción.
 ├── flujos.py                        # Entry point unificado (TUI + CLI routing, 1325 lines)
 │
 ├── db/
-│   └── schema.sql                   # Definición completa del schema SQLite
+│   ├── schema.sql                   # Definición completa del schema SQLite
+│   ├── migrate.py                   # Migraciones centralizadas de schema (version 1→2+)
 │   └── flujos.db                    # Base de datos (no versionada)
 │
 ├── scripts/                         # Scripts Python del pipeline
@@ -321,7 +322,8 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 
 2. Ingesta
   ├─ 1. Hacer ingesta → scripts/ingest.py (pide root, verbose, dry-run)
-  └─ 2. Deshacer ingesta → opcion_undo_ingest() interno
+  ├─ 2. Ingerir track GPS (GPX) → opcion_ingestar_gpx()
+  └─ 3. Deshacer ingesta → opcion_undo_ingest() (medios por batch + tracks GPX)
 
 3. Mejorar base de datos
   ├─ Parte 1: IA y color
@@ -396,7 +398,8 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 | Función | Propósito |
 |---------|-----------|
 | `_verificar_ollama()` | Verifica que Ollama esté corriendo (GET localhost:11434/api/tags). Se llama antes de keywords/descriptions/transcribe. |
-| `_preguntar_modo()` | Pregunta skip/update/replace y devuelve el string. Usada en TODAS las operaciones de DB. |
+| `_preguntar_modo(db_path)` | Pregunta skip/update/replace y devuelve el string. Usada en TODAS las operaciones de DB. Si el modo es "replace" y db_path es válido, llama a `_auto_backup()`. |
+| `_auto_backup(db_path)` | Crea backup automático con timestamp en `db/backups/`. Retorna la ruta o None. |
 | `_ejecutar_improve_db()` | Wrapper que verifica Ollama si el paso lo requiere, luego llama a improve_db.main(). |
 | `leer_db()` | Resuelve la ruta a la DB (default: `db/flujos.db`). |
 | `resumen_db()` | Devuelve string con totales (6 líneas: Total, Imágenes, Videos, Audios, Textos, Otros). |
@@ -660,3 +663,6 @@ elif mode == "skip":
 - **mode update vs replace (Jul 2026)**: se unificó el comportamiento en `improve_db.py` (`run_keypoints`, `run_timestamps`, `run_gps`), `fetch_weather.py` y `dia_semana.py`: `--mode update` reprocesa todos los registros sin limpiar primero, `--mode replace` limpia y regenera.
 - **gradiente NULL timestamp (Jul 2026)**: se agregó `AND timestamp_utc IS NOT NULL` a la query de `gradiente.py` para evitar que puntos GPS sin timestamp se ordenen al inicio (NULLs primero en SQLite) generando distancias sin sentido.
 - **viento_direccion_a_texto (Jul 2026)**: helper que convierte grados (0-360) a punto cardinal (N, NE, E, etc.) usando 16 rumbos. Agregado en `fetch_weather.py` junto con las variables `wind_speed_10m`, `wind_direction_10m`, `surface_pressure`.
+- **Schema versioning (Jul 2026)**: se creó `db/migrate.py` con migraciones centralizadas. Versión 1 = schema inicial, versión 2 = tracks + waypoints. `ingest_gpx.py` ahora usa el sistema central en vez de su propio `migrar_db()`.
+- **Auto-backup en replace (Jul 2026)**: `_preguntar_modo(db_path)` ahora crea backup automático en `db/backups/` cuando se elige modo "replace". El usuario ve el nombre del backup creado.
+- **Undo GPX (Jul 2026)**: `opcion_undo_ingest()` ahora lista también tracks GPX (prefijo `t<id>`) junto con batches de medios (prefijo `b<id>`). Al deshacer un track, se borra el track + sus waypoints (CASCADE) y se revierte la altitud de medios con `geolocation_source='track_gps'`.

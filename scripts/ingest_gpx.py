@@ -46,6 +46,9 @@ def conectar(db_path: str) -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
     conn.row_factory = sqlite3.Row
+    # Asegurar que el schema esta actualizado
+    from db.migrate import verificar_schema
+    verificar_schema(conn)
     return conn
 
 
@@ -146,45 +149,6 @@ def _tag_float(parent, tag: str) -> float | None:
             return None
     return None
 
-
-# ---------------------------------------------------------------------------
-# Base de datos
-# ---------------------------------------------------------------------------
-
-def migrar_db(conn: sqlite3.Connection):
-    """Crea las tablas tracks y waypoints si no existen."""
-    conn.executescript("""
-        CREATE TABLE IF NOT EXISTS tracks (
-            id                INTEGER PRIMARY KEY AUTOINCREMENT,
-            name              TEXT NOT NULL,
-            filepath_absoluto TEXT NOT NULL,
-            filepath_relativo TEXT NOT NULL,
-            source_url        TEXT,
-            start_time        TEXT,
-            end_time          TEXT,
-            total_points      INTEGER,
-            ingested_at       TEXT NOT NULL DEFAULT (datetime('now'))
-        );
-
-        CREATE TABLE IF NOT EXISTS waypoints (
-            id                INTEGER PRIMARY KEY AUTOINCREMENT,
-            track_id          INTEGER REFERENCES tracks(id) ON DELETE CASCADE,
-            name              TEXT NOT NULL,
-            description       TEXT,
-            category          TEXT,
-            type              TEXT,
-            latitude          REAL NOT NULL,
-            longitude         REAL NOT NULL,
-            timestamp         TEXT,
-            ingested_at       TEXT NOT NULL DEFAULT (datetime('now'))
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_waypoints_loc ON waypoints(latitude, longitude);
-        CREATE INDEX IF NOT EXISTS idx_waypoints_track ON waypoints(track_id);
-        CREATE INDEX IF NOT EXISTS idx_waypoints_type ON waypoints(type);
-        CREATE INDEX IF NOT EXISTS idx_tracks_start ON tracks(start_time);
-    """)
-    conn.commit()
 
 
 def registrar_track(conn, nombre: str, ruta_abs: str, ruta_rel: str,
@@ -433,9 +397,8 @@ def main(argv: list[str] | None = None):
         print("    DRY RUN — no se escribirá nada")
     print()
 
-    # 2. Conectar DB
+    # 2. Conectar DB (verifica schema automaticamente)
     conn = conectar(db_path)
-    migrar_db(conn)
 
     # 3. Registrar track
     if not args.dry_run:

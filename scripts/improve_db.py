@@ -469,19 +469,40 @@ def run_keypoints(conn, db_path, mode, stats):
     """
     log.info("Paso: keypoints — Poblando keypoints desde transcripciones")
 
-    if mode in ("replace", "update"):
+    if mode == "replace":
+        # Replace: limpia TODO y regenera desde cero
         conn.execute("DELETE FROM media_keypoints")
         conn.commit()
+        query = """
+            SELECT m.id, m.filepath_absoluto, m.timestamp_utc, mm.value AS segments_json
+            FROM media m
+            JOIN media_metadata mm ON mm.media_id = m.id AND mm.key = 'whisper_segments'
+        """
+    elif mode == "update":
+        # Update: regenera keypoints para medios que tienen transcripcion
+        conn.execute("""
+            DELETE FROM media_keypoints WHERE media_id IN (
+                SELECT DISTINCT media_id FROM media_metadata WHERE key = 'whisper_segments'
+            )
+        """)
+        conn.commit()
+        query = """
+            SELECT m.id, m.filepath_absoluto, m.timestamp_utc, mm.value AS segments_json
+            FROM media m
+            JOIN media_metadata mm ON mm.media_id = m.id AND mm.key = 'whisper_segments'
+        """
+    else:  # skip
+        # Solo medios transcritos que aun no tienen keypoints
+        query = """
+            SELECT m.id, m.filepath_absoluto, m.timestamp_utc, mm.value AS segments_json
+            FROM media m
+            JOIN media_metadata mm ON mm.media_id = m.id AND mm.key = 'whisper_segments'
+            WHERE m.id NOT IN (
+                SELECT DISTINCT media_id FROM media_keypoints
+            )
+        """
 
-    # Medios transcritos que aún no tienen keypoints
-    rows = conn.execute("""
-        SELECT m.id, m.filepath_absoluto, m.timestamp_utc, mm.value AS segments_json
-        FROM media m
-        JOIN media_metadata mm ON mm.media_id = m.id AND mm.key = 'whisper_segments'
-        WHERE m.id NOT IN (
-            SELECT DISTINCT media_id FROM media_keypoints
-        )
-    """).fetchall()
+    rows = conn.execute(query).fetchall()
 
     if not rows:
         log.info("  No hay transcripciones pendientes para keypoints.")
@@ -707,6 +728,139 @@ def run_gps(conn, db_path, mode, stats):
 
 
 # ==============================================================================
+# Video metadata con ExifTool (backfill para videos ya ingestados)
+# ==============================================================================
+
+def check_video_metadata(conn) -> dict:
+    """Cuenta videos sin metadatos de ExifTool (marca/modelo)."""
+    total = conn.execute(
+        "SELECT COUNT(*) FROM media WHERE type='video'"
+    ).fetchone()[0]
+    pendientes = conn.execute("""
+        SELECT COUNT(*) FROM media m
+        WHERE m.type='video'
+          AND NOT EXISTS (
+              SELECT 1 FROM media_metadata mm
+              WHERE mm.media_id = m.id AND mm.key = 'xml_devicemanufacturer'
+          )
+    """).fetchone()[0]
+    return {"total": total, "pendientes": pendientes, "hecho": total - pendientes}
+
+
+def run_video_metadata(conn, db_path, mode, stats):
+    """
+    Backfill: corre ExifTool en videos ya ingestados para extraer
+    marca/modelo de cámara, detección 360, y demás metadatos.
+    """
+    log.info("Paso: video_metadata — Extrayendo metadatos de videos con ExifTool")
+
+    if mode == "replace":
+        conn.execute("""
+            DELETE FROM media_metadata WHERE media_id IN (
+                SELECT id FROM media WHERE type='video'
+            ) AND key LIKE 'xml_%' OR key LIKE 'xmp_%' OR key = 'video_spherical_projection'
+        """)
+        conn.execute("UPDATE media SET subtype = NULL WHERE type='video' AND subtype = '360'")
+        conn.commit()
+        query = "SELECT id, filepath_absoluto FROM media WHERE type='video'"
+    elif mode == "update":
+        query = "SELECT id, filepath_absoluto FROM media WHERE type='video'"
+    else:  # skip
+        query = """
+            SELECT m.id, m.filepath_absoluto FROM media m
+            WHERE m.type='video'
+              AND NOT EXISTS (
+                  SELECT 1 FROM media_metadata mm
+                  WHERE mm.media_id = m.id AND mm.key = 'xml_devicemanufacturer'
+              )
+        """
+
+    rows = conn.execute(query).fetchall()
+    if not rows:
+        log.info("  No hay videos pendientes.")
+        return
+
+    # Buscar exiftool
+    candidates = [
+        "C:\\Program Files\\digiKam\\exiftool.exe",
+        "C:\\Program Files\\exiftool.exe",
+        "exiftool",
+    ]
+    exiftool_path = None
+    import subprocess
+    for c in candidates:
+        if c == "exiftool":
+            try:
+                subprocess.run([c, "-ver"], capture_output=True, timeout=5)
+                exiftool_path = c
+                break
+            except:
+                continue
+        elif os.path.isfile(c):
+            exiftool_path = c
+            break
+
+    if not exiftool_path:
+        log.warning("  exiftool no encontrado. No se pueden extraer metadatos de video.")
+        stats["warnings"] += 1
+        return
+
+    from scripts.ingest import run_exiftool, detect_360
+
+    ok = 0
+    errors = 0
+    for mid, fpath in tqdm(rows, desc="  Videos", unit="vid", ncols=80):
+        if not os.path.isfile(fpath):
+            log.warning("  Archivo no encontrado: %s", fpath)
+            stats["warnings"] += 1
+            continue
+        try:
+            meta = run_exiftool(exiftool_path, fpath)
+            if not meta:
+                continue
+
+            # Guardar metadatos en media_metadata
+            for key, value in meta.items():
+                if value is None:
+                    continue
+                conn.execute(
+                    "INSERT OR IGNORE INTO media_metadata (media_id, key, value) VALUES (?, ?, ?)",
+                    (mid, key, str(value)),
+                )
+
+            # Detectar 360 y actualizar subtype
+            if detect_360(meta):
+                conn.execute(
+                    "UPDATE media SET subtype = '360' WHERE id = ? AND subtype IS NULL",
+                    (mid,),
+                )
+
+            # Si se detectó marca/modelo, poblar author si está vacío
+            maker = meta.get("xml_devicemanufacturer") or meta.get("sony_device_manufacturer", "")
+            model = meta.get("xml_devicemodelname") or meta.get("sony_device_modelName", "")
+            if maker or model:
+                cur = conn.execute("SELECT author FROM media WHERE id = ?", (mid,))
+                existing = cur.fetchone()
+                if not existing or not existing[0]:
+                    author = f"{maker} {model}".strip()
+                    if author:
+                        conn.execute(
+                            "UPDATE media SET author = ?, author_source = ? WHERE id = ?",
+                            (author, "exif", mid),
+                        )
+
+            ok += 1
+        except Exception as e:
+            log.debug("  Error en video id=%s: %s", mid, e)
+            errors += 1
+
+    conn.commit()
+    log.info("  ✅ Videos procesados: %d  |  Errores: %d", ok, errors)
+    stats["video_metadata_ok"] = ok
+    stats["video_metadata_err"] = errors
+
+
+# ==============================================================================
 # Registro de pasos
 # ==============================================================================
 
@@ -753,10 +907,16 @@ REGISTRY = {
         "check": check_gps,
         "run": run_gps,
     },
+    "video_metadata": {
+        "description": "Extraer metadatos de cámara y 360 con ExifTool en videos",
+        "dependencies": [],
+        "check": check_video_metadata,
+        "run": run_video_metadata,
+    },
 }
 
 DEP_ORDER = ["colors", "keywords", "descriptions", "transcribe", "keypoints",
-             "timestamps", "gps"]
+             "timestamps", "gps", "video_metadata"]
 
 
 def listar_pasos():

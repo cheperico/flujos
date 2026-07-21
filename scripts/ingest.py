@@ -173,7 +173,7 @@ def run_exiftool(exiftool_path: str, filepath: str) -> dict:
             cmd,
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=60,
             creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" and hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
         )
         if result.returncode == 0 and result.stdout.strip():
@@ -352,6 +352,15 @@ def extract_ffprobe_metadata(filepath: str) -> dict:
             vtags = stream.get("tags", {})
             for k, v in vtags.items():
                 meta[f"{prefix}_tag_{k.lower()}"] = v
+            # Side data (spherical/equirectangular 360°, etc.)
+            for sd in stream.get("side_data_list", []):
+                sd_type = sd.get("side_data_type", "").lower()
+                proj = sd.get("projection", "")
+                if sd_type and "spherical" in sd_type:
+                    meta[f"{prefix}_spherical_projection"] = proj
+                    for k, v in sd.items():
+                        if k not in ("side_data_type",):
+                            meta[f"{prefix}_sd_{k.lower()}"] = str(v)
             break  # Solo primer video stream
 
     for stream in streams:
@@ -525,12 +534,16 @@ def infer_author(filepath: str, carpeta: str, meta: dict, filetype: str) -> tupl
                 source = "carpeta"
                 break
 
-    # Si es SONY, usar modelo de cámara
+    # Si no se encontró, usar marca/modelo de cámara desde ExifTool o sidecar XML
     if not author and filetype == "video":
-        model = meta.get("sony_device_modelName", "")
-        if model:
-            author = f"SONY {model}"
-            source = "modelo_camara"
+        maker = meta.get("xml_devicemanufacturer", "") or meta.get("sony_device_manufacturer", "")
+        model = meta.get("xml_devicemodelname", "") or meta.get("sony_device_modelName", "")
+        if maker and model:
+            author = f"{maker} {model}"
+            source = "exif"
+        elif model:
+            author = f"{maker or '?'} {model}"
+            source = "exif"
 
     # Último recurso: el nombre de la carpeta tal cual
     if not author and carpeta and not carpeta.startswith("SONY"):
@@ -1088,6 +1101,12 @@ def process_file(
         if ffprobe_meta:
             meta.update(ffprobe_meta)
 
+        # Metadata con ExifTool (marca, modelo, XMP 360°, etc.)
+        if exiftool_path:
+            exif_meta = run_exiftool(exiftool_path, filepath)
+            if exif_meta:
+                meta.update(exif_meta)
+
         # Buscar XML sidecar SONY
         sidecar_xml_path = find_sony_sidecar(filepath)
         if sidecar_xml_path:
@@ -1100,7 +1119,7 @@ def process_file(
                 sidecar_hash = sha256_file(sidecar_xml_path)
                 record["sidecar_hash"] = sidecar_hash
 
-        # Detectar 360° por metadatos (spherical, equirectangular)
+        # Detectar 360° por metadatos (ffprobe side_data + ExifTool XMP)
         if detect_360(meta):
             record["subtype"] = "360"
 
@@ -1109,7 +1128,7 @@ def process_file(
         if ts_orig:
             timestamp_original, timestamp_utc, timezone_note = ts_orig, ts_utc, ts_note
 
-        # Autor
+        # Autor (incluye deteccion de marca/modelo desde ExifTool)
         author, author_source = infer_author(filepath, carpeta, meta, filetype)
         if author:
             record["author"] = author
@@ -1208,13 +1227,24 @@ def process_file(
 
 
 def detect_360(meta: dict) -> bool:
-    """Detecta si un video es 360° por metadatos (spherical, equirectangular)."""
-    for key in meta:
+    """
+    Detecta si un video es 360° por metadatos.
+    
+    Revisa:
+    1. Claves con "spherical"/"equirectangular"/"stereo" y valores truthy
+       (cubre ffprobe tags, side_data, ExifTool XMP:Spherical)
+    2. Valores con "equirectangular" incluso si la clave no es obvia
+       (cubre ExifTool XMP:ProjectionType)
+    """
+    for key, value in meta.items():
         kl = key.lower()
+        val = str(value).lower()
         if "spherical" in kl or "equirectangular" in kl or "stereo" in kl:
-            val = str(meta[key]).lower()
             if "true" in val or "1" in val or "equirectangular" in val:
                 return True
+        # Algunos metadatos (ej: XMP:ProjectionType) ponen el tipo en el valor
+        if "projection" in kl and "equirectangular" in val:
+            return True
     return False
 
 
@@ -1342,12 +1372,9 @@ Ejemplos:
     conn = init_db(db_path)
     log.info("Schema verificado/creado.")
 
-    # Generar batch_id para esta corrida
-    import random
-    ingest_batch_id = random.randint(100000, 999999)
-    # Asegurar que no exista
-    while conn.execute("SELECT 1 FROM media WHERE ingest_batch_id = ?", (ingest_batch_id,)).fetchone():
-        ingest_batch_id = random.randint(100000, 999999)
+    # Generar batch_id para esta corrida (timestamp-based, unico)
+    import time
+    ingest_batch_id = int(time.time() * 1000) % 1000000
     log.info("Batch ID de esta ingesta: %s", ingest_batch_id)
 
     # Guardar raíz de ingesta y batch actual

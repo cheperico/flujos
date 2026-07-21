@@ -302,7 +302,8 @@ def opcion_listar(db_path: str | None = None):
         elif opc == "7":
             flags = input("  Flags (ej: --distinct type --count): ").strip()
             if flags:
-                query.main(flags.split())
+                import shlex
+                query.main(shlex.split(flags))
         elif opc == "8":
             opcion_check_gps(db_path)
         elif opc == "9":
@@ -436,22 +437,23 @@ def opcion_gradient():
 
     opc = input("  Opcion: ").strip()
 
+    db_path = leer_db()
     from scripts import gradiente
 
     if opc == "1":
-        modo = _preguntar_modo()
+        modo = _preguntar_modo(db_path)
         if modo is None:
             print("  Cancelado.")
             pausa()
             return
-        args = ["--db", leer_db()]
+        args = ["--db", db_path]
         if modo != "skip":
             args += ["--mode", modo]
         gradiente.main(args)
     elif opc == "2":
-        gradiente.main(["--db", leer_db(), "--dry-run"])
+        gradiente.main(["--db", db_path, "--dry-run"])
     elif opc == "3":
-        gradiente.main(["--db", leer_db(), "--dry-run", "--verbose"])
+        gradiente.main(["--db", db_path, "--dry-run", "--verbose"])
     elif opc == "0":
         return
 
@@ -547,7 +549,7 @@ def opcion_detalle_db(db_path: str | None = None):
 
 
 def opcion_undo_ingest(db_path: str | None = None):
-    """Menu para deshacer una ingesta por batch_id."""
+    """Menu para deshacer una ingesta (medios o GPX)."""
     limpiar_pantalla()
     print("=== DESHACER INGESTA ===\n")
 
@@ -559,49 +561,124 @@ def opcion_undo_ingest(db_path: str | None = None):
 
     conn = sqlite3.connect(db_path)
     try:
-        # Listar batches disponibles
+        # --- Listar batches de medios ---
         cursor = conn.execute(
             "SELECT ingest_batch_id, MIN(ingested_at), COUNT(*) FROM media "
             "WHERE ingest_batch_id IS NOT NULL "
             "GROUP BY ingest_batch_id ORDER BY MIN(ingested_at) DESC"
         )
         batches = cursor.fetchall()
-        if not batches:
-            print("  No hay ingestas con batch_id registradas.")
+
+        # --- Listar tracks GPX ---
+        tracks_cursor = conn.execute(
+            "SELECT id, name, ingested_at, total_points FROM tracks ORDER BY ingested_at DESC"
+        )
+        tracks = tracks_cursor.fetchall()
+
+        if not batches and not tracks:
+            print("  No hay ingestas (medios ni GPX) para deshacer.")
             conn.close()
             pausa()
             return
 
-        # Obtener batch actual una vez, no por cada fila
+        # --- Obtener batch actual ---
         current_batch = conn.execute(
             "SELECT value FROM config WHERE key = 'current_ingest_batch'"
         ).fetchone()
         current_batch_str = current_batch[0] if current_batch else ""
 
-        print("  Ingresos disponibles:\n")
-        for bid, ts, cnt in batches:
-            current = "  (actual)" if str(bid) == current_batch_str else ""
-            print(f"  Batch #{bid}  -  {ts}  -  {cnt} medios{current}")
-        print()
+        # --- Mostrar opciones ---
+        if batches:
+            print("  Medios (por batch):\n")
+            for bid, ts, cnt in batches:
+                current = "  (actual)" if str(bid) == current_batch_str else ""
+                print(f"    b{bid}  -  {ts}  -  {cnt} medios{current}")
+            print()
 
-        bid_str = input("  Batch ID a deshacer (0 para cancelar): ").strip()
-        if bid_str == "0" or not bid_str:
+        if tracks:
+            print("  Tracks GPX:\n")
+            for tid, name, ts, pts in tracks:
+                print(f"    t{tid}  -  {ts}  -  \"{name}\"  ({pts} puntos)")
+            print()
+
+        print("  Ingrese codigo a deshacer (ej: b5  o  t2) o 0 para cancelar:")
+        codigo = input("  > ").strip().lower()
+
+        if codigo == "0" or not codigo:
             print("  Cancelado.")
             conn.close()
             pausa()
             return
 
-        bid = int(bid_str)
-        confirm = input(f"  Esto borrara TODOS los medios del batch #{bid}. Confirmar? (s/N): ").strip().lower()
-        if confirm != "s":
-            print("  Cancelado.")
+        # --- Parsear codigo ---
+        if codigo[0] == "b":
+            # Deshacer batch de medios
+            try:
+                bid = int(codigo[1:])
+            except ValueError:
+                print("  Codigo invalido.")
+                conn.close()
+                pausa()
+                return
+
+            confirm = input(f"  Esto borrara TODOS los medios del batch #{bid}. Confirmar? (s/N): ").strip().lower()
+            if confirm != "s":
+                print("  Cancelado.")
+                conn.close()
+                pausa()
+                return
+
+            deleted = conn.execute("DELETE FROM media WHERE ingest_batch_id = ?", (bid,)).rowcount
+            conn.commit()
+            print(f"  Eliminados {deleted} medios del batch #{bid}.")
+
+        elif codigo[0] == "t":
+            # Deshacer track GPX
+            try:
+                tid = int(codigo[1:])
+            except ValueError:
+                print("  Codigo invalido.")
+                conn.close()
+                pausa()
+                return
+
+            # Verificar que existe
+            track = conn.execute(
+                "SELECT id, name FROM tracks WHERE id = ?", (tid,)
+            ).fetchone()
+            if not track:
+                print(f"  Track #{tid} no encontrado.")
+                conn.close()
+                pausa()
+                return
+
+            track_nombre = track[1]
+            confirm = input(f"  Esto borrara el track \"{track_nombre}\" y sus waypoints. Confirmar? (s/N): ").strip().lower()
+            if confirm != "s":
+                print("  Cancelado.")
+                conn.close()
+                pausa()
+                return
+
+            # Revertir altitud de medios que obtuvieron altitud de este track
+            # (marcamos como NULL los que tengan geolocation_source='track_gps')
+            revertidos = conn.execute(
+                "UPDATE media SET altitude = NULL, geolocation_source = NULL "
+                "WHERE geolocation_source = 'track_gps'"
+            ).rowcount
+
+            # Borrar track (CASCADE borra waypoints automaticamente)
+            conn.execute("DELETE FROM tracks WHERE id = ?", (tid,))
+            conn.commit()
+            print(f"  Track \"{track_nombre}\" eliminado.")
+            if revertidos:
+                print(f"  Altitud revertida para {revertidos} medios (geolocation_source='track_gps').")
+
+        else:
+            print("  Codigo invalido. Use b<num> para medios o t<num> para tracks.")
             conn.close()
             pausa()
             return
-
-        deleted = conn.execute("DELETE FROM media WHERE ingest_batch_id = ?", (bid,)).rowcount
-        conn.commit()
-        print(f"  Eliminados {deleted} medios del batch #{bid}.")
 
     except (sqlite3.OperationalError, ValueError) as e:
         print(f"  Error: {e}")
@@ -677,9 +754,26 @@ def _ejecutar_improve_db(pasos: str | None = None, modo: str = "skip"):
     improve_db.main(args)
 
 
-def _preguntar_modo():
+def _auto_backup(db_path: str) -> str | None:
+    """Crea un backup automático con timestamp. Retorna la ruta del backup o None."""
+    import shutil
+    from datetime import datetime
+    backup_dir = os.path.join(os.path.dirname(__file__), "db", "backups")
+    os.makedirs(backup_dir, exist_ok=True)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_path = os.path.join(backup_dir, f"flujos_autobackup_{ts}.db")
+    try:
+        shutil.copy2(db_path, backup_path)
+        return backup_path
+    except Exception as e:
+        print(f"  ⚠ Error al crear backup automático: {e}")
+        return None
+
+
+def _preguntar_modo(db_path: str | None = None):
     """Pregunta modo de ejecución y lo devuelve como string.
-    Retorna None si el usuario cancela la operación."""
+    Retorna None si el usuario cancela la operación.
+    Si db_path se provee y el modo es 'replace', crea backup automático."""
     print("  Modo:")
     print("    s) Skip — solo pendientes (default)")
     print("    u) Update — actualizar existentes")
@@ -689,6 +783,10 @@ def _preguntar_modo():
     if m == "u":
         return "update"
     elif m == "r":
+        if db_path and os.path.isfile(db_path):
+            backup = _auto_backup(db_path)
+            if backup:
+                print(f"  ✓ Backup automático: {os.path.basename(backup)}")
         return "replace"
     elif m == "c":
         return None
@@ -697,6 +795,7 @@ def _preguntar_modo():
 
 def opcion_improve_db():
     """Menu para ejecutar pasos de mejora sobre la DB (2 partes)."""
+    db_path = leer_db()
     parte = 1
     while True:
         limpiar_pantalla()
@@ -734,7 +833,7 @@ def opcion_improve_db():
             elif opc == "2":
                 pasos = input("  Pasos (separados por coma, ej: colors,keywords): ").strip()
                 if pasos:
-                    modo = _preguntar_modo()
+                    modo = _preguntar_modo(db_path)
                     if modo is None:
                         print("  Cancelado.")
                         pausa()
@@ -742,7 +841,7 @@ def opcion_improve_db():
                     _ejecutar_improve_db(pasos=pasos, modo=modo)
                 pausa()
             elif opc == "3":
-                modo = _preguntar_modo()
+                modo = _preguntar_modo(db_path)
                 if modo is None:
                     print("  Cancelado.")
                     pausa()
@@ -750,7 +849,7 @@ def opcion_improve_db():
                 _ejecutar_improve_db(pasos="colors", modo=modo)
                 pausa()
             elif opc == "4":
-                modo = _preguntar_modo()
+                modo = _preguntar_modo(db_path)
                 if modo is None:
                     print("  Cancelado.")
                     pausa()
@@ -758,7 +857,7 @@ def opcion_improve_db():
                 _ejecutar_improve_db(pasos="keywords", modo=modo)
                 pausa()
             elif opc == "5":
-                modo = _preguntar_modo()
+                modo = _preguntar_modo(db_path)
                 if modo is None:
                     print("  Cancelado.")
                     pausa()
@@ -766,7 +865,7 @@ def opcion_improve_db():
                 _ejecutar_improve_db(pasos="descriptions", modo=modo)
                 pausa()
             elif opc == "6":
-                modo = _preguntar_modo()
+                modo = _preguntar_modo(db_path)
                 if modo is None:
                     print("  Cancelado.")
                     pausa()
@@ -774,7 +873,7 @@ def opcion_improve_db():
                 _ejecutar_improve_db(pasos="keywords,descriptions", modo=modo)
                 pausa()
             elif opc == "7":
-                modo = _preguntar_modo()
+                modo = _preguntar_modo(db_path)
                 if modo is None:
                     print("  Cancelado.")
                     pausa()
@@ -782,7 +881,7 @@ def opcion_improve_db():
                 _ejecutar_improve_db(pasos="transcribe", modo=modo)
                 pausa()
             elif opc == "8":
-                modo = _preguntar_modo()
+                modo = _preguntar_modo(db_path)
                 if modo is None:
                     print("  Cancelado.")
                     pausa()
@@ -799,7 +898,7 @@ def opcion_improve_db():
 
         else:  # parte == 2
             if opc == "1":
-                modo = _preguntar_modo()
+                modo = _preguntar_modo(db_path)
                 if modo is None:
                     print("  Cancelado.")
                     pausa()
@@ -807,7 +906,7 @@ def opcion_improve_db():
                 _ejecutar_improve_db(pasos="timestamps", modo=modo)
                 pausa()
             elif opc == "2":
-                modo = _preguntar_modo()
+                modo = _preguntar_modo(db_path)
                 if modo is None:
                     print("  Cancelado.")
                     pausa()
@@ -842,12 +941,13 @@ def opcion_weather():
 
     opc = input("  Opcion: ").strip()
 
+    db_path = leer_db()
     import subprocess
     script = os.path.join(os.path.dirname(__file__), "scripts", "fetch_weather.py")
-    db_flag = ["--db", leer_db()]
+    db_flag = ["--db", db_path]
 
     if opc == "1":
-        modo = _preguntar_modo()
+        modo = _preguntar_modo(db_path)
         if modo is None:
             print("  Cancelado.")
             pausa()
@@ -875,12 +975,13 @@ def opcion_dia_semana():
 
     opc = input("  Opcion: ").strip()
 
+    db_path = leer_db()
     import subprocess
     script = os.path.join(os.path.dirname(__file__), "scripts", "dia_semana.py")
-    db_flag = ["--db", leer_db()]
+    db_flag = ["--db", db_path]
 
     if opc == "1":
-        modo = _preguntar_modo()
+        modo = _preguntar_modo(db_path)
         if modo is None:
             print("  Cancelado.")
             pausa()
@@ -933,20 +1034,21 @@ def opcion_geocode():
 
     opc = input("  Opcion: ").strip()
 
+    db_path = leer_db()
     from scripts import geocode
 
     if opc == "1":
-        modo = _preguntar_modo()
+        modo = _preguntar_modo(db_path)
         if modo is None:
             print("  Cancelado.")
             pausa()
             return
-        args = ["--db", leer_db()]
+        args = ["--db", db_path]
         if modo != "skip":
             args += ["--mode", modo]
         geocode.main(args)
     elif opc == "2":
-        geocode.main(["--db", leer_db(), "--dry-run"])
+        geocode.main(["--db", db_path, "--dry-run"])
     elif opc == "0":
         return
 
@@ -1159,15 +1261,15 @@ def tui():
         opc = input("  Opcion: ").strip()
 
         if opc == "1":
-            opcion_preparar()
+            opcion_preparar(db_path)
         elif opc == "2":
-            opcion_ingesta()
+            opcion_ingesta(db_path)
         elif opc == "3":
             opcion_improve_db()
         elif opc == "4":
-            opcion_consultar()
+            opcion_consultar(db_path)
         elif opc == "5":
-            opcion_mantenimiento()
+            opcion_mantenimiento(db_path)
         elif opc == "6":
             opcion_mapa()
         elif opc == "9":
@@ -1249,7 +1351,7 @@ def opcion_backfill_end_time(db_path: str | None = None):
             return
 
         # Preguntar modo
-        modo = _preguntar_modo()
+        modo = _preguntar_modo(db_path)
         if modo is None:
             print("  Cancelado.")
             return
