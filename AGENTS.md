@@ -233,6 +233,35 @@ value       TEXT
 
 Claves: `ingest_root`, `current_ingest_batch`, etc.
 
+### Tabla: `tracks` (archivos GPX)
+
+```sql
+id                INTEGER PRIMARY KEY AUTOINCREMENT
+name              TEXT NOT NULL              -- nombre del track (del GPX)
+filepath_absoluto TEXT NOT NULL              -- ruta absoluta al archivo GPX
+filepath_relativo TEXT NOT NULL              -- ruta relativa al proyecto
+source_url        TEXT                       -- URL de origen (RideWithGPS, etc.)
+start_time        TEXT                       -- timestamp del primer punto
+end_time          TEXT                       -- timestamp del último punto
+total_points      INTEGER                    -- cantidad de track points
+ingested_at       TEXT DEFAULT (datetime('now'))
+```
+
+### Tabla: `waypoints` (puntos de interés)
+
+```sql
+id                INTEGER PRIMARY KEY AUTOINCREMENT
+track_id          INTEGER REFERENCES tracks(id) ON DELETE CASCADE
+name              TEXT NOT NULL              -- nombre del waypoint
+description       TEXT                       -- descripción textual
+category          TEXT                       -- cmt: bikeshare, stop, caution, food, etc.
+type              TEXT                       -- type: checkpoint, service, danger, food, etc.
+latitude          REAL NOT NULL              -- WGS84
+longitude         REAL NOT NULL              -- WGS84
+timestamp         TEXT                       -- si tiene timestamp asociado
+ingested_at       TEXT DEFAULT (datetime('now'))
+```
+
 ---
 
 ## Mapa de datos: qué se escribe y dónde
@@ -264,6 +293,9 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 | **GRADIENTES** | `gradiente.py` | Distancia Haversine, cambio elevación, pendiente % y acumulados | `media` | distance_from_prev_m, elevation_gain_m, gradient_pct, cumul_distance_m, cumul_elevation_gain_m |
 | **BACKFILL** | `flujos.py` backfill-end-time | Precalcula end_time = timestamp_utc + duration_secs | `media` | end_time, updated_at |
 | **RELOCATE** | `relocate.py` | Actualiza rutas cuando los archivos se mudan de carpeta | `media` | filepath_absoluto, filepath_relativo, carpeta, sidecar_xml |
+| **GPX** | `ingest_gpx.py` | Ingesta de archivo GPX: waypoints, registro de track y backfill de altitud | `tracks` | name, filepath_absoluto, filepath_relativo, source_url, start_time, end_time, total_points |
+| | | | `waypoints` | name, description, category, type, latitude, longitude |
+| | | | `media` | altitude, geolocation_source='track_gps' |
 
 > **Nota**: todas las operaciones que modifican la DB soportan `--mode skip|update|replace`.
 > - `skip`: solo procesa registros donde el dato es NULL

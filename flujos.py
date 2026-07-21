@@ -182,8 +182,9 @@ def opcion_ingesta(db_path: str | None = None):
     while True:
         limpiar_pantalla()
         print("=== INGESTA ===\n")
-        print("  1) Hacer ingesta")
-        print("  2) Deshacer ingesta")
+        print("  1) Hacer ingesta (medios)")
+        print("  2) Ingerir track GPS (GPX)")
+        print("  3) Deshacer ingesta")
         print("  0) Volver\n")
 
         opc = input("  Opcion: ").strip()
@@ -250,6 +251,9 @@ def opcion_ingesta(db_path: str | None = None):
             pausa()
 
         elif opc == "2":
+            opcion_ingestar_gpx(db_path)
+
+        elif opc == "3":
             opcion_undo_ingest(db_path)
 
         elif opc == "0":
@@ -981,6 +985,58 @@ def opcion_mantenimiento(db_path: str | None = None):
         else:
             print("  Opcion invalida.")
             pausa()
+
+
+def opcion_ingestar_gpx(db_path: str | None = None):
+    """Menu: ingerir un archivo GPX (track GPS)."""
+    limpiar_pantalla()
+    print("=== INGERIR TRACK GPS (GPX) ===\n")
+
+    gpx_path = input("  Ruta al archivo .gpx [tracks/Al_FaB_Tucuman.gpx]: ").strip()
+    if not gpx_path:
+        gpx_path = "tracks/Al_FaB_Tucuman.gpx"
+    if not os.path.isfile(gpx_path):
+        print(f"  ❌ Archivo no encontrado: {gpx_path}")
+        pausa()
+        return
+
+    # Modo de backfill de altitud
+    print("\n  Modo de backfill de altitud:")
+    print("    s) skip — solo medios sin altitud")
+    print("    u) update — todos los medios (sobrescribe)")
+    print("    r) replace — limpia y reprocesa")
+    modo = input("  Modo [s]: ").strip().lower() or "s"
+    mapa_modo = {"s": "skip", "u": "update", "r": "replace"}
+    modo_str = mapa_modo.get(modo, "skip")
+
+    omitir_wpts = input("  ?Omitir waypoints? (s/N): ").strip().lower() == "s"
+    omitir_alt = input("  ?Omitir backfill de altitud? (s/N): ").strip().lower() == "s"
+    dry_run = input("  ?Solo previsualizar (dry-run)? (s/N): ").strip().lower() == "s"
+
+    print(f"\n  Resumen: gpx={gpx_path}  modo={modo_str}"
+          f"  waypoints={'NO' if omitir_wpts else 'SI'}"
+          f"  altitud={'NO' if omitir_alt else 'SI'}"
+          f"  dry_run={'SI' if dry_run else 'NO'}")
+    confirm = input("  ?Ejecutar? (s/N): ").strip().lower()
+    if confirm != "s":
+        print("  Cancelado.")
+        pausa()
+        return
+
+    print("\n  Ejecutando ingesta GPX...\n")
+    from scripts import ingest_gpx
+    args = ["--gpx", gpx_path]
+    args.extend(["--mode", modo_str])
+    if omitir_wpts:
+        args.append("--no-waypoints")
+    if omitir_alt:
+        args.append("--no-altitude")
+    if dry_run:
+        args.append("--dry-run")
+    if db_path:
+        args.extend(["--db", db_path])
+    ingest_gpx.main(args)
+    pausa()
 
 
 def opcion_ayuda():

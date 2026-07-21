@@ -104,8 +104,9 @@ Al ejecutar `python flujos.py` sin argumentos se ingresa al menú TUI:
   └─ 1. Limpieza de tandas
 
 2. Ingesta
-  ├─ 1. Hacer ingesta
-  └─ 2. Deshacer ingesta
+  ├─ 1. Hacer ingesta (medios)
+  ├─ 2. Ingerir track GPS (GPX)
+  └─ 3. Deshacer ingesta
 
 3. Mejorar base de datos
   ├─ Parte 1: IA y color
