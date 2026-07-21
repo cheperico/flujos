@@ -108,3 +108,39 @@ CREATE INDEX IF NOT EXISTS idx_metadata_key ON media_metadata(key);
 CREATE INDEX IF NOT EXISTS idx_kp_absolute ON media_keypoints(timestamp_absolute);
 CREATE INDEX IF NOT EXISTS idx_kp_media ON media_keypoints(media_id);
 CREATE INDEX IF NOT EXISTS idx_kp_key ON media_keypoints(key);
+
+-- ------------------------------------------------------------------------
+-- Tracks GPS: archivos GPX ingestados (rutas completas)
+-- ------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS tracks (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    name              TEXT NOT NULL,             -- nombre del track (del GPX)
+    filepath_absoluto TEXT NOT NULL,             -- ruta absoluta al archivo GPX
+    filepath_relativo TEXT NOT NULL,             -- ruta relativa al proyecto
+    source_url        TEXT,                      -- URL de origen (RideWithGPS, Strava, etc.)
+    start_time        TEXT,                      -- timestamp del primer punto
+    end_time          TEXT,                      -- timestamp del último punto
+    total_points      INTEGER,                   -- cantidad de track points
+    ingested_at       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ------------------------------------------------------------------------
+-- Waypoints: puntos de interés extraídos de GPX u otras fuentes
+-- ------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS waypoints (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    track_id          INTEGER REFERENCES tracks(id) ON DELETE CASCADE,
+    name              TEXT NOT NULL,             -- nombre del waypoint
+    description       TEXT,                      -- descripción textual
+    category          TEXT,                      -- cmt: bikeshare, stop, caution, food, etc.
+    type              TEXT,                      -- type: checkpoint, service, danger, food, etc.
+    latitude          REAL NOT NULL,             -- WGS84
+    longitude         REAL NOT NULL,             -- WGS84
+    timestamp         TEXT,                      -- si tiene timestamp asociado
+    ingested_at       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_waypoints_loc ON waypoints(latitude, longitude);
+CREATE INDEX IF NOT EXISTS idx_waypoints_track ON waypoints(track_id);
+CREATE INDEX IF NOT EXISTS idx_waypoints_type ON waypoints(type);
+CREATE INDEX IF NOT EXISTS idx_tracks_start ON tracks(start_time);

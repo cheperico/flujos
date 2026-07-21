@@ -144,23 +144,22 @@ def _sidecar_existe_valido(ruta_archivo: str) -> Optional[dict]:
 # 3️⃣  BASE DE DATOS
 # ----------------------------------------------------------------------
 def conectar_db(ruta_db: str) -> sqlite3.Connection:
-    """Conecta a la base de datos y asegura que existen las tablas necesarias."""
+    """Conecta a la base de datos y asegura que existe la tabla media_embeddings."""
     if not Path(ruta_db).exists():
         raise FileNotFoundError(f"No se encuentra la base de datos: {ruta_db}")
 
     conn = sqlite3.connect(ruta_db)
     conn.row_factory = sqlite3.Row
 
-    # Crear tabla media_embeddings si no existe
+    # Crear tabla media_embeddings si no existe (schema canónico)
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS media_embeddings (
-            media_id      INTEGER PRIMARY KEY,
-            media_id_ref  INTEGER,               -- referencia a media.id
-            embedding     BLOB,                  -- JSON array of floats
-            modelo        TEXT,
-            fecha         TEXT,
-            FOREIGN KEY (media_id) REFERENCES media(id)
+            media_id    INTEGER NOT NULL REFERENCES media(id),
+            embedding   BLOB NOT NULL,
+            modelo      TEXT NOT NULL DEFAULT 'nomic-embed-text',
+            fecha       TEXT DEFAULT (datetime('now')),
+            UNIQUE(media_id, modelo)
         );
         """
     )
@@ -168,10 +167,15 @@ def conectar_db(ruta_db: str) -> sqlite3.Connection:
     return conn
 
 
-def obtener_media_sin_embeddings(conn: sqlite3.Connection, limite: Optional[int] = None):
+def obtener_media_sin_embeddings(
+    conn: sqlite3.Connection,
+    modelo: str = DEFAULT_EMBEDDING_MODEL,
+    limite: Optional[int] = None,
+):
     """
-    Busca medios (imágenes o videos) que NO tengan embeddings guardados.
-    Devuelve lista de dicts con id, filepath_absoluto, filename_original, type.
+    Busca medios (imágenes o videos) que NO tengan embeddings guardados
+    para el modelo indicado. Devuelve lista de dicts con id, filepath_absoluto,
+    filename_original, type.
     """
     query = """
         SELECT m.id, m.filepath_absoluto, m.filename_original, m.type
@@ -179,10 +183,11 @@ def obtener_media_sin_embeddings(conn: sqlite3.Connection, limite: Optional[int]
         WHERE m.type IN ('image', 'video')
           AND m.id NOT IN (
                 SELECT media_id FROM media_embeddings
+                WHERE modelo = ?
             )
         ORDER BY m.id
         """
-    params = []
+    params = [modelo]
 
     if limite:
         query += " LIMIT ?"
@@ -343,20 +348,7 @@ def procesar_desde_db(
     """
     conn = conectar_db(ruta_db)
 
-    # Crear la tabla media_embeddings si no existe
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS media_embeddings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            media_id INTEGER NOT NULL,
-            embedding TEXT NOT NULL,
-            modelo TEXT NOT NULL,
-            fecha TEXT NOT NULL,
-            FOREIGN KEY (media_id) REFERENCES media(id)
-        )
-    """)
-    conn.commit()
-
-    medios = obtener_media_sin_embeddings(conn, limite=limite)
+    medios = obtener_media_sin_embeddings(conn, modelo=modelo, limite=limite)
 
     if not medios:
         logger.info("No hay medios sin embeddings en la DB.")
