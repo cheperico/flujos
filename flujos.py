@@ -728,7 +728,7 @@ def _verificar_ollama(modelos: list[str] | None = None) -> bool:
     return True
 
 
-_PASOS_IA = {"keywords", "descriptions", "transcribe"}
+_PASOS_IA = {"keywords", "descriptions"}
 
 
 def _ejecutar_improve_db(pasos: str | None = None, modo: str = "skip"):

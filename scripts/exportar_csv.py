@@ -55,6 +55,9 @@ TABLAS_VISIBLES = [
 TABLAS_QUE_NO_EXPORTAN_EMBEDDINGS = ["media_embeddings"]
 """media_embeddings contiene BLOB binarios; exportamos metadatos sin la columna embedding."""
 
+# Claves de media_metadata cuyo valor es demasiado grande para CSV útil
+MEDIA_METADATA_EXCLUIR_VALORES_GRANDES = {"transcript", "transcript_segments"}
+
 
 def obtener_resumen(conn: sqlite3.Connection) -> dict[str, int]:
     """Cuenta registros de cada tabla visible."""
@@ -99,7 +102,7 @@ def exportar_tabla(
         columnas_sin_blob = [c for c in columnas if c != "embedding"]
         path = os.path.join(directorio, f"{tabla}.csv")
         total = 0
-        with open(path, "w", newline="", encoding="utf-8") as f:
+        with open(path, "w", newline="", encoding="utf-8-sig") as f:
             writer = csv.writer(f)
             if incluir_encabezado:
                 writer.writerow(columnas_sin_blob)
@@ -119,11 +122,41 @@ def exportar_tabla(
                 offset += batch_size
         log.info("  %s.csv → %d columnas (sin embedding), %d filas", tabla, len(columnas_sin_blob), total)
         return path
-        return path
 
     # Exportar todas las filas
     path = os.path.join(directorio, f"{tabla}.csv")
-    with open(path, "w", newline="", encoding="utf-8") as f:
+
+    # Para media_metadata: filtrar claves con valores demasiado grandes para CSV
+    if tabla == "media_metadata":
+        total = 0
+        with open(path, "w", newline="", encoding="utf-8-sig") as f:
+            writer = csv.writer(f)
+            if incluir_encabezado:
+                writer.writerow(columnas)
+            offset = 0
+            batch_size = 500
+            while True:
+                filas = conn.execute(
+                    f"SELECT * FROM {tabla} LIMIT ? OFFSET ?",
+                    (batch_size, offset),
+                ).fetchall()
+                if not filas:
+                    break
+                for fila in filas:
+                    # Saltar filas con valores demasiado grandes
+                    key = fila[2]  # columna 'key' (índice 2: id, media_id, key, value)
+                    if key in MEDIA_METADATA_EXCLUIR_VALORES_GRANDES:
+                        continue
+                    fila_plana = [
+                        str(v) if v is not None else None for v in fila
+                    ]
+                    writer.writerow(fila_plana)
+                    total += 1
+                offset += batch_size
+        log.info("  %s.csv → %s registros (filtrados: sin transcript/segments)", tabla, total)
+        return path
+
+    with open(path, "w", newline="", encoding="utf-8-sig") as f:
         writer = csv.writer(f)
         if incluir_encabezado:
             writer.writerow(columnas)

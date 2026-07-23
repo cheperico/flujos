@@ -372,7 +372,8 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
   ├─ 3. Backfill end_time               → opcion_backfill_end_time() (con modo)
   ├─ 4. Backup DB (solo backup)         → opcion_backup_db()
   ├─ 5. Restore DB desde backup         → opcion_restore_db()
-  └─ 6. Resetear DB (backup + limpiar)  → opcion_reset_db()
+  ├─ 6. Resetear DB (backup + limpiar)  → opcion_reset_db()
+  └─ 7. Exportar CSV                    → exportar_csv.main()
 
 6. Mapa de ruta (Folium) → opcion_mapa() (mapa HTML con Folium)
 
@@ -395,13 +396,14 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 | `restore-db/restore`| `opcion_restore_db()` (interno)  |
 | `reset-db/reset`    | `opcion_reset_db()` (interno)    |
 | `undo-ingest/undo`  | `opcion_undo_ingest()` (interno) |
+| `export-csv`        | `exportar_csv.main()`           |
 | `backfill-end-time` | `opcion_backfill_end_time()` (int.) |
 
 #### Funciones helper clave en flujos.py
 
 | Función | Propósito |
 |---------|-----------|
-| `_verificar_ollama()` | Verifica que Ollama esté corriendo (GET localhost:11434/api/tags). Se llama antes de keywords/descriptions/transcribe. |
+| `_verificar_ollama()` | Verifica que Ollama esté corriendo (GET localhost:11434/api/tags). Se llama antes de keywords y descriptions (pasos que requieren visión). **No** se llama para transcribe (faster-whisper es independiente de Ollama). |
 | `_preguntar_modo(db_path)` | Pregunta skip/update/replace y devuelve el string. Usada en TODAS las operaciones de DB. Si el modo es "replace" y db_path es válido, llama a `_auto_backup()`. |
 | `_auto_backup(db_path)` | Crea backup automático con timestamp en `db/backups/`. Retorna la ruta o None. |
 | `_ejecutar_improve_db()` | Wrapper que verifica Ollama si el paso lo requiere, luego llama a improve_db.main(). |
@@ -496,6 +498,17 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 - **Propósito**: Calcula el día de la semana (lunes..domingo) desde `timestamp_utc` de cada medio.
 - **Args CLI**: `--db`, `--dry-run`, `--replace` (deprecated), `--mode`, `--limit`
 - **DB que modifica**: `media_metadata` (clave `dia_semana`, valor: lunes|martes|...|domingo)
+
+#### `exportar_csv.py`
+- **Propósito**: Exporta todas las tablas de la DB a CSVs dentro de `db/exports/<timestamp>/`.
+- **Args CLI**: `--db`, `--output/-o`, `--table/-t`, `--dry-run`, `--list-tables`
+- **Tablas**: media, media_metadata, media_keypoints, media_embeddings (sin columna BLOB), config, tracks, waypoints
+- **Notas**:
+  - `media_embeddings.csv` exporta TODAS las filas **sin** la columna `embedding` (BLOB binario)
+  - `media_metadata.csv` excluye las claves `transcript` y `transcript_segments` (valores muy grandes para CSV)
+  - Todos los CSVs usan `encoding="utf-8-sig"` (con BOM) para que LibreOffice/Excel detecten UTF-8 automáticamente
+  - Genera `_resumen.txt` con conteo de registros por tabla
+  - Accesible desde TUI (Mantenimiento DB → Exportar CSV) y CLI (`python flujos.py export-csv`)
 
 #### Scripts de verificación
 
@@ -698,5 +711,7 @@ elif mode == "skip":
 - **Undo GPX (Jul 2026)**: `opcion_undo_ingest()` ahora lista también tracks GPX (prefijo `t<id>`) junto con batches de medios (prefijo `b<id>`). Al deshacer un track, se borra el track + sus waypoints (CASCADE) y se revierte la altitud de medios con `geolocation_source='track_gps'`.
 - **Puente TD (Jul 2026)**: se creó `scripts/puente_td.py` como puente Python ↔ TD vía OSC (puertos 9000→TD, 9001←TD). Arquitectura híbrida: Python = cerebro (DB, lógica de deriva), TD = músculo (reproducción audiovisual). Scripts TD externalizados a `td/osc_callbacks.dat` (OSC callbacks) y `td/nube_generar.dat` (tag cloud), vinculables desde TD via Text DAT con File + Sync to File = ON.
 - **Export CSV (Jul 2026)**: `scripts/exportar_csv.py` exporta todas las tablas a CSV en `db/exports/<timestamp>/`. Opción 7 en TUI Mantenimiento DB, también `python flujos.py export-csv`.
+- **BOM UTF-8 en CSV (Jul 2026)**: se cambió `encoding="utf-8"` por `encoding="utf-8-sig"` en todos los `open()` de `exportar_csv.py`. El BOM (`\xef\xbb\xbf`) hace que LibreOffice y Excel detecten UTF-8 automáticamente, evitando mojibake (`Ã¡` en vez de `á`).
+- **Filtro transcript/segments en CSV (Jul 2026)**: `exportar_csv.py` excluye las claves `transcript` y `transcript_segments` de `media_metadata.csv` por ser valores demasiado grandes para CSV útil. Definido en `MEDIA_METADATA_EXCLUIR_VALORES_GRANDES`.
 - **Migración v3 (Jul 2026)**: schema canónico de `media_embeddings` con `UNIQUE(media_id, modelo)` y `ON DELETE CASCADE`. Aplicada automáticamente por `verificar_schema()` en `db/migrate.py`.
 - **CHANGELOG.md (Jul 2026)**: registro cronológico de todos los cambios del proyecto.
