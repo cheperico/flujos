@@ -63,8 +63,7 @@ ollama --version
 
 # Modelos necesarios (instalar los que se vayan a usar):
 ollama pull qwen2.5vl:latest       # Visión + lenguaje (7b, ~6 GB)
-ollama pull qwen2.5vl:3b           # Visión liviano (~3.2 GB)
-ollama pull llama3.2-vision        # Visión (~7.8 GB)
+ollama pull moondream              # Visión rápido y pequeño (~1.7 GB)
 ollama pull nomic-embed-text       # Embeddings vectoriales (~274 MB)
 ollama pull deepseek-r1:latest     # Razonamiento (~5.2 GB)
 ollama pull qwen3.5:9b             # Texto (~6.6 GB)
@@ -133,33 +132,7 @@ Recibe datos vía OSC desde `scripts/puente_td.py`.
 
 ---
 
-## 5. Resumen copy-paste
-
-```powershell
-# === 1. Programas externos ===
-# Descargar e instalar manualmente:
-#   - ffmpeg: https://www.gyan.dev/ffmpeg/builds/
-#   - ExifTool: https://exiftool.org/
-#   - Ollama: https://ollama.com/download
-#   - TouchDesigner: https://derivative.ca/download
-
-# === 2. Modelos Ollama ===
-ollama pull nomic-embed-text
-ollama pull qwen2.5vl:latest
-
-# === 3. Librerías Python ===
-pip install Pillow webcolors tqdm python-osc ollama faster-whisper numpy folium imagehash
-
-# === 4. Verificar ===
-python -c "
-import PIL, webcolors, tqdm, pythonosc, ollama, faster_whisper, numpy, folium, imagehash
-print('Todo OK')
-"
-```
-
----
-
-## 6. Notas sobre CUDA (opcional)
+## 5. Notas sobre CUDA (opcional)
 
 Si tenés GPU NVIDIA, faster-whisper puede usar CUDA para acelerar
 transcripciones. Necesitás:
