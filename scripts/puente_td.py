@@ -23,9 +23,16 @@ from pathlib import Path
 from collections import Counter
 from typing import Optional
 
+# Permitir ejecución standalone: agregar raíz del proyecto al path
+if __name__ == "__main__" and __package__ is None:
+    import sys, os
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from pythonosc import udp_client
 from pythonosc import osc_server
 from pythonosc import dispatcher
+
+from db.util import abrir, resolver_db
 
 log = logging.getLogger(__name__)
 
@@ -49,7 +56,7 @@ def enviar(cliente: udp_client.SimpleUDPClient, address: str, *args):
 
 def obtener_colores(db_path: str) -> list[str]:
     """Devuelve lista de colores básicos distintos en la DB."""
-    conn = sqlite3.connect(db_path)
+    conn = abrir(db_path)
     colores = conn.execute("""
         SELECT DISTINCT color_1_name_basic FROM media
         WHERE color_1_name_basic IS NOT NULL
@@ -61,7 +68,7 @@ def obtener_colores(db_path: str) -> list[str]:
 
 def obtener_imagenes_por_color(db_path: str, color: str, limit: int = 10) -> list[dict]:
     """Devuelve imágenes al azar de un color dado."""
-    conn = sqlite3.connect(db_path)
+    conn = abrir(db_path)
     conn.row_factory = sqlite3.Row
     filas = conn.execute("""
         SELECT id, filename_original, filepath_absoluto,
@@ -207,7 +214,7 @@ KEYWORDS_A_IGNORAR = [
 
 def contar_keywords(db_path: str) -> Counter:
     """Cuenta frecuencia de keywords en la DB (columna ia_keywords)."""
-    conn = sqlite3.connect(db_path)
+    conn = abrir(db_path)
     rows = conn.execute(
         "SELECT value FROM media_metadata WHERE key='ia_keywords'"
     ).fetchall()
@@ -283,7 +290,7 @@ Ejemplos:
                         help="Modo de operación")
     parser.add_argument("color", nargs="?",
                         help="Color para enviar_imgs (ej: rojo, azul, verde)")
-    parser.add_argument("--db", default="db/flujos.db",
+    parser.add_argument("--db", default=None,
                         help="Ruta a la DB (default: db/flujos.db)")
     parser.add_argument("--cant", type=int, default=10,
                         help="Cantidad de imágenes (default: 10)")
@@ -301,21 +308,23 @@ Ejemplos:
     nivel = logging.DEBUG if args.verbose else logging.INFO
     logging.basicConfig(level=nivel, format="%(message)s")
 
-    if not Path(args.db).exists():
-        log.error(f"Base de datos no encontrada: {args.db}")
+    db_path = resolver_db(args.db)
+
+    if not Path(db_path).exists():
+        log.error(f"Base de datos no encontrada: {db_path}")
         return 1
 
     if args.modo == "colores":
-        modo_colores(args.db)
+        modo_colores(db_path)
     elif args.modo == "enviar_imgs":
         if not args.color:
             log.error("Especificá un color: python puente_td.py enviar_imgs rojo")
             return 1
-        modo_enviar_imgs(args.db, args.color, args.cant)
+        modo_enviar_imgs(db_path, args.color, args.cant)
     elif args.modo == "nube":
-        modo_nube(args.db, args.max_tags)
+        modo_nube(db_path, args.max_tags)
     else:  # enviar (default)
-        modo_enviar(args.db)
+        modo_enviar(db_path)
 
     return 0
 

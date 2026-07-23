@@ -22,6 +22,12 @@ import sys
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
+# Permitir ejecución standalone: agregar raíz del proyecto al path
+if __name__ == "__main__" and __package__ is None:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from db.util import abrir, resolver_db
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -34,22 +40,6 @@ NS_GPX = "http://www.topografix.com/GPX/1/1"
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def resolver_db(db_path: str | None = None) -> str:
-    if db_path:
-        return os.path.abspath(db_path)
-    return os.path.join(os.path.dirname(__file__), "..", "db", "flujos.db")
-
-
-def conectar(db_path: str) -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path)
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA foreign_keys=ON")
-    conn.row_factory = sqlite3.Row
-    # Asegurar que el schema esta actualizado
-    from db.migrate import verificar_schema
-    verificar_schema(conn)
-    return conn
 
 
 def _parse_timestamp(ts_str: str | None) -> str | None:
@@ -398,7 +388,10 @@ def main(argv: list[str] | None = None):
     print()
 
     # 2. Conectar DB (verifica schema automaticamente)
-    conn = conectar(db_path)
+    conn = abrir(db_path)
+    conn.row_factory = sqlite3.Row
+    from db.migrate import verificar_schema
+    verificar_schema(conn)
 
     # 3. Registrar track
     if not args.dry_run:

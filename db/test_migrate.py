@@ -114,11 +114,13 @@ def test_all_migrations_run():
     conn = sqlite3.connect(':memory:')
     conn.execute("CREATE TABLE config (key TEXT PRIMARY KEY, value TEXT)")
 
-    for version, desc, sqls in _MIGRACIONES:
+    for version, desc, acciones in _MIGRACIONES:
         print(f"  Probando migracion v{version}: {desc[:50]}...")
-        for sql in sqls:
-            if sql.strip():
-                conn.execute(sql)
+        for accion in acciones:
+            if callable(accion):
+                accion(conn)
+            elif accion.strip():
+                conn.execute(accion)
         # Actualizar version manual
         conn.execute(
             "INSERT OR REPLACE INTO config (key, value) VALUES ('schema_version', ?)",

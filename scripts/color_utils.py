@@ -5,7 +5,6 @@ Dependencias: Pillow, webcolors
 """
 
 import webcolors
-from webcolors._definitions import _CSS3_NAMES_TO_HEX
 
 # -----------------------------------------------------------------------
 # Mapping: nombre CSS inglés → español
@@ -286,7 +285,7 @@ def closest_css_color(hex_color: str) -> str:
     min_dist = float("inf")
     closest = None
 
-    for css_name, css_hex in _CSS3_NAMES_TO_HEX.items():
+    for css_hex, css_name in webcolors.CSS3_HEX_TO_NAMES.items():
         cr, cg, cb = hex_to_rgb(css_hex)
         dist = _redmean(r, g, b, cr, cg, cb)
         if dist < min_dist:
@@ -302,7 +301,7 @@ def closest_css_color(hex_color: str) -> str:
     if cat_closest in _CATEGORIAS_NO_COLOR:
         mejor_color = None
         mejor_dist = float("inf")
-        for css_name, css_hex in _CSS3_NAMES_TO_HEX.items():
+        for css_hex, css_name in webcolors.CSS3_HEX_TO_NAMES.items():
             cat = _CSS_TO_BASIC.get(css_name, "gris")
             if cat in _CATEGORIAS_NO_COLOR:
                 continue

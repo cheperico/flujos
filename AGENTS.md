@@ -54,7 +54,8 @@ con SQLite como índice central y TouchDesigner como motor de reproducción.
 │
 ├── db/
 │   ├── schema.sql                   # Definición completa del schema SQLite
-│   ├── migrate.py                   # Migraciones centralizadas de schema (version 1→2+)
+│   ├── migrate.py                   # Migraciones centralizadas de schema (version 1→2→3)
+│   ├── util.py                      # Conexiones DB (abrir, conectar, resolver_db) + ModoHelper
 │   └── flujos.db                    # Base de datos (no versionada)
 │
 ├── scripts/                         # Scripts Python del pipeline
@@ -410,6 +411,17 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 | `leer_db()` | Resuelve la ruta a la DB (default: `db/flujos.db`). |
 | `resumen_db()` | Devuelve string con totales (6 líneas: Total, Imágenes, Videos, Audios, Textos, Otros). |
 
+### Utilidades compartidas (`db/`)
+
+#### `db/util.py` (181 lines)
+- **Propósito**: Funciones de conexión DB y helpers centralizados para evitar duplicación en todos los scripts.
+- **Funciones**:
+  - `abrir(db_path)` → `sqlite3.Connection`: abre conexión con WAL mode + foreign_keys ON. Lanza `FileNotFoundError` si la DB no existe.
+  - `conectar(db_path)` → context manager: igual que `abrir()` pero con commit automático al salir y rollback en excepción.
+  - `resolver_db(db_path)` → `str`: resuelve ruta absoluta a la DB. Si es `None`, devuelve `db/flujos.db` absoluto.
+- **Clase** `ModoHelper(mode)`: lógica skip/update/replace centralizada con métodos `clean()`, `build_query()`, `update_flag_cols()`.
+- **Uso**: `from db.util import abrir, resolver_db, ModoHelper`
+
 ### Pipeline scripts (scripts/)
 
 #### `ingest.py` (~1485 lines)
@@ -622,13 +634,20 @@ Cada script en `scripts/` tiene:
 4. Si es pesado, acepta `--dry-run` para previsualizar sin escribir.
 
 ### Patrón de acceso a DB
+
+Usar `db/util.py` para conexiones:
+
 ```python
-conn = sqlite3.connect(db_path)
-conn.execute("PRAGMA journal_mode=WAL")
-conn.execute("PRAGMA foreign_keys=ON")
+from db.util import abrir, resolver_db, conectar
+
+# Opción 1: abrir/cerrar manual
+conn = abrir("db/flujos.db")
 # ... operaciones ...
-conn.commit()
 conn.close()
+
+# Opción 2: context manager (commit automático)
+with conectar(resolver_db(args.db)) as conn:
+    conn.execute("INSERT ...")
 ```
 
 ### Manejo de --mode en scripts
@@ -713,5 +732,6 @@ elif mode == "skip":
 - **Export CSV (Jul 2026)**: `scripts/exportar_csv.py` exporta todas las tablas a CSV en `db/exports/<timestamp>/`. Opción 7 en TUI Mantenimiento DB, también `python flujos.py export-csv`.
 - **BOM UTF-8 en CSV (Jul 2026)**: se cambió `encoding="utf-8"` por `encoding="utf-8-sig"` en todos los `open()` de `exportar_csv.py`. El BOM (`\xef\xbb\xbf`) hace que LibreOffice y Excel detecten UTF-8 automáticamente, evitando mojibake (`Ã¡` en vez de `á`).
 - **Filtro transcript/segments en CSV (Jul 2026)**: `exportar_csv.py` excluye las claves `transcript` y `transcript_segments` de `media_metadata.csv` por ser valores demasiado grandes para CSV útil. Definido en `MEDIA_METADATA_EXCLUIR_VALORES_GRANDES`.
-- **Migración v3 (Jul 2026)**: schema canónico de `media_embeddings` con `UNIQUE(media_id, modelo)` y `ON DELETE CASCADE`. Aplicada automáticamente por `verificar_schema()` en `db/migrate.py`.
+- **Migración v3 con callables (Jul 2026)**: `db/migrate.py` ahora soporta callables como acciones de migración (no solo SQL strings). La migración v3 usa un callable `_migrar_media_embeddings` que maneja tanto DB nueva (crea tabla) como DB existente (migra datos del schema viejo al canónico). Testeado en simulación v2→v3 y en DB real (`db/flujos.db`).
 - **CHANGELOG.md (Jul 2026)**: registro cronológico de todos los cambios del proyecto.
+- **db/util.py (Jul 2026)**: utilidades de DB centralizadas (`abrir`, `resolver_db`, `conectar`, `ModoHelper`) extraídas de 9 scripts que tenían sus propias versiones duplicadas. La refactorización incluye un fix para ejecución standalone (`if __name__ == "__main__" and __package__ is None: sys.path.insert(0, ...)`) para que `python scripts/foo.py` funcione desde cualquier directorio.

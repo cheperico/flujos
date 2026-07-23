@@ -36,6 +36,8 @@ from datetime import datetime, timezone, timedelta
 
 from tqdm import tqdm
 
+from db.util import abrir, resolver_db, ModoHelper
+
 # ── Logging ──────────────────────────────────────────────────────────────────
 
 logging.basicConfig(
@@ -44,20 +46,6 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 log = logging.getLogger("improve_db")
-
-# ── Helpers ──────────────────────────────────────────────────────────────────
-
-def conectar(db_path: str) -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path)
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA foreign_keys=ON")
-    return conn
-
-
-def resolver_db(db_path: str | None) -> str:
-    if db_path:
-        return os.path.abspath(db_path)
-    return os.path.join(os.path.dirname(__file__), "..", "db", "flujos.db")
 
 
 # ==============================================================================
@@ -175,24 +163,21 @@ def run_colors(conn, db_path, mode, stats):
 
     from color_utils import extract_dominant_colors, get_color_names
 
-    # Determinar qué imágenes procesar según modo
-    if mode == "replace":
-        conn.execute("""
-            UPDATE media SET
-                color_1_hex = NULL, color_1_name_css = NULL, color_1_name_basic = NULL,
-                color_2_hex = NULL, color_2_name_css = NULL, color_2_name_basic = NULL,
-                color_3_hex = NULL, color_3_name_css = NULL, color_3_name_basic = NULL
-            WHERE type='image'
-        """)
-        conn.commit()
-        query = "SELECT id, filepath_absoluto FROM media WHERE type='image'"
-    elif mode == "update":
-        query = "SELECT id, filepath_absoluto FROM media WHERE type='image'"
-    else:  # skip
-        query = """
-            SELECT id, filepath_absoluto FROM media
-            WHERE type='image' AND color_1_hex IS NULL
-        """
+    helper = ModoHelper(mode)
+
+    # Replace: limpiar columnas de color en todas las imágenes
+    helper.clean(conn, """
+        UPDATE media SET
+            color_1_hex = NULL, color_1_name_css = NULL, color_1_name_basic = NULL,
+            color_2_hex = NULL, color_2_name_css = NULL, color_2_name_basic = NULL,
+            color_3_hex = NULL, color_3_name_css = NULL, color_3_name_basic = NULL
+        WHERE type='image'
+    """)
+
+    query = helper.build_query(
+        base="SELECT id, filepath_absoluto FROM media WHERE type='image'",
+        check_col="color_1_hex",
+    )
 
     rows = conn.execute(query).fetchall()
     if not rows:
@@ -755,10 +740,14 @@ def run_video_metadata(conn, db_path, mode, stats):
     log.info("Paso: video_metadata — Extrayendo metadatos de videos con ExifTool")
 
     if mode == "replace":
+        # ⚠ OR tiene menor precedencia que AND. Sin paréntesis, la condición
+        #    (media_id IN ... AND key LIKE 'xml_%') aplica y las otras dos
+        #    condiciones (key LIKE 'xmp_%' OR key = 'video_spherical_projection')
+        #    se evalúan en TODAS las filas sin filtrar por media_id.
         conn.execute("""
             DELETE FROM media_metadata WHERE media_id IN (
                 SELECT id FROM media WHERE type='video'
-            ) AND key LIKE 'xml_%' OR key LIKE 'xmp_%' OR key = 'video_spherical_projection'
+            ) AND (key LIKE 'xml_%' OR key LIKE 'xmp_%' OR key = 'video_spherical_projection')
         """)
         conn.execute("UPDATE media SET subtype = NULL WHERE type='video' AND subtype = '360'")
         conn.commit()
@@ -1013,7 +1002,7 @@ Ejemplos:
     log.info("Pasos a ejecutar: %s", ", ".join(pasos))
     log.info("Modo: %s", args.mode)
 
-    conn = conectar(db_path)
+    conn = abrir(db_path)
 
     # Verificar que la tabla media existe
     try:

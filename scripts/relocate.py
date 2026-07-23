@@ -22,6 +22,12 @@ import os
 import sqlite3
 import sys
 
+# Permitir ejecución standalone: agregar raíz del proyecto al path
+if __name__ == "__main__" and __package__ is None:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from db.util import abrir, resolver_db
+
 
 def get_ingest_root(conn) -> str | None:
     """Lee el ingest_root guardado en la tabla config."""
@@ -166,12 +172,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     # Resolver DB path
-    db_path = args.db
-    if not db_path:
-        db_path = os.path.join(
-            os.path.dirname(__file__), "..", "db", "flujos.db"
-        )
-    db_path = os.path.abspath(db_path)
+    db_path = resolver_db(args.db)
 
     if not os.path.isfile(db_path):
         print(f"Error: no se encuentra la DB en {db_path}")
@@ -182,8 +183,7 @@ def main(argv=None):
     if not os.path.isdir(new_root):
         print(f"Advertencia: la nueva raíz '{new_root}' no existe o no es un directorio.")
 
-    conn = sqlite3.connect(db_path)
-    conn.execute("PRAGMA foreign_keys=ON")
+    conn = abrir(db_path)
 
     # Asegurar que la tabla config exista (DBs creadas antes de Julio 2026)
     conn.execute("""

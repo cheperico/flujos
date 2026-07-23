@@ -83,12 +83,8 @@ DEFAULT_EMBEDDING_MODEL = "nomic-embed-text"
 # Tamaño del vector de nomic-embed-text (768 dimensiones)
 EMBEDDING_DIM = 768
 
-# Logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%H:%M:%S",
-)
+# Logging: solo configurar a nivel módulo si es __main__
+# (evita zapar los handlers de logging si otro script importa este módulo)
 logger = logging.getLogger(__name__)
 
 # ----------------------------------------------------------------------
@@ -498,6 +494,12 @@ def listar_modelos():
 
 
 def main():
+    # Configurar logging aquí (solo se ejecuta si se llama como script)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        datefmt="%H:%M:%S",
+    )
     parser = argparse.ArgumentParser(
         description="Genera embeddings vectoriales para medios (imágenes/video) "
                     "y los guarda en la tabla media_embeddings o como side‑car.\n\n"

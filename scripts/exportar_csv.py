@@ -31,6 +31,12 @@ import sqlite3
 import sys
 from datetime import datetime
 
+# Permitir ejecución standalone: agregar raíz del proyecto al path
+if __name__ == "__main__" and __package__ is None:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from db.util import abrir, resolver_db
+
 # ── Logging ──────────────────────────────────────────────────────────────────
 
 logging.basicConfig(
@@ -199,7 +205,7 @@ def exportar_todo(
         sys.exit(1)
 
     # Conectar
-    conn = sqlite3.connect(db_path)
+    conn = abrir(db_path)
 
     # Directorio de salida
     if output_dir is None:
@@ -280,22 +286,14 @@ Ejemplos:
     args = parser.parse_args(argv)
 
     # Resolver DB
-    db_path = args.db
-    if db_path is None:
-        # Intentar ruta por defecto
-        default_db = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "db", "flujos.db",
-        )
-        if os.path.isfile(default_db):
-            db_path = default_db
-        else:
-            print("  No se encontró db/flujos.db. Especificá --db.")
-            sys.exit(1)
+    db_path = resolver_db(args.db)
+    if db_path is None or not os.path.isfile(db_path):
+        print("  No se encontró db/flujos.db. Especificá --db.")
+        sys.exit(1)
 
     # Listar tablas
     if args.list_tables:
-        conn = sqlite3.connect(db_path)
+        conn = abrir(db_path)
         cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
         print("Tablas disponibles:")
         for row in cursor:
@@ -310,7 +308,7 @@ Ejemplos:
 
     # Dry-run: solo mostrar resumen
     if args.dry_run:
-        conn = sqlite3.connect(db_path)
+        conn = abrir(db_path)
         resumen = obtener_resumen(conn)
         conn.close()
         print(f"  DB: {db_path}")

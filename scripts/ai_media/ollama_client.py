@@ -123,7 +123,14 @@ class OllamaVision:
                 ],
                 options={"temperature": temperatura},
             )
-            texto = response["message"]["content"].strip()
+            # Compatibilidad: ollama >=0.3 devuelve ChatResponse (objeto),
+            # versiones anteriores devuelven dict
+            if hasattr(response, "message"):
+                texto = response.message.content.strip()
+            elif isinstance(response, dict):
+                texto = response["message"]["content"].strip()
+            else:
+                texto = str(response).strip()
             logger.debug("Respuesta obtenida (%d caracteres)", len(texto))
             return texto
 
@@ -188,8 +195,25 @@ class OllamaEmbedding:
             Lista de floats con el vector de embedding.
         """
         try:
-            response = ollama.embeddings(model=self.modelo, prompt=texto)
-            vector = response.get("embedding", [])
+            # Compatibilidad: ollama >=0.3 usa 'input', versiones anteriores usan 'prompt'
+            kwargs = {"model": self.modelo}
+            # La API >=0.3 cambió prompt → input; probar ambas
+            try:
+                kwargs["input"] = texto
+                response = ollama.embeddings(**kwargs)
+            except TypeError:
+                kwargs.pop("input")
+                kwargs["prompt"] = texto
+                response = ollama.embeddings(**kwargs)
+
+            # Compatibilidad dict/objeto
+            if hasattr(response, "embedding"):
+                vector = response.embedding
+            elif isinstance(response, dict):
+                vector = response.get("embedding", [])
+            else:
+                vector = list(response)
+
             if not vector:
                 raise ValueError("Ollama devolvió un embedding vacío")
             return vector

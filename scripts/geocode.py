@@ -31,6 +31,12 @@ import time
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
+# Permitir ejecución standalone: agregar raíz del proyecto al path
+if __name__ == "__main__" and __package__ is None:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from db.util import abrir, resolver_db
+
 # ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
@@ -220,14 +226,6 @@ def reverse_geocode(coords: list[tuple], batch_size: int = BATCH_SIZE) -> dict:
 # Operaciones con la base de datos
 # ---------------------------------------------------------------------------
 
-def _conectar(db_path: str) -> sqlite3.Connection:
-    """Conecta a la DB y aplica migraciones."""
-    conn = sqlite3.connect(db_path)
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA foreign_keys=ON")
-    migrar_db(conn)
-    return conn
-
 
 def contar_pendientes(conn: sqlite3.Connection) -> int:
     """Cuenta registros con GPS pero sin geocodificar."""
@@ -277,7 +275,8 @@ def geocode_media(db_path: str, limit: int = None, dry_run: bool = False,
     Returns:
         Cantidad de registros actualizados
     """
-    conn = _conectar(db_path)
+    conn = abrir(db_path)
+    migrar_db(conn)
 
     try:
         if mode in ("update", "replace"):
@@ -451,12 +450,7 @@ Ejemplos:
         return
 
     # Modo BD
-    db_path = args.db
-    if not db_path:
-        # Default: db/flujos.db en la raíz del proyecto
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(script_dir)
-        db_path = os.path.join(project_root, "db", "flujos.db")
+    db_path = resolver_db(args.db)
 
     if not os.path.isfile(db_path):
         log.error("Base de datos no encontrada: %s", db_path)

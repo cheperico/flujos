@@ -21,28 +21,43 @@ Uso:
 """
 
 import argparse
+import re
 import sqlite3
 import sys
 import os
 from collections import Counter
 
+# Permitir ejecución standalone: agregar raíz del proyecto al path
+if __name__ == "__main__" and __package__ is None:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-def get_db_path(args_db: str | None) -> str:
-    if args_db:
-        return os.path.abspath(args_db)
-    # default: db/flujos.db relativo a la raíz del proyecto
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.dirname(script_dir)
-    return os.path.join(project_root, "db", "flujos.db")
+from db.util import abrir, resolver_db
 
 
-def connect(db_path: str):
-    if not os.path.isfile(db_path):
-        print(f"Error: no se encuentra la base de datos en {db_path}")
-        sys.exit(1)
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    return conn
+# ── Validación de seguridad ──────────────────────────────────────────────────
+
+# Palabras prohibidas en --where (previene inyección SQL básica)
+_PROHIBIDO_EN_WHERE = re.compile(
+    r'\b(DROP|ALTER|DELETE|INSERT|UPDATE|CREATE|ATTACH|DETACH|REINDEX|VACUUM)\b',
+    re.IGNORECASE,
+)
+
+
+def _es_columna_valida(conn: sqlite3.Connection, col: str) -> bool:
+    """Verifica que col sea una columna real de la tabla media."""
+    cursor = conn.execute("PRAGMA table_info(media)")
+    columnas = {c["name"] for c in cursor.fetchall()}
+    return col in columnas
+
+
+def _where_seguro(where: str) -> bool:
+    """Valida que la condición WHERE no contenga comandos destructivos."""
+    if _PROHIBIDO_EN_WHERE.search(where):
+        return False
+    return True
+
+
+# ── Conexión ─────────────────────────────────────────────────────────────────
 
 
 def list_columns(conn):
@@ -248,14 +263,24 @@ Ejemplos:
 
     args = parser.parse_args(argv)
 
-    db_path = get_db_path(args.db)
-    conn = connect(db_path)
+    db_path = resolver_db(args.db)
+    conn = abrir(db_path)
+    conn.row_factory = sqlite3.Row
 
     if args.columns:
         list_columns(conn)
     elif args.distinct:
+        if not _es_columna_valida(conn, args.distinct):
+            print(f"Error: '{args.distinct}' no es una columna válida de la tabla media.")
+            print("Usá --columns para ver las columnas disponibles.")
+            conn.close()
+            return
         distinct_column(conn, args.distinct, args.count, args.where)
     elif args.key:
+        if args.where and not _where_seguro(args.where):
+            print("Error: la condición --where contiene comandos SQL no permitidos.")
+            conn.close()
+            return
         distinct_key(conn, args.key, args.count, args.where)
     elif args.search:
         search_text(conn, args.search, args.limit)

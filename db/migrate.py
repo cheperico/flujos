@@ -59,34 +59,65 @@ _MIGRACIONES = [
         "CREATE INDEX IF NOT EXISTS idx_tracks_start ON tracks(start_time)",
     ]),
     (3, "Schema canónico para media_embeddings: UNIQUE(media_id, modelo) en vez de media_id PK", [
-        # La tabla fue creada por generate_embeddings.py con schemas inconsistentes.
-        # Viejo: media_id INTEGER PRIMARY KEY, media_id_ref, embedding BLOB,
-        #        modelo TEXT, fecha TEXT, FOREIGN KEY (media_id) REFERENCES media(id)
-        # Nuevo: media_id INTEGER NOT NULL REFERENCES media(id), embedding BLOB NOT NULL,
-        #        modelo TEXT NOT NULL DEFAULT 'nomic-embed-text',
-        #        fecha TEXT DEFAULT (datetime('now')),
-        #        UNIQUE(media_id, modelo)
-        # Migración: recrear tabla con schema unificado.
-        "PRAGMA foreign_keys=OFF",
-        """
+        # Callable: maneja tabla existente y DB nueva
+        lambda conn: _migrar_media_embeddings(conn),
+    ]),
+]
+
+
+def _migrar_media_embeddings(conn: sqlite3.Connection):
+    """
+    Migración v3: unifica el schema de media_embeddings.
+
+    - Si la tabla ya existe (creada por generate_embeddings.py viejo):
+      recrea con UNIQUE(media_id, modelo) y ON DELETE CASCADE.
+    - Si no existe (DB nueva): crea directamente el schema canónico.
+    """
+    # Verificar si la tabla existe
+    cur = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='media_embeddings'"
+    )
+    tabla_existe = cur.fetchone() is not None
+
+    if not tabla_existe:
+        # DB nueva: crear con schema canónico directamente
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS media_embeddings (
+                media_id    INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+                embedding   BLOB NOT NULL,
+                modelo      TEXT NOT NULL DEFAULT 'nomic-embed-text',
+                fecha       TEXT DEFAULT (datetime('now')),
+                UNIQUE(media_id, modelo)
+            )
+        """)
+        log.info("  → Creada tabla media_embeddings (schema canónico, DB nueva)")
+        return
+
+    # Tabla existe: migrar datos del schema viejo al nuevo
+    # Schema viejo: media_id INTEGER PRIMARY KEY, media_id_ref, embedding, modelo, fecha
+    # Schema nuevo: media_id INTEGER NOT NULL, embedding, modelo, fecha, UNIQUE(media_id, modelo)
+    log.info("  → Migrando tabla media_embeddings existente al schema canónico...")
+    conn.execute("PRAGMA foreign_keys=OFF")
+    conn.execute("""
         CREATE TABLE media_embeddings_nuevo (
-            media_id    INTEGER NOT NULL REFERENCES media(id),
+            media_id    INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
             embedding   BLOB NOT NULL,
             modelo      TEXT NOT NULL DEFAULT 'nomic-embed-text',
             fecha       TEXT DEFAULT (datetime('now')),
             UNIQUE(media_id, modelo)
         )
-        """,
-        """
+    """)
+    conn.execute("""
         INSERT INTO media_embeddings_nuevo (media_id, embedding, modelo, fecha)
         SELECT media_id, embedding, COALESCE(modelo, 'nomic-embed-text'), COALESCE(fecha, datetime('now'))
         FROM media_embeddings
-        """,
-        "DROP TABLE media_embeddings",
-        "ALTER TABLE media_embeddings_nuevo RENAME TO media_embeddings",
-        "PRAGMA foreign_keys=ON",
-    ]),
-]
+    """)
+    conn.execute("DROP TABLE media_embeddings")
+    conn.execute("ALTER TABLE media_embeddings_nuevo RENAME TO media_embeddings")
+    conn.execute("PRAGMA foreign_keys=ON")
+    log.info("  → Migración de media_embeddings completada: %s registros migrados",
+             conn.execute("SELECT COUNT(*) FROM media_embeddings").fetchone()[0])
+
 
 
 def schema_version(conn: sqlite3.Connection) -> int:
@@ -123,12 +154,14 @@ def verificar_schema(conn: sqlite3.Connection):
         _set_version(conn, 1)
         actual = 1
 
-    for version, desc, sqls in _MIGRACIONES:
+    for version, desc, acciones in _MIGRACIONES:
         if version <= actual:
             continue
         log.info("Migrando schema a versión %d: %s", version, desc)
-        for sql in sqls:
-            if sql.strip():
-                conn.execute(sql)
+        for accion in acciones:
+            if callable(accion):
+                accion(conn)
+            elif isinstance(accion, str) and accion.strip():
+                conn.execute(accion)
         _set_version(conn, version)
         log.info("  → Versión %d aplicada.", version)

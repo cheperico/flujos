@@ -23,32 +23,17 @@ import sqlite3
 import sys
 from datetime import datetime
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%H:%M:%S",
-)
+# Permitir ejecución standalone: agregar raíz del proyecto al path
+if __name__ == "__main__" and __package__ is None:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from db.util import abrir, resolver_db
+
 log = logging.getLogger("dia_semana")
 
 # Días de la semana en español
 # datetime.weekday(): 0=lunes, 1=martes, ..., 6=domingo
 DIAS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
-
-
-# ── Helpers ──────────────────────────────────────────────────────────────────
-
-def conectar(db_path: str) -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path)
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA foreign_keys=ON")
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-def resolver_db(db_path: str | None) -> str:
-    if db_path:
-        return os.path.abspath(db_path)
-    return os.path.join(os.path.dirname(__file__), "..", "db", "flujos.db")
 
 
 def parsear_timestamp(ts: str | None) -> datetime | None:
@@ -73,7 +58,7 @@ def procesar(
     limit: int | None = None,
     mode: str = "skip",
 ):
-    conn = conectar(db_path)
+    conn = abrir(db_path)
 
     # Obtener medios con timestamp_utc
     if replace:  # --mode update o replace → TODOS

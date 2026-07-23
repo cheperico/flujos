@@ -26,6 +26,12 @@ import os
 import sqlite3
 import sys
 
+# Permitir ejecución standalone: agregar raíz del proyecto al path
+if __name__ == "__main__" and __package__ is None:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from db.util import abrir, resolver_db
+
 # ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
@@ -393,13 +399,7 @@ Ejemplos:
         logging.getLogger().setLevel(logging.WARNING)
 
     # Resolver ruta de DB
-    if args.db:
-        db_path = os.path.abspath(args.db)
-    else:
-        # Buscar db/flujos.db relativo a la raíz del proyecto
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(script_dir)
-        db_path = os.path.join(project_root, "db", "flujos.db")
+    db_path = resolver_db(args.db)
 
     if not os.path.isfile(db_path):
         log.error("Base de datos no encontrada: %s", db_path)
@@ -409,8 +409,12 @@ Ejemplos:
     log.info("Base de datos: %s", db_path)
 
     # Conectar a la DB
-    conn = sqlite3.connect(db_path)
-    conn.execute("PRAGMA journal_mode=WAL")
+    try:
+        conn = abrir(db_path)
+    except FileNotFoundError:
+        log.error("Base de datos no encontrada: %s", db_path)
+        log.error("Usá --db para especificar una ruta alternativa.")
+        sys.exit(1)
 
     try:
         # Verificar que la tabla media existe
