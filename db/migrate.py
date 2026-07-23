@@ -17,7 +17,7 @@ import sqlite3
 log = logging.getLogger("migrate")
 
 # Versión actual del schema (incrementar al agregar migraciones)
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 # Migraciones: cada entrada es (versión, descripción, [sentencias SQL])
 _MIGRACIONES = [
@@ -57,6 +57,34 @@ _MIGRACIONES = [
         "CREATE INDEX IF NOT EXISTS idx_waypoints_track ON waypoints(track_id)",
         "CREATE INDEX IF NOT EXISTS idx_waypoints_type ON waypoints(type)",
         "CREATE INDEX IF NOT EXISTS idx_tracks_start ON tracks(start_time)",
+    ]),
+    (3, "Schema canónico para media_embeddings: UNIQUE(media_id, modelo) en vez de media_id PK", [
+        # La tabla fue creada por generate_embeddings.py con schemas inconsistentes.
+        # Viejo: media_id INTEGER PRIMARY KEY, media_id_ref, embedding BLOB,
+        #        modelo TEXT, fecha TEXT, FOREIGN KEY (media_id) REFERENCES media(id)
+        # Nuevo: media_id INTEGER NOT NULL REFERENCES media(id), embedding BLOB NOT NULL,
+        #        modelo TEXT NOT NULL DEFAULT 'nomic-embed-text',
+        #        fecha TEXT DEFAULT (datetime('now')),
+        #        UNIQUE(media_id, modelo)
+        # Migración: recrear tabla con schema unificado.
+        "PRAGMA foreign_keys=OFF",
+        """
+        CREATE TABLE media_embeddings_nuevo (
+            media_id    INTEGER NOT NULL REFERENCES media(id),
+            embedding   BLOB NOT NULL,
+            modelo      TEXT NOT NULL DEFAULT 'nomic-embed-text',
+            fecha       TEXT DEFAULT (datetime('now')),
+            UNIQUE(media_id, modelo)
+        )
+        """,
+        """
+        INSERT INTO media_embeddings_nuevo (media_id, embedding, modelo, fecha)
+        SELECT media_id, embedding, COALESCE(modelo, 'nomic-embed-text'), COALESCE(fecha, datetime('now'))
+        FROM media_embeddings
+        """,
+        "DROP TABLE media_embeddings",
+        "ALTER TABLE media_embeddings_nuevo RENAME TO media_embeddings",
+        "PRAGMA foreign_keys=ON",
     ]),
 ]
 

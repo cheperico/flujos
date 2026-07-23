@@ -87,7 +87,11 @@ con SQLite como índice central y TouchDesigner como motor de reproducción.
 │       ├── batch_selector.py        # Selección de mejor imagen de tanda
 │       ├── clustering.py            # Agrupamiento por tags/embeddings
 │       ├── generate_embeddings.py   # Embeddings vectoriales (nomic-embed-text)
-│       └── proxy.py                 # Proxy: redimensiona imágenes a ~2MP para IA
+│               └── proxy.py                 # Proxy: redimensiona imágenes a ~2MP para IA
+│
+├── td/                              # Scripts vinculados desde TouchDesigner
+│   ├── osc_callbacks.dat            # Callbacks OSC In DAT (recibe msgs de Python)
+│   └── nube_generar.dat             # Genera nube de etiquetas en TD
 │
 ├── docs/                            # Documentos de diseño
 │   ├── arquitectura_motor.md        # TD puro vs híbrido TD+Python
@@ -501,10 +505,18 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 | `check_gps.py` | Verifica GPS en archivos via ExifTool, compara con DB. |
 | `check_db_data.py` | Helper: muestra stats de weather, dia_semana y geocode. |
 
-### Scripts de IA (`scripts/ai_media/`)
+#### `puente_td.py` (324 lines)
+- **Propósito**: Puente BD → TouchDesigner vía OSC. El cerebro Python que consulta la DB y envía datos a TD para la instalación interactiva.
+- **Args CLI**: `enviar` (loop completo), `colores` (solo envía colores), `enviar_imgs <color>` (envía N imágenes), `nube` (nube de tags). Args: `--db`, `--cant`, `--max-tags`, `--host`, `--port`, `--verbose`
+- **OSC**: Escucha en puerto 9001 (TD → Python), envía a puerto 9000 (Python → TD)
+- **Modos**:
+  - `enviar`: envía colores a TD → espera selección → envía imágenes del color elegido
+  - `colores`: solo lista de colores disponibles (desde color_1_name_basic)
+  - `enviar_imgs <color>`: envía N imágenes al azar de un color específico
+  - `nube`: cuenta keywords en DB y envía top N con frecuencia y peso normalizado
+- **Dependencias**: python-osc, sqlite3
 
-| Script | Propósito | Dependencia principal |
-|--------|-----------|----------------------|
+### Scripts de IA (`scripts/ai_media/`)
 | `ollama_client.py` | Cliente Ollama compartido. Clase `OllamaVisionClient(modelo, timeout)`. Métodos: `analizar_imagen()`, `analizar_imagenes()`, `generar_embedding()`. | ollama (Python) |
 | `transcribe.py` | Transcripción vía faster-whisper (independiente, sin DB). Formatos: SRT, TXT, JSON. | faster-whisper |
 | `transcribe_media.py` | Transcripción desde DB (lee de `media`, escribe en `media_metadata`). | faster-whisper |
@@ -516,6 +528,24 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 | `clustering.py` | Agrupa imágenes por tags o embeddings compartidos. | — |
 | `generate_embeddings.py` | Genera embeddings vectoriales vía nomic-embed-text. | ollama_client |
 | `proxy.py` | Redimensiona imágenes a ~2MP para procesamiento IA más rápido. | Pillow |
+
+### Scripts TouchDesigner (`td/`)
+
+| Archivo | Se vincula en | Parámetros |
+|---------|---------------|------------|
+| `td/osc_callbacks.dat` | `osc_in1/osc_in1_callbacks` (DAT interno del OSC In DAT) | `File` = `td/osc_callbacks.dat`, `Sync to File` = ON |
+| `td/nube_generar.dat` | `generar_nube/generar_nube_callbacks` (DAT interno del Script DAT) | `File` = `td/nube_generar.dat`, `Sync to File` = ON |
+
+**Estructura de nombres de operadores TD esperados:**
+- `osc_in1` — OSC In DAT (puerto 9000)
+- `osc_in1/osc_in1_callbacks` — DAT interno donde va el código (File → `td/osc_callbacks.dat`)
+- `tabla_colores` — Table DAT con lista de colores
+- `nube_datos` — Table DAT con columnas [palabra, frecuencia, peso]
+- `movie1` — Movie File In TOP para slideshow de imágenes
+- `generar_nube` — Script DAT
+- `generar_nube/generar_nube_callbacks` — DAT interno donde va el código (File → `td/nube_generar.dat`)
+- `nube_container` — Base COMP contenedor de Text TOPs de la nube
+- `color_actual`, `seleccion_actual`, `info_imagen` — Text DATs para estado
 
 ---
 
@@ -666,3 +696,7 @@ elif mode == "skip":
 - **Schema versioning (Jul 2026)**: se creó `db/migrate.py` con migraciones centralizadas. Versión 1 = schema inicial, versión 2 = tracks + waypoints. `ingest_gpx.py` ahora usa el sistema central en vez de su propio `migrar_db()`.
 - **Auto-backup en replace (Jul 2026)**: `_preguntar_modo(db_path)` ahora crea backup automático en `db/backups/` cuando se elige modo "replace". El usuario ve el nombre del backup creado.
 - **Undo GPX (Jul 2026)**: `opcion_undo_ingest()` ahora lista también tracks GPX (prefijo `t<id>`) junto con batches de medios (prefijo `b<id>`). Al deshacer un track, se borra el track + sus waypoints (CASCADE) y se revierte la altitud de medios con `geolocation_source='track_gps'`.
+- **Puente TD (Jul 2026)**: se creó `scripts/puente_td.py` como puente Python ↔ TD vía OSC (puertos 9000→TD, 9001←TD). Arquitectura híbrida: Python = cerebro (DB, lógica de deriva), TD = músculo (reproducción audiovisual). Scripts TD externalizados a `td/osc_callbacks.dat` (OSC callbacks) y `td/nube_generar.dat` (tag cloud), vinculables desde TD via Text DAT con File + Sync to File = ON.
+- **Export CSV (Jul 2026)**: `scripts/exportar_csv.py` exporta todas las tablas a CSV en `db/exports/<timestamp>/`. Opción 7 en TUI Mantenimiento DB, también `python flujos.py export-csv`.
+- **Migración v3 (Jul 2026)**: schema canónico de `media_embeddings` con `UNIQUE(media_id, modelo)` y `ON DELETE CASCADE`. Aplicada automáticamente por `verificar_schema()` en `db/migrate.py`.
+- **CHANGELOG.md (Jul 2026)**: registro cronológico de todos los cambios del proyecto.

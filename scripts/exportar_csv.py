@@ -53,7 +53,7 @@ TABLAS_VISIBLES = [
 ]
 
 TABLAS_QUE_NO_EXPORTAN_EMBEDDINGS = ["media_embeddings"]
-"""media_embeddings contiene BLOB binarios; exportamos solo cabecera + aviso."""
+"""media_embeddings contiene BLOB binarios; exportamos metadatos sin la columna embedding."""
 
 
 def obtener_resumen(conn: sqlite3.Connection) -> dict[str, int]:
@@ -95,19 +95,30 @@ def exportar_tabla(
         return None
 
     if tabla in TABLAS_QUE_NO_EXPORTAN_EMBEDDINGS:
-        # Exportar solo metadatos (sin el blob de embedding)
+        # Exportar metadatos (sin el blob de embedding) — todas las filas
+        columnas_sin_blob = [c for c in columnas if c != "embedding"]
         path = os.path.join(directorio, f"{tabla}.csv")
+        total = 0
         with open(path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             if incluir_encabezado:
-                writer.writerow(columnas)
-            # Solo los primeros 10 registros como muestra
-            filas = conn.execute(
-                f"SELECT {', '.join(columnas)} FROM {tabla} LIMIT 10"
-            ).fetchall()
-            for fila in filas:
-                writer.writerow(fila)
-        log.info("  %s.csv → %d columnas, solo cabecera + 10 filas (BLOB omitido)", tabla, len(columnas))
+                writer.writerow(columnas_sin_blob)
+            # Streaming de a 500 filas
+            offset = 0
+            batch_size = 500
+            while True:
+                filas = conn.execute(
+                    f"SELECT {', '.join(columnas_sin_blob)} FROM {tabla} LIMIT ? OFFSET ?",
+                    (batch_size, offset),
+                ).fetchall()
+                if not filas:
+                    break
+                for fila in filas:
+                    writer.writerow(fila)
+                total += len(filas)
+                offset += batch_size
+        log.info("  %s.csv → %d columnas (sin embedding), %d filas", tabla, len(columnas_sin_blob), total)
+        return path
         return path
 
     # Exportar todas las filas

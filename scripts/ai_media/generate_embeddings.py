@@ -150,6 +150,11 @@ def conectar_db(ruta_db: str) -> sqlite3.Connection:
 
     conn = sqlite3.connect(ruta_db)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys=ON")
+
+    # Aplicar migraciones pendientes (schema canónico de media_embeddings)
+    from db.migrate import verificar_schema
+    verificar_schema(conn)
 
     # Crear tabla media_embeddings si no existe (schema canónico)
     conn.execute(

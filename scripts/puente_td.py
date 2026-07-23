@@ -2,14 +2,16 @@
 Puente BD → TouchDesigner vía OSC.
 
 Modos:
-  enviar     → envía lista de colores a TD y espera selección
-  colores    → solo envía los colores disponibles
-  enviar_imgs → envía N imágenes de un color específico
+  enviar       → envía lista de colores a TD y espera selección
+  colores      → solo envía los colores disponibles
+  enviar_imgs  → envía N imágenes de un color específico
+  nube         → genera nube de etiquetas con keywords de la DB
 
 Uso básico:
-  python scripts/puente_td.py enviar           # loop completo: colores → espera → imágenes
-  python scripts/puente_td.py colores           # solo lista de colores
-  python scripts/puente_td.py enviar_imgs rojo  # 10 imágenes rojas
+  python scripts/puente_td.py enviar              # loop completo
+  python scripts/puente_td.py colores              # solo lista de colores
+  python scripts/puente_td.py enviar_imgs rojo     # 10 imágenes rojas
+  python scripts/puente_td.py nube                 # nube de tags
 """
 
 import argparse
@@ -18,6 +20,7 @@ import sqlite3
 import time
 import random
 from pathlib import Path
+from collections import Counter
 from typing import Optional
 
 from pythonosc import udp_client
@@ -190,6 +193,71 @@ def modo_enviar_imgs(db_path: str, color: str, cantidad: int = 10):
 
 
 # ---------------------------------------------------------------------------
+# Nube de etiquetas
+# ---------------------------------------------------------------------------
+
+KEYWORDS_A_IGNORAR = [
+    'elige una', 'genero', 'fotografico', 'es un(a)', 'la imagen',
+    'una de las siguientes', 'deben describir', 'ejemplo:', 'separas con comas',
+    'el aguacate', "esponja ribiosa", "sa_20001", "roberto", "federico",
+    "el aguaje", "elante", "ella", "documento", "objetivo", "objeto",
+    "otras)", "otras."
+]
+
+
+def contar_keywords(db_path: str) -> Counter:
+    """Cuenta frecuencia de keywords en la DB (columna ia_keywords)."""
+    conn = sqlite3.connect(db_path)
+    rows = conn.execute(
+        "SELECT value FROM media_metadata WHERE key='ia_keywords'"
+    ).fetchall()
+    conn.close()
+
+    contador = Counter()
+    for r in rows:
+        texto = str(r[0])
+        partes = [p.strip().lower().strip("'\"") for p in texto.split(",")]
+        for p in partes:
+            p = p.strip()
+            if len(p) <= 2:
+                continue
+            if any(ign in p for ign in KEYWORDS_A_IGNORAR):
+                continue
+            contador[p] += 1
+    return contador
+
+
+def modo_nube(db_path: str, max_tags: int = 40):
+    """Cuenta keywords y envía pares keyword:frecuencia a TD."""
+    log.info("Contando keywords en la DB...")
+    contador = contar_keywords(db_path)
+    if not contador:
+        log.warning("No se encontraron keywords.")
+        return
+
+    log.info(f"   {len(contador)} keywords únicas, {sum(contador.values())} apariciones totales")
+    for kw, n in contador.most_common(10):
+        log.info(f"   {kw:25s} {n}")
+
+    # Tomar top N
+    items = contador.most_common(max_tags)
+    max_freq = items[0][1]
+
+    # Armar lista plana: [kw1, freq1, kw2, freq2, ...]
+    # Normalizar frecuencias a 0-1 para que TD calcule tamaños
+    args_list = []
+    for palabra, freq in items:
+        proporcion = freq / max_freq if max_freq > 0 else 0
+        args_list.append(palabra)
+        args_list.append(freq)          # frecuencia absoluta
+        args_list.append(round(proporcion, 3))  # peso normalizado 0-1
+
+    cli = udp_client.SimpleUDPClient(OSC_HOST, OSC_PUERTO_TD)
+    enviar(cli, "/flujos/nube/datos", *args_list)
+    log.info(f"✅ Enviados {len(items)} pares keyword:freq a TD")
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -203,12 +271,14 @@ Ejemplos:
   python scripts/puente_td.py colores              # solo lista de colores
   python scripts/puente_td.py enviar_imgs rojo     # 10 rojas
   python scripts/puente_td.py enviar_imgs azul --cant 5
+  python scripts/puente_td.py nube                 # nube de tags
+  python scripts/puente_td.py nube --max-tags 60   # mas palabras en la nube
         """,
     )
 
     parser.add_argument("modo",
                         nargs="?",
-                        choices=["enviar", "colores", "enviar_imgs"],
+                        choices=["enviar", "colores", "enviar_imgs", "nube"],
                         default="enviar",
                         help="Modo de operación")
     parser.add_argument("color", nargs="?",
@@ -217,6 +287,8 @@ Ejemplos:
                         help="Ruta a la DB (default: db/flujos.db)")
     parser.add_argument("--cant", type=int, default=10,
                         help="Cantidad de imágenes (default: 10)")
+    parser.add_argument("--max-tags", type=int, default=40,
+                        help="Cantidad máxima de palabras en la nube (default: 40)")
     parser.add_argument("--host", default=OSC_HOST,
                         help=f"Host TD (default: {OSC_HOST})")
     parser.add_argument("--port", type=int, default=OSC_PUERTO_TD,
@@ -240,6 +312,8 @@ Ejemplos:
             log.error("Especificá un color: python puente_td.py enviar_imgs rojo")
             return 1
         modo_enviar_imgs(args.db, args.color, args.cant)
+    elif args.modo == "nube":
+        modo_nube(args.db, args.max_tags)
     else:  # enviar (default)
         modo_enviar(args.db)
 

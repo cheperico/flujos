@@ -9,3 +9,9 @@ mapas/
 tracks/
 .opencode/
 opencode.json
+db/exports/
+db/backups/
+temp/
+_check_kw.py
+_keywords.py
+_keywords2.py
