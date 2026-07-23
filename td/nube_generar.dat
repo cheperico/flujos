@@ -1,0 +1,105 @@
+"""
+nube_generar.dat — Callbacks para generar_nube_callbacks (Script DAT).
+Crea Text TOPs individuales (tag_000, tag_001, ...) con diferentes tamanos.
+
+Vinculacion en TD:
+  - Abrir componente generar_nube
+  - Seleccionar generar_nube_callbacks (el DAT interno)
+  - Parametros: File -> td/nube_generar.dat, Sync to File = ON
+
+Requiere:
+  - Table DAT "nube_datos"          (/project2/nube_datos)
+  - Base COMP "nube_container"      (/project2/nube_container)
+"""
+
+import random
+import math
+
+
+TEXTO_MIN = 12
+TEXTO_MAX = 72
+ANCHO_LIENZO = 1280
+ALTO_LIENZO = 720
+
+
+def onCook(scriptOp):
+    pass
+
+
+def onPulse(par):
+    if par.name == "Generar":
+        print("[nube] Generando...")
+        generar_nube()
+
+
+def onSetupParameters(scriptOp):
+    page = scriptOp.appendCustomPage("Nube")
+    page.appendPulse("Generar", label="Generar nube")
+
+
+def generar_nube():
+    root = op("/project2")
+
+    datos = root.op("nube_datos")
+    if not datos:
+        print("[nube] ERROR: no se encuentra nube_datos")
+        return
+
+    container = root.op("nube_container")
+    if not container:
+        print("[nube] ERROR: no se encuentra nube_container")
+        return
+
+    # Detectar si la fila 0 es header o datos
+    primera = str(datos[0, 0]) if datos[0, 0] else ""
+    inicio = 1 if primera in ("palabra", "position1", "x") else 0
+
+    palabras = []
+    for row in range(inicio, datos.numRows):
+        palabra = str(datos[row, 0]) if datos[row, 0] else ""
+        if not palabra:
+            continue
+        peso_str = str(datos[row, 2]) if datos[row, 2] else "0"
+        try:
+            peso = float(peso_str)
+        except ValueError:
+            peso = 0.0
+        palabras.append((palabra, peso))
+
+    if not palabras:
+        print("[nube] No hay palabras")
+        return
+
+    palabras.sort(key=lambda x: -x[1])
+    max_peso = palabras[0][1] if palabras else 1.0
+    print(f"[nube] {len(palabras)} palabras")
+
+    # Destruir Text TOPs viejos (solo los tag_)
+    for child in container.children:
+        if child.name.startswith("tag_"):
+            child.destroy()
+
+    # Crear Text TOPs con diferentes tamanos
+    for idx, (palabra, peso) in enumerate(palabras):
+        proporcion = peso / max_peso if max_peso > 0 else 0.5
+        tamano = int(TEXTO_MIN + (TEXTO_MAX - TEXTO_MIN) * (proporcion ** 0.7))
+
+        nombre = f"tag_{idx:03d}"
+        top = container.create(textTOP, nombre)
+        if top is None:
+            continue
+
+        top.par.text = palabra
+        top.par.fontsizex = tamano
+        top.par.keepfontratio = 1
+        top.par.fontcolorr = 1.0
+        top.par.fontcolorg = 1.0
+        top.par.fontcolorb = 1.0
+        top.par.fontalpha = 1.0
+        top.par.bgalpha = 0
+        top.par.bold = 1 if tamano > 40 else 0
+        top.par.outputresolution = "custom"
+        top.par.resolutionw = 400
+        top.par.resolutionh = tamano + 20
+
+    print(f"[nube] Creados {len(palabras)} Text TOPs")

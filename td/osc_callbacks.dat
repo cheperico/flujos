@@ -1,0 +1,101 @@
+"""
+osc_callbacks.dat — Callbacks para osc_in1_callbacks (OSC In DAT).
+
+Vinculacion en TD:
+  - Abrir el componente osc_in1
+  - Seleccionar osc_in1_callbacks (el DAT interno)
+  - Parametros: File -> td/osc_callbacks.dat, Sync to File = ON
+
+Mensajes manejados:
+  /flujos/colores          -> tabla_colores (lista de colores)
+  /colores                 -> color individual (alternativo)
+  /flujos/slideshow/imagen -> movie1 + info_imagen
+  /slideshow/imagen        -> idem (alternativo)
+  /flujos/nube/datos       -> nube_datos
+  /flujos/seleccion        -> seleccion_actual
+"""
+
+# Raiz del proyecto (cambiar si no es /project2)
+_ROOT = op("/project2")
+
+
+def onReceiveOSC(dat, rowIndex, message, bytes, timeStamp, address, args, peer):
+    """Se ejecuta por cada mensaje OSC entrante."""
+    try:
+        _enrutar(address, args)
+    except Exception as e:
+        print(f"[osc_callbacks] Error en {address}: {e}")
+
+
+def _enrutar(address, args):
+    """Enruta segun direccion OSC."""
+
+    # ---- Lista de colores ---------------------------------------
+    if address == "/flujos/colores":
+        tabla = _ROOT.op("tabla_colores")
+        if not tabla:
+            return
+        tabla.clear()
+        tabla.appendRow(["color"])
+        for c in args:
+            tabla.appendRow([str(c)])
+        print(f"[TD] Recibidos {len(args)} colores")
+        return
+
+    if address == "/colores":
+        if not args:
+            return
+        txt = _ROOT.op("color_actual")
+        if txt:
+            txt.par.text = str(args[0])
+        tabla = _ROOT.op("tabla_colores")
+        if tabla:
+            tabla.appendRow([str(args[0])])
+        return
+
+    # ---- Slideshow / Imagenes -----------------------------------
+    if address in ("/flujos/slideshow/imagen", "/slideshow/imagen"):
+        if len(args) < 1:
+            return
+        ruta = str(args[0])
+        media_id = str(args[1]) if len(args) > 1 else ""
+        color_tag = str(args[2]) if len(args) > 2 else ""
+
+        movie = _ROOT.op("movie1")
+        if movie:
+            movie.par.file = ruta
+            movie.par.play = 1
+
+        info = _ROOT.op("info_imagen")
+        if info:
+            info.par.text = f"ID: {media_id} | Color: {color_tag}"
+        return
+
+    # ---- Nube de etiquetas --------------------------------------
+    if address == "/flujos/nube/datos":
+        tabla = _ROOT.op("nube_datos")
+        if not tabla:
+            return
+        tabla.clear()
+        tabla.appendRow(["palabra", "frecuencia", "peso"])
+
+        for i in range(0, len(args), 3):
+            if i + 2 < len(args):
+                palabra = str(args[i])
+                freq = int(args[i + 1]) if isinstance(args[i + 1], (int, float)) else 0
+                peso = float(args[i + 2]) if isinstance(args[i + 2], (int, float)) else 0.0
+                tabla.appendRow([palabra, str(freq), str(round(peso, 3))])
+
+        print(f"[TD] Nube: {len(args) // 3} palabras recibidas")
+        return
+
+    # ---- Seleccion del visitante --------------------------------
+    if address == "/flujos/seleccion":
+        if not args:
+            return
+        seleccion = str(args[0])
+        txt = _ROOT.op("seleccion_actual")
+        if txt:
+            txt.par.text = seleccion
+        print(f"[TD] Visitante selecciono: {seleccion}")
+        return
