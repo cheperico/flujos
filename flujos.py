@@ -84,6 +84,11 @@ COMANDOS:
                     a partir de los GPS de la BD.
                     Ej: python flujos.py mapa --heatmap --road-colors
 
+  export-csv        Exporta todas las tablas de la DB a archivos CSV.
+                    Ej: python flujos.py export-csv
+                    Ej: python flujos.py export-csv --table media
+                    Ej: python flujos.py export-csv --output ./mis_exports
+
   reset-db          Hace backup de la DB actual y crea una nueva
                      desde cero (schema limpio).
 
@@ -1066,6 +1071,7 @@ def opcion_mantenimiento(db_path: str | None = None):
         print("  4) Backup DB (solo backup, sin borrar)")
         print("  5) Restore DB desde backup")
         print("  6) Resetear DB (backup + limpiar)")
+        print("  7) Exportar DB a CSV")
         print("  0) Volver\n")
 
         opc = input("  Opcion: ").strip()
@@ -1082,6 +1088,8 @@ def opcion_mantenimiento(db_path: str | None = None):
             opcion_restore_db(db_path)
         elif opc == "6":
             opcion_reset_db(db_path)
+        elif opc == "7":
+            opcion_exportar_csv(db_path)
         elif opc == "0":
             break
         else:
@@ -1572,6 +1580,88 @@ def opcion_reset_db(db_path: str | None = None):
     print("  Lista para ingestar.")
 
 
+def opcion_exportar_csv(db_path: str | None = None):
+    """Exporta la DB completa a archivos CSV."""
+    db_path = leer_db(db_path)
+    if not os.path.isfile(db_path):
+        print("  No hay base de datos para exportar.")
+        pausa()
+        return
+
+    from scripts import exportar_csv
+
+    # Mostrar resumen previo
+    conn = sqlite3.connect(db_path)
+    resumen = exportar_csv.obtener_resumen(conn)
+    conn.close()
+
+    print("\n=== EXPORTAR DB A CSV ===\n")
+    print(f"  DB: {db_path}")
+    print()
+    for tabla in exportar_csv.TABLAS_VISIBLES:
+        count = resumen.get(tabla, -1)
+        if count >= 0:
+            print(f"    {tabla:20s}  {count:>6d} registros")
+        else:
+            print(f"    {tabla:20s}  (no existe)")
+    print()
+
+    # Preguntar tablas
+    print("  Opciones:")
+    print("    1) Exportar todas las tablas")
+    print("    2) Exportar solo media (tabla principal)")
+    print("    3) Exportar solo media_metadata (tags, clima, etc.)")
+    print("    4) Elegir tablas manualmente")
+    print("    0) Cancelar\n")
+
+    opc = input("  Opcion: ").strip()
+    if opc == "0":
+        print("  Cancelado.")
+        pausa()
+        return
+
+    tablas = None
+    if opc == "2":
+        tablas = ["media"]
+    elif opc == "3":
+        tablas = ["media_metadata"]
+    elif opc == "4":
+        print("\n  Tablas disponibles:")
+        for i, t in enumerate(exportar_csv.TABLAS_VISIBLES, 1):
+            count = resumen.get(t, -1)
+            estado = f"{count} registros" if count >= 0 else "(no existe)"
+            print(f"    {i}) {t:20s}  {estado}")
+        sel = input("\n  Numeros separados por coma (ej: 1,3,5): ").strip()
+        if sel:
+            indices = [int(x.strip()) for x in sel.split(",") if x.strip().isdigit()]
+            tablas = [exportar_csv.TABLAS_VISIBLES[i - 1] for i in indices if 1 <= i <= len(exportar_csv.TABLAS_VISIBLES)]
+        if not tablas:
+            print("  Cancelado.")
+            pausa()
+            return
+
+    # Preguntar directorio
+    dir_default = "db/exports/"
+    r = input(f"\n  Directorio de salida (Enter = {dir_default}{{timestamp}}/): ").strip()
+    output_dir = r if r else None
+
+    # Confirmar
+    print()
+    if tablas:
+        print(f"  Tablas: {', '.join(tablas)}")
+    else:
+        print("  Tablas: todas")
+    print(f"  Salida: {output_dir or dir_default}<timestamp>/")
+    r = input("  ?Exportar? (s/N): ").strip().lower()
+    if r != "s":
+        print("  Cancelado.")
+        pausa()
+        return
+
+    exportar_csv.exportar_todo(db_path, output_dir, tablas)
+    pausa()
+
+
 # ── Entry point ──────────────────────────────────────────────────────────────
 
 def main():
@@ -1652,6 +1742,10 @@ def main():
     elif comando == "mapa":
         from scripts import mapa_ruta
         mapa_ruta.main(resto)
+
+    elif comando in ("export-csv", "csv"):
+        from scripts import exportar_csv
+        exportar_csv.main(resto)
 
     else:
         print(f"Comando desconocido: {comando}")
