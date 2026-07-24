@@ -61,11 +61,12 @@ con SQLite como índice central y TouchDesigner como motor de reproducción.
 ├── scripts/                         # Scripts Python del pipeline
 │   ├── __init__.py
 │   ├── ingest.py                    # Ingesta de medios (1375 lines)
-│   ├── improve_db.py                # Post-procesamiento (7 pasos, 903 lines)
+│   ├── improve_db.py                # Post-procesamiento (8 pasos, 903 lines)
 │   ├── query.py                     # Consultas a DB
 │   ├── relocate.py                  # Relocalizar rutas
 │   ├── geocode.py                   # Geocodificación inversa (Georef API)
 │   ├── gradiente.py                 # Gradientes de ruta (Haversine, elevación)
+│   ├── astronomia.py                # Posición del sol (NOAA) y clasificación twilight
 │   ├── limpiar_tandas.py            # Limpieza de tandas (burst cleanup)
 │   ├── fetch_weather.py             # Clima histórico (Open-Meteo ERA5-Land)
 │   ├── dia_semana.py                # Día de la semana desde timestamp
@@ -293,10 +294,12 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 | **KEYPOINTS** | `improve_db.py --step keypoints` | Segmentos individuales de transcripción con timestamp | `media_keypoints` | media_id, timestamp_offset_secs, timestamp_absolute, key=`transcript_segment`, value=texto, source |
 | **TIMESTAMPS** | `improve_db.py --step timestamps` | Timestamps inferidos desde EXIF/ExifTool | `media` | timestamp_original, timestamp_utc, timezone_note, updated_at |
 | **GPS** | `improve_db.py --step gps` | GPS inferido desde EXIF/ExifTool | `media` | latitude, longitude, altitude, geolocation_source, updated_at |
+| **VIDEO_METADATA** | `improve_db.py --step video_metadata` | ExifTool en videos (cámara, 360°, author) | `media` + `media_metadata` | subtype, author, xml_devicemanufacturer, xml_devicemodelname, xmp_spherical |
 | **GEOCODE** | `geocode.py` | Provincia, municipio, localidad (Georef API Argentina) | `media` | provincia, departamento, municipio, localidad, geocode_source, geocode_date |
 | **WEATHER** | `fetch_weather.py` | Clima histórico (Open-Meteo ERA5-Land) | `media_metadata` | keys: weather_temp_c, weather_humidity_pct, weather_precip_mm, weather_cloud_pct, weather_code, weather_label, weather_wind_speed_kmh, weather_wind_dir_deg, weather_wind_dir_text, weather_pressure_hpa, weather_hour_utc, weather_source |
 | **DÍA SEMANA** | `dia_semana.py` | Día de la semana en español | `media_metadata` | key=`dia_semana`, value=lunes\|martes\|...\|domingo |
 | **GRADIENTES** | `gradiente.py` | Distancia Haversine, cambio elevación, pendiente % y acumulados | `media` | distance_from_prev_m, elevation_gain_m, gradient_pct, cumul_distance_m, cumul_elevation_gain_m |
+| **ASTRONOMÍA** | `astronomia.py` | Posición del sol (NOAA), clasificación twilight | `media` | sun_elevation, sun_azimuth, sun_distance_au, twilight_period, astronomy_source |
 | **BACKFILL** | `flujos.py` backfill-end-time | Precalcula end_time = timestamp_utc + duration_secs | `media` | end_time, updated_at |
 | **RELOCATE** | `relocate.py` | Actualiza rutas cuando los archivos se mudan de carpeta | `media` | filepath_absoluto, filepath_relativo, carpeta, sidecar_xml |
 | **GPX** | `ingest_gpx.py` | Ingesta de archivo GPX: waypoints, registro de track y backfill de altitud | `tracks` | name, filepath_absoluto, filepath_relativo, source_url, start_time, end_time, total_points |
@@ -392,6 +395,7 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 | `check-gps`         | `opcion_check_gps()` (interno)   |
 | `geocode`           | `scripts/geocode.py`             |
 | `gradient`          | `scripts/gradiente.py`           |
+| `astronomia`        | `scripts/astronomia.py`          |
 | `improve-db`        | `scripts/improve_db.py`          |
 | `backup-db/backup`  | `opcion_backup_db()` (interno)   |
 | `restore-db/restore`| `opcion_restore_db()` (interno)  |
@@ -440,9 +444,9 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
   - Color extraction removido de ingest (ver `improve_db.py --step colors`).
 
 #### `improve_db.py` (903 lines)
-- **Propósito**: Pipeline de 7 pasos post-ingesta con skip/update/replace.
+- **Propósito**: Pipeline de 8 pasos post-ingesta con skip/update/replace.
 - **Args CLI**: `--steps` (default: todos), `--mode` (skip|update|replace), `--db`, `--list`
-- **Pasos**: `colors`, `keywords`, `descriptions`, `transcribe`, `keypoints`, `timestamps`, `gps`
+- **Pasos**: `colors`, `keywords`, `descriptions`, `transcribe`, `keypoints`, `timestamps`, `gps`, `video_metadata`
 - **DB que modifica**: `media` (UPDATE colores, timestamps, GPS), `media_metadata` (INSERT keywords, descriptions, transcripts), `media_keypoints`
 - **Modos**: skip (solo pendientes), update (actualiza todos), replace (limpia y regenera)
 - **Dependencias**: color_utils, ai_media/image_analysis, ai_media/transcribe_media
@@ -475,6 +479,22 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 - **Dependencias**: solo Python estándar (math). **No** requiere numpy/gdal.
 - **Notas**: Procesa TODOS los puntos con GPS en orden temporal. Modo replace: limpia columnas antes de recalcular.
 - **Tests**: `test_gradiente.py` (309 lines, 10 puntos simulados).
+
+#### `astronomia.py`
+- **Propósito**: Calcula la posición del sol (elevación, azimut) y clasifica el momento del día (twilight) usando el algoritmo NOAA Solar Calculator.
+- **Args CLI**: `--db`, `--dry-run`, `--verbose`, `--mode` (skip|update|replace)
+- **DB que modifica**: `media.sun_elevation`, `.sun_azimuth`, `.sun_distance_au`, `.twilight_period`, `.astronomy_source`
+- **Dependencias**: solo Python estándar (math, datetime). **Cero dependencias externas**.
+- **Algoritmo**: NOAA Solar Calculator (2017) — https://gml.noaa.gov/grad/solcalc/
+- **Clasificación twilight**:
+  - `dia`: elevación >= 12°
+  - `golden_hour`: elevación 6°-12°
+  - `blue_hour`: elevación 0°-6°
+  - `crepuculo_civil`: elevación -6° a 0°
+  - `crepuculo_nautico`: elevación -12° a -6°
+  - `crepuculo_astronomico`: elevación -18° a -12°
+  - `noche`: elevación < -18°
+- **Notas**: Requiere registros con GPS y timestamp_utc. Precisión ~0.01°.
 
 #### `color_utils.py`
 - **Propósito**: Extracción de colores dominantes (Pillow) y naming (webcolors CSS3 → español → categoría básica).
@@ -600,14 +620,16 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
    ├── 4. transcribe   → transcribe_media.py (faster-whisper)
    ├── 5. keypoints    → poblado desde transcripciones
    ├── 6. timestamps   → inferir timestamp_utc desde EXIF/exiftool
-   └── 7. gps          → inferir GPS desde EXIF/exiftool
+   ├── 7. gps          → inferir GPS desde EXIF/exiftool
+   └── 8. video_metadata → ExifTool en videos (cámara, 360°, author)
        │
        ▼
 4. ENRIQUECER (scripts independientes, con skip/update/replace):
    ├── dia_semana.py       → día de la semana en español
    ├── fetch_weather.py    → clima histórico Open-Meteo
    ├── geocode.py          → provincia/municipio/localidad (Georef API)
-   └── gradiente.py        → distancia, elevación, pendiente entre puntos GPS
+   ├── gradiente.py        → distancia, elevación, pendiente entre puntos GPS
+   └── astronomia.py       → posición del sol, clasificación twilight (NOAA)
        │
        ▼
 5. CONSULTAR: query.py / TUI opción 4 (listados, búsquedas, detalle)
@@ -721,6 +743,7 @@ elif mode == "skip":
 - **Open-Meteo**: se eligió sobre otras APIs climáticas por ser gratuito, sin API key, y cubrir datos históricos desde 1940 (ERA5-Land).
 - **Georef**: API del gobierno argentino, gratuita, sin key. Soporta batch de hasta 5000 coordenadas.
 - **gradiente.py**: implementado en Python puro (Haversine, sin numpy/gdal) para mantener cero dependencias pesadas. Fix: `min(a, 1.0)` en `asin` para evitar NaN por error de punto flotante.
+- **astronomia.py (Jul 2026)**: implementado algoritmo NOAA Solar Calculator en Python puro (math, datetime). Calcula elevación, azimut y distancia del sol para cada registro GPS. Clasifica twilight: día, golden_hour, blue_hour, crepúsculos (civil/náutico/astronómico), noche. Cero dependencias externas. Precisión ~0.01°.
 - **--types filter (Jul 2026)**: se corrigió el filtro de tipos en `ingest.py` para que XML no-sidecar no pase cuando se usan `--types image,video` (antes cualquier `.xml` pasaba por ser extensión de sidecar).
 - **mode update vs replace (Jul 2026)**: se unificó el comportamiento en `improve_db.py` (`run_keypoints`, `run_timestamps`, `run_gps`), `fetch_weather.py` y `dia_semana.py`: `--mode update` reprocesa todos los registros sin limpiar primero, `--mode replace` limpia y regenera.
 - **gradiente NULL timestamp (Jul 2026)**: se agregó `AND timestamp_utc IS NOT NULL` a la query de `gradiente.py` para evitar que puntos GPS sin timestamp se ordenen al inicio (NULLs primero en SQLite) generando distancias sin sentido.
