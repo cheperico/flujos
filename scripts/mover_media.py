@@ -147,6 +147,7 @@ def ejecutar_movimiento(conn, old_root: str, new_root: str) -> dict:
         "errores": 0,
         "skip": 0,
         "sidecars": 0,
+        "colisiones": 0,
     }
 
     medios = obtener_medios(conn)
@@ -164,18 +165,33 @@ def ejecutar_movimiento(conn, old_root: str, new_root: str) -> dict:
             stats["skip"] += 1
             continue
 
-        # Verificar que el destino no existe ya
-        if os.path.exists(nueva_abs):
-            log.warning("  Ya existe en destino, saltando: %s", nueva_abs)
-            stats["skip"] += 1
-            continue
+        # Resolver colisión de nombre: si ya existe, agregar sufijo _1, _2, etc.
+        destino_final = nueva_abs
+        if os.path.exists(destino_final):
+            base_name = os.path.splitext(os.path.basename(nueva_abs))[0]
+            ext = os.path.splitext(nueva_abs)[1]
+            dir_destino = os.path.dirname(nueva_abs)
+            counter = 1
+            while True:
+                destino_final = os.path.join(
+                    dir_destino, f"{base_name}_{counter}{ext}"
+                )
+                if not os.path.exists(destino_final):
+                    break
+                counter += 1
+            log.warning(
+                "  Colisión de nombre: %s -> %s",
+                os.path.basename(nueva_abs),
+                os.path.basename(destino_final),
+            )
+            stats["colisiones"] += 1
 
         # Crear directorio destino si no existe
-        os.makedirs(os.path.dirname(nueva_abs), exist_ok=True)
+        os.makedirs(os.path.dirname(destino_final), exist_ok=True)
 
         # Mover archivo
         try:
-            shutil.move(abs_path, nueva_abs)
+            shutil.move(abs_path, destino_final)
             stats["movidos"] += 1
         except OSError as e:
             log.warning("  Error moviendo %s: %s", abs_path, e)
@@ -185,14 +201,18 @@ def ejecutar_movimiento(conn, old_root: str, new_root: str) -> dict:
         # Actualizar sidecar si existe (mismo directorio, mismo nombre base)
         if rel_path:
             base = os.path.splitext(os.path.basename(abs_path))[0]
-            dir_nuevo = os.path.dirname(nueva_abs)
+            dir_destino_final = os.path.dirname(destino_final)
             sidecars_posibles = [
-                os.path.join(dir_nuevo, base + ext)
+                os.path.join(dir_destino_final, base + ext)
                 for ext in [".AAE", ".json", ".xml", ".XMP"]
             ]
             for sc_old in sidecars_posibles:
                 if os.path.isfile(sc_old):
-                    sc_new = os.path.join(dir_nuevo, base + os.path.splitext(sc_old)[1])
+                    sc_new = os.path.join(
+                        dir_destino_final,
+                        os.path.splitext(os.path.basename(destino_final))[0]
+                        + os.path.splitext(sc_old)[1],
+                    )
                     if not os.path.exists(sc_new):
                         try:
                             shutil.move(sc_old, sc_new)
@@ -200,14 +220,16 @@ def ejecutar_movimiento(conn, old_root: str, new_root: str) -> dict:
                         except OSError:
                             pass
 
-        # Actualizar DB
+        # Actualizar DB con la ruta final (puede diferir de nueva_abs si hubo colisión)
+        ruta_final_db = destino_final
+        rel_final_db = calcular_nuevo_relativo(ruta_final_db, new_norm)
         conn.execute(
             """
             UPDATE media
             SET filepath_absoluto = ?, filepath_relativo = ?, carpeta = ?, updated_at = datetime('now')
             WHERE id = ?
             """,
-            (nueva_abs, nuevo_rel, os.path.dirname(nueva_abs), mid),
+            (ruta_final_db, rel_final_db, os.path.dirname(ruta_final_db), mid),
         )
 
         # Actualizar sidecar_xml en DB (relativo al nuevo root)
@@ -243,6 +265,7 @@ def ejecutar_copia(
         "errores": 0,
         "skip": 0,
         "sidecars": 0,
+        "colisiones": 0,
     }
 
     medios = obtener_medios(conn)
@@ -260,18 +283,33 @@ def ejecutar_copia(
             stats["skip"] += 1
             continue
 
-        # Verificar que el destino no existe ya
-        if os.path.exists(nueva_abs):
-            log.warning("  Ya existe en destino, saltando: %s", nueva_abs)
-            stats["skip"] += 1
-            continue
+        # Resolver colisión de nombre: si ya existe, agregar sufijo _1, _2, etc.
+        destino_final = nueva_abs
+        if os.path.exists(destino_final):
+            base_name = os.path.splitext(os.path.basename(nueva_abs))[0]
+            ext = os.path.splitext(nueva_abs)[1]
+            dir_destino = os.path.dirname(nueva_abs)
+            counter = 1
+            while True:
+                destino_final = os.path.join(
+                    dir_destino, f"{base_name}_{counter}{ext}"
+                )
+                if not os.path.exists(destino_final):
+                    break
+                counter += 1
+            log.warning(
+                "  Colisión de nombre: %s -> %s",
+                os.path.basename(nueva_abs),
+                os.path.basename(destino_final),
+            )
+            stats["colisiones"] += 1
 
         # Crear directorio destino si no existe
-        os.makedirs(os.path.dirname(nueva_abs), exist_ok=True)
+        os.makedirs(os.path.dirname(destino_final), exist_ok=True)
 
         # Copiar archivo
         try:
-            shutil.copy2(abs_path, nueva_abs)
+            shutil.copy2(abs_path, destino_final)
             stats["copiados"] += 1
         except OSError as e:
             log.warning("  Error copiando %s: %s", abs_path, e)
@@ -281,11 +319,15 @@ def ejecutar_copia(
         # Copiar sidecar si existe
         if rel_path:
             base = os.path.splitext(os.path.basename(abs_path))[0]
-            dir_nuevo = os.path.dirname(nueva_abs)
+            dir_destino_final = os.path.dirname(destino_final)
             sidecar_exts = [".AAE", ".json", ".xml", ".XMP"]
             for ext in sidecar_exts:
                 sc_old = os.path.join(os.path.dirname(abs_path), base + ext)
-                sc_new = os.path.join(dir_nuevo, base + ext)
+                sc_new = os.path.join(
+                    dir_destino_final,
+                    os.path.splitext(os.path.basename(destino_final))[0]
+                    + ext,
+                )
                 if os.path.isfile(sc_old) and not os.path.exists(sc_new):
                     try:
                         shutil.copy2(sc_old, sc_new)
@@ -295,13 +337,15 @@ def ejecutar_copia(
 
         # Actualizar DB si se solicita
         if update_db:
+            ruta_final_db = destino_final
+            rel_final_db = calcular_nuevo_relativo(ruta_final_db, new_norm)
             conn.execute(
                 """
                 UPDATE media
                 SET filepath_absoluto = ?, filepath_relativo = ?, carpeta = ?, updated_at = datetime('now')
                 WHERE id = ?
                 """,
-                (nueva_abs, nuevo_rel, os.path.dirname(nueva_abs), mid),
+                (ruta_final_db, rel_final_db, os.path.dirname(ruta_final_db), mid),
             )
 
             # Actualizar sidecar_xml en DB
@@ -407,8 +451,9 @@ def procesar(
         log.info("")
         stats = ejecutar_movimiento(conn, old_norm, new_norm)
         log.info(
-            "\n  Movidos: %d | Sidecars: %d | Errores: %d | Saltados: %d",
+            "\n  Movidos: %d | Colisiones: %d | Sidecars: %d | Errores: %d | Saltados: %d",
             stats["movidos"],
+            stats["colisiones"],
             stats["sidecars"],
             stats["errores"],
             stats["skip"],
@@ -429,8 +474,9 @@ def procesar(
 
         stats = ejecutar_copia(conn, old_norm, new_norm, update_db=update_db)
         log.info(
-            "\n  Copiados: %d | Sidecars: %d | Errores: %d | Saltados: %d",
+            "\n  Copiados: %d | Colisiones: %d | Sidecars: %d | Errores: %d | Saltados: %d",
             stats["copiados"],
+            stats["colisiones"],
             stats["sidecars"],
             stats["errores"],
             stats["skip"],
