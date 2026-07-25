@@ -14,6 +14,8 @@ Uso:
   python flujos.py geocode --limit 100               -> Con limite de registros
   python flujos.py gradient                          -> Calcular gradientes de ruta (pendiente/esfuerzo fisico entre puntos GPS)
   python flujos.py gradient --dry-run                -> Previsualizar gradientes sin escribir en DB
+  python flujos.py mover --new-root NUEVA_RAIZ --mode mover  -> Mover archivos a nueva ubicación
+  python flujos.py mover --new-root NUEVA_RAIZ --mode copiar --update-db  -> Copiar archivos y actualizar DB
   python flujos.py --help | --ayuda | -h             -> Esta ayuda
 """
 
@@ -1120,6 +1122,7 @@ def opcion_mantenimiento(db_path: str | None = None):
         print("  6) Restore DB desde backup")
         print("  7) Resetear DB (backup + limpiar)")
         print("  8) Exportar DB a CSV")
+        print("  9) Mover/Copiar medios")
         print("  0) Volver\n")
 
         opc = input("  Opcion: ").strip()
@@ -1140,6 +1143,8 @@ def opcion_mantenimiento(db_path: str | None = None):
             opcion_reset_db(db_path)
         elif opc == "8":
             opcion_exportar_csv(db_path)
+        elif opc == "9":
+            opcion_mover_media(db_path)
         elif opc == "0":
             break
         else:
@@ -1196,6 +1201,68 @@ def opcion_ingestar_gpx(db_path: str | None = None):
     if db_path:
         args.extend(["--db", db_path])
     ingest_gpx.main(args)
+    pausa()
+
+
+def opcion_mover_media(db_path: str | None = None):
+    """Menu para mover o copiar archivos de medios y actualizar la DB."""
+    limpiar_pantalla()
+    print("=== MOVER / COPIAR MEDIOS ===\n")
+    print("  1) Mover archivos (actualiza DB automáticamente)")
+    print("  2) Copiar archivos (sólo copia, no actualiza DB)")
+    print("  3) Copiar archivos y actualizar DB")
+    print("  0) Volver\n")
+
+    opc = input("  Opcion: ").strip()
+    db_path = leer_db(db_path)
+
+    if opc not in ("1", "2", "3"):
+        return
+
+    new_root = input("  Nueva raíz de archivos: ").strip()
+    if not new_root:
+        log.error("Debe especificar una raíz.")
+        pausa()
+        return
+
+    old_root = input(
+        "  Raíz anterior (dejar vacío para leer de DB): "
+    ).strip() or None
+
+    dry_run = input("  ¿Previsualizar sin escribir? (s/n) [n]: ").strip().lower() == "s"
+
+    from scripts import mover_media
+
+    if opc == "1":
+        args = ["--new-root", new_root, "--mode", "mover", "--db", db_path]
+        if old_root:
+            args += ["--old-root", old_root]
+        if dry_run:
+            args.append("--dry-run")
+        mover_media.main(args)
+    elif opc == "2":
+        args = ["--new-root", new_root, "--mode", "copiar", "--db", db_path]
+        if old_root:
+            args += ["--old-root", old_root]
+        if dry_run:
+            args.append("--dry-run")
+        mover_media.main(args)
+    elif opc == "3":
+        args = [
+            "--new-root",
+            new_root,
+            "--mode",
+            "copiar",
+            "--update-db",
+            "--db",
+            db_path,
+        ]
+        if old_root:
+            args += ["--old-root", old_root]
+        if dry_run:
+            args.append("--dry-run")
+        mover_media.main(args)
+
     pausa()
 
 
@@ -1809,6 +1876,10 @@ def main():
     elif comando == "astronomia":
         from scripts import astronomia
         astronomia.main(resto)
+
+    elif comando == "mover":
+        from scripts import mover_media
+        mover_media.main(resto)
 
     elif comando == "mapa":
         from scripts import mapa_ruta
