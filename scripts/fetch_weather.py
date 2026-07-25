@@ -322,6 +322,7 @@ def procesar(
 ):
     """Pipeline principal: agrupa, fetchea, guarda."""
     conn = abrir(db_path)
+    conn.row_factory = sqlite3.Row
 
     # 1. Obtener medios
     if replace:  # --mode update o replace → procesar TODOS

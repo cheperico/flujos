@@ -50,6 +50,20 @@ CREATE TABLE IF NOT EXISTS media (
     cumul_distance_m      REAL,               -- distancia acumulada desde el inicio del viaje (metros)
     cumul_elevation_gain_m REAL,              -- ganancia de elevación acumulada (metros)
 
+    -- Astronomía / posición del sol (calculado post-ingesta por scripts/astronomia.py)
+    sun_elevation         REAL,               -- altura del sol sobre el horizonte (grados, -90 a +90)
+    sun_azimuth           REAL,               -- dirección del sol (grados, 0°=N, 90°=E)
+    sun_distance_au       REAL,               -- distancia al sol en unidades astronómicas (~1.0)
+    twilight_period       TEXT,               -- 'dia', 'golden_hour', 'blue_hour', 'crepuculo_civil', 
+                                              -- 'crepuculo_nautico', 'crepuculo_astronomico', 'noche'
+    sunrise_ts            TEXT,               -- hora UTC del amanecer (ISO 8601)
+    sunset_ts             TEXT,               -- hora UTC del atardecer (ISO 8601)
+    solar_noon_ts         TEXT,               -- hora UTC del cenit solar (ISO 8601)
+    secs_since_sunrise    REAL,               -- segundos desde el amanecer (+ despues, - antes)
+    secs_to_sunset        REAL,               -- segundos hasta el atardecer (+ antes, - despues)
+    secs_since_noon       REAL,               -- segundos desde el cenit (+ tarde, - mañana)
+    astronomy_source      TEXT,               -- 'noaa_calculator', 'manual'
+
     -- Autor
     author            TEXT,                   -- nombre de quien creó el medio
     author_source     TEXT,                   -- 'exif', 'carpeta', 'modelo_camara', 'combinado'

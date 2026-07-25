@@ -72,6 +72,15 @@ COMANDOS:
               Calcula distancia, pendiente y esfuerzo fisico acumulado.
               Ej: python flujos.py gradient --dry-run --verbose
 
+  astronomia  Calcular posicion del sol y clasificar twilight (NOAA).
+              Calcula elevacion, azimut y momento del dia para cada
+              registro con GPS + timestamp.
+              Ej: python flujos.py astronomia --dry-run --verbose
+
+  astronomia  Calcular posición del sol y clasificar twilight (NOAA).
+              Calcula elevación, azimut y momento del día para cada registro GPS.
+              Ej: python flujos.py astronomia --dry-run --verbose
+
   undo-ingest       Deshacer una ingesta por batch ID.
 
   backfill-end-time Calcular end_time para registros existentes
@@ -465,6 +474,41 @@ def opcion_gradient():
     pausa()
 
 
+def opcion_astronomia(db_path: str | None = None):
+    """Menu para calcular posición del sol y clasificar twilight."""
+    limpiar_pantalla()
+    print("=== CALCULAR POSICIÓN DEL SOL (ASTRONOMÍA) ===\n")
+
+    print("  1) Calcular astronomía")
+    print("  2) Previsualizar (dry-run)")
+    print("  3) Previsualizar con detalle (dry-run + verbose)")
+    print("  0) Volver\n")
+
+    opc = input("  Opcion: ").strip()
+
+    db_path = leer_db()
+    from scripts import astronomia
+
+    if opc == "1":
+        modo = _preguntar_modo(db_path)
+        if modo is None:
+            print("  Cancelado.")
+            pausa()
+            return
+        args = ["--db", db_path]
+        if modo != "skip":
+            args += ["--mode", modo]
+        astronomia.main(args)
+    elif opc == "2":
+        astronomia.main(["--db", db_path, "--dry-run"])
+    elif opc == "3":
+        astronomia.main(["--db", db_path, "--dry-run", "--verbose"])
+    elif opc == "0":
+        return
+
+    pausa()
+
+
 def opcion_check_gps(db_path: str | None = None):
     limpiar_pantalla()
     print("=== REVISAR GPS EN ARCHIVOS ===\n")
@@ -825,7 +869,8 @@ def opcion_improve_db():
             print("  3) Localizacion (provincia, municipio, localidad)")
             print("  4) Condiciones climaticas")
             print("  5) Dia de la semana")
-            print("  6) Embeddings")
+            print("  6) Posicion del sol (astronomia)")
+            print("  7) Embeddings")
             print("  9) << Anterior")
             print("  0) Volver\n")
 
@@ -925,6 +970,8 @@ def opcion_improve_db():
             elif opc == "5":
                 opcion_dia_semana()
             elif opc == "6":
+                opcion_astronomia()
+            elif opc == "7":
                 opcion_embeddings()
             elif opc == "9":
                 parte = 1
@@ -1067,11 +1114,12 @@ def opcion_mantenimiento(db_path: str | None = None):
         print("=== MANTENIMIENTO DB ===\n")
         print("  1) Relocalizar medios (cambio de raiz)")
         print("  2) Calcular gradientes de ruta")
-        print("  3) Backfill end_time")
-        print("  4) Backup DB (solo backup, sin borrar)")
-        print("  5) Restore DB desde backup")
-        print("  6) Resetear DB (backup + limpiar)")
-        print("  7) Exportar DB a CSV")
+        print("  3) Calcular posición del sol (astronomía)")
+        print("  4) Backfill end_time")
+        print("  5) Backup DB (solo backup, sin borrar)")
+        print("  6) Restore DB desde backup")
+        print("  7) Resetear DB (backup + limpiar)")
+        print("  8) Exportar DB a CSV")
         print("  0) Volver\n")
 
         opc = input("  Opcion: ").strip()
@@ -1081,14 +1129,16 @@ def opcion_mantenimiento(db_path: str | None = None):
         elif opc == "2":
             opcion_gradient()
         elif opc == "3":
-            opcion_backfill_end_time(db_path)
+            opcion_astronomia(db_path)
         elif opc == "4":
-            opcion_backup_db(db_path)
+            opcion_backfill_end_time(db_path)
         elif opc == "5":
-            opcion_restore_db(db_path)
+            opcion_backup_db(db_path)
         elif opc == "6":
-            opcion_reset_db(db_path)
+            opcion_restore_db(db_path)
         elif opc == "7":
+            opcion_reset_db(db_path)
+        elif opc == "8":
             opcion_exportar_csv(db_path)
         elif opc == "0":
             break
@@ -1162,7 +1212,8 @@ def opcion_ayuda():
         print("  5) improve-db - Mejorar base de datos")
         print("  6) geocode - Geocodificar coordenadas GPS")
         print("  7) gradient - Calcular gradientes de ruta")
-        print("  8) check-db / check-gps")
+        print("  8) astronomia - Posición del sol y twilight")
+        print("  9) check-db / check-gps")
         print("  0) Volver\n")
 
         opc = input("  Opcion: ").strip()
@@ -1224,6 +1275,22 @@ def opcion_ayuda():
             print("    python scripts/gradiente.py --dry-run --verbose")
             pausa()
         elif opc == "8":
+            limpiar_pantalla()
+            print("============ ASTRONOMIA ============\n")
+            print("  Calcula la posición del sol (elevación, azimut) y clasifica")
+            print("  el momento del día usando el algoritmo NOAA Solar Calculator.\n")
+            print("  Columnas que actualiza:\n")
+            print("    sun_elevation      Altura del sol sobre horizonte (°)")
+            print("    sun_azimuth        Dirección del sol (0°=N, 90°=E)")
+            print("    sun_distance_au    Distancia al sol en UA")
+            print("    twilight_period    Clasificación: día, golden_hour, blue_hour,")
+            print("                       crepúsculo civil/naútico/astronómico, noche\n")
+            print("  Uso: python flujos.py astronomia [--dry-run] [--verbose]\n")
+            print("  Requiere: latitude, longitude y timestamp_utc en la DB.")
+            print("  Algoritmo: NOAA Solar Calculator (Python puro, 0 dependencias)\n")
+            print("  Precision: ~0.01°\n")
+            pausa()
+        elif opc == "9":
             limpiar_pantalla()
             print("============ CHECK-DB ============\n")
             print("  Inspecciona todos los registros de la base de datos.")
@@ -1738,6 +1805,10 @@ def main():
     elif comando == "gradient":
         from scripts import gradiente
         gradiente.main(resto)
+
+    elif comando == "astronomia":
+        from scripts import astronomia
+        astronomia.main(resto)
 
     elif comando == "mapa":
         from scripts import mapa_ruta

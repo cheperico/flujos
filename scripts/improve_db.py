@@ -175,7 +175,7 @@ def run_colors(conn, db_path, mode, stats):
     """)
 
     query = helper.build_query(
-        base="SELECT id, filepath_absoluto FROM media WHERE type='image'",
+        base="SELECT id, filepath_absoluto FROM media m WHERE type='image'",
         check_col="color_1_hex",
     )
 

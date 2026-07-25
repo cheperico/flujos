@@ -299,7 +299,7 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 | **WEATHER** | `fetch_weather.py` | Clima histórico (Open-Meteo ERA5-Land) | `media_metadata` | keys: weather_temp_c, weather_humidity_pct, weather_precip_mm, weather_cloud_pct, weather_code, weather_label, weather_wind_speed_kmh, weather_wind_dir_deg, weather_wind_dir_text, weather_pressure_hpa, weather_hour_utc, weather_source |
 | **DÍA SEMANA** | `dia_semana.py` | Día de la semana en español | `media_metadata` | key=`dia_semana`, value=lunes\|martes\|...\|domingo |
 | **GRADIENTES** | `gradiente.py` | Distancia Haversine, cambio elevación, pendiente % y acumulados | `media` | distance_from_prev_m, elevation_gain_m, gradient_pct, cumul_distance_m, cumul_elevation_gain_m |
-| **ASTRONOMÍA** | `astronomia.py` | Posición del sol (NOAA), clasificación twilight | `media` | sun_elevation, sun_azimuth, sun_distance_au, twilight_period, astronomy_source |
+| **ASTRONOMÍA** | `astronomia.py` | Posición del sol (NOAA), clasificación twilight, amanecer/atardecer/cenit, tiempos relativos | `media` | sun_elevation, sun_azimuth, sun_distance_au, twilight_period, sunrise_ts, sunset_ts, solar_noon_ts, secs_since_sunrise, secs_to_sunset, secs_since_noon, astronomy_source |
 | **BACKFILL** | `flujos.py` backfill-end-time | Precalcula end_time = timestamp_utc + duration_secs | `media` | end_time, updated_at |
 | **RELOCATE** | `relocate.py` | Actualiza rutas cuando los archivos se mudan de carpeta | `media` | filepath_absoluto, filepath_relativo, carpeta, sidecar_xml |
 | **GPX** | `ingest_gpx.py` | Ingesta de archivo GPX: waypoints, registro de track y backfill de altitud | `tracks` | name, filepath_absoluto, filepath_relativo, source_url, start_time, end_time, total_points |
@@ -354,6 +354,7 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
      │   ├─ 1. Generar embeddings (solo pendientes)
      │   ├─ 2. Previsualizar (dry-run)
      │   └─ 0. Volver
+     ├─ 7. Posición del sol (astronomía) → scripts/astronomia.py (con modo)
      ├─ 9. << Anterior → Parte 1
      └─ 0. Volver
 
@@ -481,9 +482,9 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 - **Tests**: `test_gradiente.py` (309 lines, 10 puntos simulados).
 
 #### `astronomia.py`
-- **Propósito**: Calcula la posición del sol (elevación, azimut) y clasifica el momento del día (twilight) usando el algoritmo NOAA Solar Calculator.
+- **Propósito**: Calcula la posición del sol (elevación, azimut) y clasifica el momento del día (twilight) usando el algoritmo NOAA Solar Calculator. También calcula amanecer, atardecer y cenit solar para cada registro.
 - **Args CLI**: `--db`, `--dry-run`, `--verbose`, `--mode` (skip|update|replace)
-- **DB que modifica**: `media.sun_elevation`, `.sun_azimuth`, `.sun_distance_au`, `.twilight_period`, `.astronomy_source`
+- **DB que modifica**: `media.sun_elevation`, `.sun_azimuth`, `.sun_distance_au`, `.twilight_period`, `.sunrise_ts`, `.sunset_ts`, `.solar_noon_ts`, `.secs_since_sunrise`, `.secs_to_sunset`, `.secs_since_noon`, `.astronomy_source`
 - **Dependencias**: solo Python estándar (math, datetime). **Cero dependencias externas**.
 - **Algoritmo**: NOAA Solar Calculator (2017) — https://gml.noaa.gov/grad/solcalc/
 - **Clasificación twilight**:
@@ -494,6 +495,7 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
   - `crepuculo_nautico`: elevación -12° a -6°
   - `crepuculo_astronomico`: elevación -18° a -12°
   - `noche`: elevación < -18°
+- **Eventos solares**: amanecer (sunrise_ts), atardecer (sunset_ts), cenit (solar_noon_ts). Maneja sol de medianoche y noche polar.
 - **Notas**: Requiere registros con GPS y timestamp_utc. Precisión ~0.01°.
 
 #### `color_utils.py`
@@ -743,7 +745,7 @@ elif mode == "skip":
 - **Open-Meteo**: se eligió sobre otras APIs climáticas por ser gratuito, sin API key, y cubrir datos históricos desde 1940 (ERA5-Land).
 - **Georef**: API del gobierno argentino, gratuita, sin key. Soporta batch de hasta 5000 coordenadas.
 - **gradiente.py**: implementado en Python puro (Haversine, sin numpy/gdal) para mantener cero dependencias pesadas. Fix: `min(a, 1.0)` en `asin` para evitar NaN por error de punto flotante.
-- **astronomia.py (Jul 2026)**: implementado algoritmo NOAA Solar Calculator en Python puro (math, datetime). Calcula elevación, azimut y distancia del sol para cada registro GPS. Clasifica twilight: día, golden_hour, blue_hour, crepúsculos (civil/náutico/astronómico), noche. Cero dependencias externas. Precisión ~0.01°.
+- **astronomia.py (Jul 2026)**: implementado algoritmo NOAA Solar Calculator en Python puro (math, datetime). Calcula elevación, azimut y distancia del sol para cada registro GPS. Clasifica twilight: día, golden_hour, blue_hour, crepúsculos (civil/náutico/astronómico), noche. También calcula amanecer, atardecer y cenit solar para cada fecha/ubicación. Maneja sol de medianoche y noche polar. Cero dependencias externas. Precisión ~0.01°.
 - **--types filter (Jul 2026)**: se corrigió el filtro de tipos en `ingest.py` para que XML no-sidecar no pase cuando se usan `--types image,video` (antes cualquier `.xml` pasaba por ser extensión de sidecar).
 - **mode update vs replace (Jul 2026)**: se unificó el comportamiento en `improve_db.py` (`run_keypoints`, `run_timestamps`, `run_gps`), `fetch_weather.py` y `dia_semana.py`: `--mode update` reprocesa todos los registros sin limpiar primero, `--mode replace` limpia y regenera.
 - **gradiente NULL timestamp (Jul 2026)**: se agregó `AND timestamp_utc IS NOT NULL` a la query de `gradiente.py` para evitar que puntos GPS sin timestamp se ordenen al inicio (NULLs primero en SQLite) generando distancias sin sentido.
