@@ -140,7 +140,7 @@
     var canvas = document.getElementById('lienzo');
     var ctx = canvas.getContext('2d');
     var dims = { w: 0, h: 0 };
-    var cam = { tx: 0, ty: 0, scale: 1 };
+    var cam = { tx: 0, ty: 0, scale: 1, zoomMin: 0.001, zoomMax: 5 };
     var drag = { active: false, lx: 0, ly: 0, ltx: 0, lty: 0 };
 
     var zoomSlider = document.getElementById('zoom-slider');
@@ -320,7 +320,9 @@
     // ═══════════════════════════════════════════════════════
 
     function renderChipsColores(cont) {
-        var html = '<div style="display:flex;flex-wrap:wrap;gap:.25rem;align-items:center;width:100%">';
+        cont.classList.add('columnas');
+        cont.style.columnCount = '3';
+        var html = '';
         COLORES.forEach(function(c) {
             var activo = coloresSeleccionados.indexOf(c.nombre) !== -1 ? ' activo' : '';
             html += '<button class="chip' + activo + '" data-accion="toggle-color" data-valor="' + c.nombre + '">'
@@ -329,7 +331,6 @@
                   + '</button>';
         });
         html += '<span class="info-filtro" id="info-colores">Todos</span>';
-        html += '</div>';
         cont.innerHTML = html;
         // Bind events
         cont.querySelectorAll('[data-accion="toggle-color"]').forEach(function(btn) {
@@ -364,7 +365,9 @@
     // ═══════════════════════════════════════════════════════
 
     function renderChipsHoras(cont) {
-        var html = '<div style="display:flex;flex-wrap:wrap;gap:.2rem;align-items:center;width:100%">';
+        cont.classList.add('columnas');
+        cont.style.columnCount = '6';
+        var html = '';
         HORAS.forEach(function(h) {
             var hh = (h < 10 ? '0' : '') + h;
             var activo = horasSeleccionadas.indexOf(h) !== -1 ? ' activo' : '';
@@ -373,7 +376,6 @@
                   + '</button>';
         });
         html += '<span class="info-filtro" id="info-horas">Ninguna</span>';
-        html += '</div>';
         cont.innerHTML = html;
         cont.querySelectorAll('[data-accion="toggle-hora"]').forEach(function(btn) {
             btn.addEventListener('click', function() {
@@ -420,7 +422,9 @@
     // ═══════════════════════════════════════════════════════
 
     function renderChipsProvincias(cont) {
-        var html = '<div style="display:flex;flex-wrap:wrap;gap:.25rem;align-items:center;width:100%">';
+        cont.classList.add('columnas');
+        cont.style.columnCount = '3';
+        var html = '';
         PROVINCIAS.forEach(function(p) {
             var activo = provinciasSeleccionadas.indexOf(p.nombre) !== -1 ? ' activo' : '';
             html += '<button class="chip' + activo + '" data-accion="toggle-provincia" data-valor="' + p.nombre + '">'
@@ -428,7 +432,6 @@
                   + '</button>';
         });
         html += '<span class="info-filtro" id="info-provincias">Todas</span>';
-        html += '</div>';
         cont.innerHTML = html;
         cont.querySelectorAll('[data-accion="toggle-provincia"]').forEach(function(btn) {
             btn.addEventListener('click', function() {
@@ -461,7 +464,9 @@
     // ═══════════════════════════════════════════════════════
 
     function renderChipsMunicipios(cont) {
-        var html = '<div style="display:flex;flex-wrap:wrap;gap:.25rem;align-items:center;width:100%">';
+        cont.classList.add('columnas');
+        cont.style.columnCount = '2';
+        var html = '';
         MUNICIPIOS.forEach(function(m) {
             var activo = municipiosSeleccionados.indexOf(m) !== -1 ? ' activo' : '';
             html += '<button class="chip' + activo + '" data-accion="toggle-municipio" data-valor="' + m + '">'
@@ -469,7 +474,6 @@
                   + '</button>';
         });
         html += '<span class="info-filtro" id="info-municipios">Todos</span>';
-        html += '</div>';
         cont.innerHTML = html;
         cont.querySelectorAll('[data-accion="toggle-municipio"]').forEach(function(btn) {
             btn.addEventListener('click', function() {
@@ -689,6 +693,7 @@
         dims.h = window.innerHeight;
         canvas.width = dims.w;
         canvas.height = dims.h;
+        ajustarCamaraABloques();
         dibujar();
     }
     window.addEventListener('resize', redimensionar);
@@ -698,14 +703,17 @@
     // ═══════════════════════════════════════════════════════
 
     function actualizarZoomUI() {
+        zoomSlider.min = cam.zoomMin;
+        zoomSlider.max = cam.zoomMax;
         zoomSlider.value = cam.scale;
         zoomLabel.textContent = cam.scale.toFixed(1) + '\u00d7';
     }
 
     canvas.addEventListener('wheel', function(e) {
         e.preventDefault();
-        var factor = e.deltaY > 0 ? 0.9 : 1.1;
-        cam.scale = Math.max(0.2, Math.min(5, cam.scale * factor));
+        var step = 0.06;
+        cam.scale *= e.deltaY > 0 ? (1 - step) : (1 + step);
+        cam.scale = Math.max(cam.zoomMin, Math.min(cam.zoomMax, cam.scale));
         actualizarZoomUI();
         dibujar();
     }, { passive: false });
@@ -717,12 +725,12 @@
     });
 
     zoomInBtn.addEventListener('click', function() {
-        cam.scale = Math.min(5, cam.scale * 1.3);
+        cam.scale = Math.min(cam.zoomMax, cam.scale * 1.3);
         actualizarZoomUI();
         dibujar();
     });
     zoomOutBtn.addEventListener('click', function() {
-        cam.scale = Math.max(0.2, cam.scale / 1.3);
+        cam.scale = Math.max(cam.zoomMin, cam.scale / 1.3);
         actualizarZoomUI();
         dibujar();
     });
@@ -741,6 +749,11 @@
         dibujar();
     });
     window.addEventListener('mouseup', function() { drag.active = false; });
+
+    canvas.addEventListener('dblclick', function() {
+        ajustarCamaraABloques();
+        dibujar();
+    });
 
     // ═══════════════════════════════════════════════════════
     //  AJUSTAR CÁMARA A TODOS LOS BLOQUES
@@ -763,8 +776,9 @@
         var padding = 1.05;
         var sX = dims.w / (rangeX * padding);
         var sY = dims.h / (rangeY * padding);
-        cam.scale = Math.min(sX, sY);
-        cam.scale = Math.max(0.2, Math.min(5, cam.scale));
+        cam.zoomMin = Math.min(sX, sY);
+        cam.zoomMax = 5;
+        cam.scale = Math.max(cam.zoomMin, Math.min(cam.zoomMax, cam.scale));
         cam.tx = dims.w / 2 - cx * cam.scale;
         cam.ty = dims.h / 2 - cy * cam.scale;
         actualizarZoomUI();

@@ -15,15 +15,16 @@
 <!-- Contenedor de bloques (en coordenadas mundo) -->
 <div id="mundo"></div>
 
-<!-- botón fluir -->
-<button id="btn-fluir" class="btn-fluir">Fluir</button>
-
-<!-- slider de zoom -->
-<div id="zoom-ctrl" class="zoom-ctrl">
-  <button class="zoom-btn" id="zoom-in" type="button">+</button>
-  <input type="range" id="zoom-slider" min="0.2" max="5" step="0.01" value="1" orient="vertical">
-  <button class="zoom-btn" id="zoom-out" type="button">−</button>
-  <div class="zoom-label" id="zoom-label">1.0×</div>
+<!-- Barra lateral derecha -->
+<div id="sidebar">
+  <button id="btn-fluir" class="btn-fluir">Fluir</button>
+  <div class="sidebar-sep"></div>
+  <div id="zoom-ctrl">
+    <button class="zoom-btn" id="zoom-in" type="button">+</button>
+    <input type="range" id="zoom-slider" min="0.001" max="5" step="0.001" value="1" orient="vertical">
+    <button class="zoom-btn" id="zoom-out" type="button">−</button>
+    <div class="zoom-label" id="zoom-label">1.0×</div>
+  </div>
 </div>
 
 <script src="js/app.js"></script>

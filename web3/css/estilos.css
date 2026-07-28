@@ -31,20 +31,20 @@ html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Inter', 
   pointer-events: auto;
   border-radius: 0;
   background: transparent;
-  border: 1.5px solid rgba(255,255,255,.25);
+  border: 1.5px solid rgba(255,255,255,.4);
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 .bloque-titulo {
-  font-size: .65rem;
+  font-size: .7rem;
   font-weight: 500;
-  letter-spacing: .1em;
+  letter-spacing: .12em;
   text-transform: uppercase;
-  color: rgba(255,255,255,.5);
-  padding: .45rem .65rem .15rem;
+  color: rgba(255,255,255,.85);
+  padding: .5rem .65rem .25rem;
   flex-shrink: 0;
-  border-bottom: 1px solid rgba(255,255,255,.06);
+  border-bottom: 1px solid rgba(255,255,255,.12);
 }
 .bloque-contenido {
   padding: .2rem .5rem .5rem;
@@ -55,6 +55,23 @@ html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Inter', 
   align-content: flex-start;
   gap: .25rem;
 }
+/* columnas verticales para chips */
+.bloque-contenido.columnas {
+  display: block;
+  column-gap: 0.3rem;
+  padding-bottom: .3rem;
+}
+.bloque-contenido.columnas > * {
+  break-inside: avoid;
+  display: inline-block;
+  width: 100%;
+}
+.bloque-contenido.columnas .info-filtro {
+  margin-top: .25rem;
+  display: block;
+  width: 100%;
+}
+
 /* bloque de medios — placeholder visual */
 .bloque-media {
   justify-content: center;
@@ -95,6 +112,12 @@ html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Inter', 
 .chip:hover {
   background: rgba(255,255,255,.06);
   color: rgba(255,255,255,.8);
+}
+.columnas .chip,
+.columnas .chip-hora {
+  display: flex;
+  width: 100%;
+  margin-bottom: .15rem;
 }
 .chip.activo {
   background: rgba(255,255,255,.12);
@@ -173,35 +196,59 @@ html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Inter', 
 .tag-item:hover { color: rgba(255,255,255,.7); }
 
 /* ═══════════════════════════════════════════════════
+   SIDEBAR — barra lateral derecha (Fluir + Zoom)
+   ═══════════════════════════════════════════════════ */
+#sidebar {
+  position: fixed;
+  right: 0; top: 0;
+  width: 52px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .75rem;
+  z-index: 200;
+  pointer-events: none;
+}
+#sidebar > * {
+  pointer-events: auto;
+}
+.sidebar-sep {
+  width: 20px;
+  height: 1px;
+  background: rgba(255,255,255,.12);
+  flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════
    BOTÓN FLUIR
    ═══════════════════════════════════════════════════ */
 .btn-fluir {
-  position: fixed;
-  bottom: 1.2rem;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 200;
   font-family: 'Inter', system-ui, sans-serif;
-  font-size: .85rem;
+  font-size: .7rem;
   font-weight: 400;
-  letter-spacing: .12em;
+  letter-spacing: .10em;
   text-transform: uppercase;
-  padding: .5rem 1.8rem;
+  writing-mode: vertical-lr;
+  text-orientation: mixed;
+  padding: .7rem .35rem;
   border-radius: 0;
-  border: 1px solid rgba(255,255,255,.25);
-  background: rgba(0,0,0,.3);
-  color: rgba(255,255,255,.6);
+  border: 1px solid rgba(255,255,255,.2);
+  background: rgba(0,0,0,.25);
+  color: rgba(255,255,255,.5);
   cursor: pointer;
   transition: all .3s ease;
+  min-height: 70px;
 }
 .btn-fluir:hover {
-  background: rgba(255,255,255,.1);
+  background: rgba(255,255,255,.08);
   border-color: rgba(255,255,255,.25);
   color: #fff;
 }
 .btn-fluir.activo {
-  background: rgba(255,255,255,.12);
-  border-color: rgba(255,255,255,.3);
+  background: rgba(255,255,255,.1);
+  border-color: rgba(255,255,255,0.3);
   color: #fff;
   animation: pulse-fluir 2s ease-in-out infinite;
 }
@@ -211,18 +258,13 @@ html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Inter', 
 }
 
 /* ═══════════════════════════════════════════════════
-   ZOOM (vertical, derecha)
+   ZOOM (dentro de la sidebar)
    ═══════════════════════════════════════════════════ */
-.zoom-ctrl {
-  position: fixed;
-  right: .7rem;
-  top: 50%;
-  transform: translateY(-50%);
+#zoom-ctrl {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: .25rem;
-  z-index: 200;
 }
 .zoom-btn {
   width: 24px;
