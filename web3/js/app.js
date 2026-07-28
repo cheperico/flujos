@@ -320,8 +320,6 @@
     // ═══════════════════════════════════════════════════════
 
     function renderChipsColores(cont) {
-        cont.classList.add('columnas');
-        cont.style.columnCount = '3';
         var html = '';
         COLORES.forEach(function(c) {
             var activo = coloresSeleccionados.indexOf(c.nombre) !== -1 ? ' activo' : '';
@@ -365,14 +363,12 @@
     // ═══════════════════════════════════════════════════════
 
     function renderChipsHoras(cont) {
-        cont.classList.add('columnas');
-        cont.style.columnCount = '6';
         var html = '';
         HORAS.forEach(function(h) {
             var hh = (h < 10 ? '0' : '') + h;
             var activo = horasSeleccionadas.indexOf(h) !== -1 ? ' activo' : '';
             html += '<button class="chip-hora' + activo + '" data-accion="toggle-hora" data-valor="' + h + '">'
-                  + hh
+                  + hh + ':00'
                   + '</button>';
         });
         html += '<span class="info-filtro" id="info-horas">Ninguna</span>';
@@ -422,8 +418,6 @@
     // ═══════════════════════════════════════════════════════
 
     function renderChipsProvincias(cont) {
-        cont.classList.add('columnas');
-        cont.style.columnCount = '3';
         var html = '';
         PROVINCIAS.forEach(function(p) {
             var activo = provinciasSeleccionadas.indexOf(p.nombre) !== -1 ? ' activo' : '';
@@ -464,8 +458,6 @@
     // ═══════════════════════════════════════════════════════
 
     function renderChipsMunicipios(cont) {
-        cont.classList.add('columnas');
-        cont.style.columnCount = '2';
         var html = '';
         MUNICIPIOS.forEach(function(m) {
             var activo = municipiosSeleccionados.indexOf(m) !== -1 ? ' activo' : '';
