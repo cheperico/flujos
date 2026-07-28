@@ -537,6 +537,54 @@ def procesar_export(
         # Commit cada mensaje (para no perder progreso en exports grandes)
         conn.commit()
 
+    # ── Recuperar media pendiente (de corridas previas donde el archivo no existía) ──
+    recuperados = 0
+    if ingest_media and not dry_run:
+        pendientes = conn.execute("""
+            SELECT tgm.id, tgm.file_relative_path, tgm.media_type, tgm.mime_type,
+                   tm.id AS msg_db_id
+            FROM telegram_media tgm
+            JOIN telegram_messages tm ON tgm.message_id = tm.id
+            WHERE tgm.media_id IS NULL AND tgm.file_relative_path != ''
+        """).fetchall()
+        if pendientes:
+            log.info("Recuperando %d medios pendientes (archivos que no estaban disponibles antes)...",
+                     len(pendientes))
+            for row in pendientes:
+                tg_media_id, file_rel, media_type_tg, mime_t, msg_db_id = row
+                if not os.path.isfile(os.path.normpath(os.path.join(export_path, file_rel))):
+                    continue
+                # Obtener datos del mensaje original para el ingest
+                msg_data = conn.execute(
+                    "SELECT date_utc, from_name, from_id FROM telegram_messages WHERE id=?",
+                    (msg_db_id,),
+                ).fetchone()
+                if not msg_data:
+                    continue
+                msg_min = {
+                    "date": msg_data[0] or "",
+                    "from": msg_data[1] or "",
+                    "from_id": msg_data[2] or "",
+                }
+                media_id = ingerir_media_telegram(
+                    conn, export_path, file_rel, msg_min,
+                    media_type_tg, mime_t or "",
+                )
+                if media_id:
+                    conn.execute(
+                        "UPDATE telegram_media SET media_id=? WHERE id=?",
+                        (media_id, tg_media_id),
+                    )
+                    conn.execute(
+                        "UPDATE media SET telegram_message_id=? WHERE id=?",
+                        (msg_db_id, media_id),
+                    )
+                    recuperados += 1
+                    stats["media_ingerida"] += 1
+                    log.info("  Recuperado: %s", os.path.basename(file_rel))
+            conn.commit()
+    stats["media_recuperada"] = recuperados
+
     return stats
 
 
@@ -719,6 +767,8 @@ def main(argv: list[str] | None = None):
     log.info("  Saltados (ya existen): %d", stats["saltados"])
     log.info("  Media registrada:      %d", stats["media_registrada"])
     log.info("  Media ingerida (media):%d", stats["media_ingerida"])
+    if stats.get("media_recuperada"):
+        log.info("  Media recuperada:      %d", stats["media_recuperada"])
     log.info("  Errores:               %d", stats["errores"])
 
     conn.close()
