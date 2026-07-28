@@ -153,6 +153,23 @@ Las versiones corresponden a entregas funcionales, no a releases semánticas.
 
 ---
 
+---
+
+## [Entrega 11] — 2026-07-28
+
+### Añadido
+- **`--destino` / `-d`** en `import_telegram.py`: copia automáticamente los archivos multimedia a una carpeta canónica (`{destino}/telegram/`) durante la importación, en vez de dejarlos atados al export temporal de Telegram. Resuelve colisiones de nombre con sufijo `_1`, `_2`.
+- **Recuperación de media pendiente** en re-import: al re-ejecutar con `--mode skip`, los mensajes existentes se saltan pero se ejecuta una etapa de recuperación que busca `telegram_media` con `media_id=NULL` (archivos no disponibles en corridas previas) e intenta ingerirlos. Se puede ejecutar N veces.
+- **Integración TUI**: pregunta por `--destino` en Ingesta → 4. Importar chat de Telegram.
+- **SIDECAR_EXTS** como constante compartida en `mover_media.py`.
+
+### Corregido
+- **Sidecars en mover_media.py**: `ejecutar_movimiento()` y `ejecutar_copia()` buscaban sidecars en el directorio de destino en vez del directorio de origen (no movían/copiaban los sidecars). Ambos corregidos.
+- **Límite en `_resolver_colision`**: loop infinito potencial con `while True` reemplazado por `for n in range(1, MAX_INTENTOS+1)` con fallback timestamp.
+- **`reparar_json`**: reemplazada heurística frágil (`endswith("]")`/`endswith("}")`) por conteo de brackets.
+- **`import shutil`/`datetime` inline**: movidos al tope del archivo (antipatrón eliminado).
+- **`detectar_message_type`**: condición siempre True simplificada a `return "text"`.
+
 ## [Entrega 10] — 2026-07-28
 
 ### Añadido

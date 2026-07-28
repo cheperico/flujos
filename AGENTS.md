@@ -402,7 +402,7 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 
 3. Mejorar base de datos
   ├─ Parte 1: IA y color
-  │  ├─ 1. Todos los pasos (skip)      → improve_db con verificación Ollama
+  │  ├─ 1. Todos los pasos              → improve_db con verificación Ollama (pregunta modo)
   │  ├─ 2. Elegir pasos manualmente     → pregunta pasos + modo
   │  ├─ 3. Colores dominantes           → improve_db --steps colors
   │  ├─ 4. Keywords con IA              → improve_db --steps keywords (verif. Ollama)
@@ -411,19 +411,19 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
   │  ├─ 7. Transcripción                → improve_db --steps transcribe (verif. Ollama)
   │  ├─ 8. Keypoints                    → improve_db --steps keypoints
   │  └─ 9. Siguiente >> → Parte 2
-  └─ Parte 2: Inferencia y enriquecimiento
-     ├─ 1. Inferir timestamps           → improve_db --steps timestamps
-     ├─ 2. Inferir GPS                  → improve_db --steps gps
-     ├─ 3. Localización (geocode)       → scripts/geocode.py (con modo)
-     ├─ 4. Condiciones climáticas       → scripts/fetch_weather.py (con modo)
-     ├─ 5. Día de la semana             → scripts/dia_semana.py (con modo)
-     ├─ 6. Embeddings
-     │   ├─ 1. Generar embeddings (solo pendientes)
-     │   ├─ 2. Previsualizar (dry-run)
-     │   └─ 0. Volver
-     ├─ 7. Posición del sol (astronomía) → scripts/astronomia.py (con modo)
-     ├─ 9. << Anterior → Parte 1
-     └─ 0. Volver
+   └─ Parte 2: Inferencia y enriquecimiento (agrupado por temática)
+      ├─ 1. Inferir timestamps           → improve_db --steps timestamps
+      ├─ 2. Inferir GPS                  → improve_db --steps gps
+      ├─ 3. Localización (geocode)       → scripts/geocode.py (con modo)
+      ├─ 4. Condiciones climáticas       → scripts/fetch_weather.py (con modo)
+      ├─ 5. Día de la semana             → scripts/dia_semana.py (con modo)
+      ├─ 6. Posición del sol (astronomía) → scripts/astronomia.py (con modo)
+      ├─ 7. Embeddings
+      │   ├─ 1. Generar embeddings (solo pendientes)
+      │   ├─ 2. Previsualizar (dry-run)
+      │   └─ 0. Volver
+      ├─ 9. << Anterior → Parte 1
+      └─ 0. Volver
 
 4. Consultar base de datos
   ├─ 1. Ver resumen de la DB           → opcion_check_db() (solo Total, Imágenes, Videos, Audios, Textos, Otros)
@@ -441,16 +441,34 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 5. Mantenimiento DB
   ├─ 1. Relocalizar medios              → scripts/relocate.py
   ├─ 2. Calcular gradientes de ruta     → scripts/gradiente.py (con modo)
-  ├─ 3. Backfill end_time               → opcion_backfill_end_time() (con modo)
-  ├─ 4. Backup DB (solo backup)         → opcion_backup_db()
-  ├─ 5. Restore DB desde backup         → opcion_restore_db()
-  ├─ 6. Resetear DB (backup + limpiar)  → opcion_reset_db()
-  └─ 7. Exportar CSV                    → exportar_csv.main()
+  ├─ 3. Posición del sol (astronomía)   → scripts/astronomia.py (con modo)
+  ├─ 4. Backfill end_time               → opcion_backfill_end_time() (con modo)
+  ├─ 5. Backup DB (solo backup)         → opcion_backup_db()
+  ├─ 6. Restore DB desde backup         → opcion_restore_db()
+  ├─ 7. Resetear DB (backup + limpiar)  → opcion_reset_db()
+  ├─ 8. Exportar CSV                    → exportar_csv.main()
+  └─ 9. Mover/Copiar medios             → scripts/mover_media.py
 
 6. Mapa de ruta (Folium) → opcion_mapa() (mapa HTML con Folium)
 
 9. Ayuda → opcion_ayuda() (ayuda detallada por comando)
 ```
+
+##### Filosofía de agrupación del menú TUI
+
+El menú TUI organiza las opciones por **temática**, no por complejidad o cronología del pipeline. Esto significa que operaciones relacionadas aparecen siempre cerca unas de otras, aunque en el pipeline de procesamiento ocurran en momentos distintos.
+
+**Criterios de agrupación:**
+
+| Grupo temático | Menú | Opciones |
+|---|---|---|
+| **Ingesta** (traer datos al proyecto) | 2. Ingesta | Ingesta de medios, GPX, Telegram, deshacer |
+| **IA y Color** (contenido semántico) | 3. Mejorar DB — Parte 1 | Colores, keywords, descripciones, transcripción, keypoints |
+| **Ubicación y tiempo** (contexto geo-temporal) | 3. Mejorar DB — Parte 2 (1-6) | Timestamps, GPS, localización, clima, día de la semana, astronomía |
+| **Búsqueda semántica** | 3. Mejorar DB — Parte 2 (7) | Embeddings |
+| **Mantenimiento** (operaciones técnicas) | 5. Mantenimiento DB | Relocalizar, gradientes, astronomía, backfill, backup, restore, reset, export |
+
+> **Regla**: siempre que se agregue una opción nueva al TUI, debe insertarse cerca de opciones temáticamente relacionadas, no al final de la lista.
 
 #### CLI — Comandos disponibles
 
@@ -633,18 +651,33 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 
 #### `import_telegram.py`
 - **Propósito**: Importa exports de Telegram (result.json) a la base de datos. Procesa chats, mensajes (texto y multimedia) y sus archivos adjuntos. Opcionalmente ingiere los multimedia en la tabla `media` para que pasen por el pipeline de enriquecimiento.
-- **Args CLI**: `--export-path`/`-e` (obligatorio), `--include-system`/`--no-system`, `--ingest-media`/`--no-ingest`, `--mode` (skip|update|replace), `--dry-run`, `--db`, `--verbose`
+- **Args CLI**: `--export-path`/`-e` (obligatorio), `--include-system`/`--no-system`, `--ingest-media`/`--no-ingest`, `--mode` (skip|update|replace), `--dry-run`, `--db`, `--verbose`, `--destino`/`-d` (carpeta canónica para copiar los archivos)
 - **DB que modifica**: `telegram_chats` (INSERT/UPDATE), `telegram_messages` (INSERT/UPDATE), `telegram_media` (INSERT), `media` (INSERT/UPDATE con vínculo telefónico), `media_metadata` (INSERT)
 - **Estrategia**:
-  - Parsea `result.json` (repara JSON truncado automáticamente)
+  - Parsea `result.json` (repara JSON truncado automáticamente con conteo de brackets)
   - Registra/actualiza el chat en `telegram_chats`
   - Cada mensaje → `telegram_messages` (con tipo: text/photo/video/voice/animation/sticker/document/location/poll/system)
   - Mensajes de sistema marcados con `es_sistema=1`
   - Multimedia → `telegram_media` (ruta relativa al export)
   - Si `--ingest-media` (default): también ingiere en `media` con SHA-256, timestamp del mensaje, type mapeado (photo→image, video_file→video, voice_message→audio, etc.)
+  - Si `--destino`: copia el archivo a `{destino}/telegram/{filename}` en vez de mantener la ruta dentro del export temporal. Resuelve colisiones con `_1`, `_2`, etc.
   - Vinculación bidireccional: `telegram_media.media_id` → `media.id`, y `media.telegram_message_id` → `telegram_messages.id`
   - JSON se repara si está truncado (el export de Telegram a veces no cierra el array/objeto)
-- **Integración**: TUI (Ingesta → opción 4), CLI (`python flujos.py import-telegram` o `python flujos.py tg`)
+  - **Recuperación de media pendiente**: al re-importar con `--mode skip`, los mensajes existentes se saltan pero se ejecuta una etapa que busca `telegram_media` con `media_id=NULL` (archivos no disponibles en corridas previas) e intenta ingerirlos. Permite N re-ejecuciones hasta que todos los archivos estén descargados.
+- **Integración**: TUI (Ingesta → opción 4, pregunta por destino), CLI (`python flujos.py import-telegram` o `python flujos.py tg`)
+
+#### `mover_media.py`
+- **Propósito**: Mueve o copia archivos de medios a una nueva ubicación y actualiza las rutas en la DB automáticamente. Dos modos: `mover` (mueve + actualiza DB) y `copiar` (copia, opcionalmente actualiza DB con `--update-db`).
+- **Args CLI**: `--new-root` (obligatorio), `--mode` (mover|copiar), `--old-root`, `--update-db`, `--dry-run`, `--db`
+- **DB que modifica**: `media.filepath_absoluto`, `media.filepath_relativo`, `media.carpeta`, `media.sidecar_xml`
+- **Estrategia**:
+  - Lee `old_root` de `config.ingest_root` en DB (o se pasa `--old-root`)
+  - Reemplaza prefijo en rutas: `abs_path.replace(old_root, new_root, 1)`
+  - Colisiones de nombre resueltas con sufijo `_1`, `_2`, etc.
+  - Sidecars (.AAE, .json, .xml, .XMP) se mueven/copian desde el directorio fuente original
+  - Actualiza `sidecar_xml` en DB si corresponde
+  - Dry-run previsualiza cambios sin escribir
+- **Integración**: TUI (Mantenimiento DB → opción 9), CLI (`python flujos.py mover --new-root X --mode mover`)
 
 ### Scripts de IA (`scripts/ai_media/`)
 | `ollama_client.py` | Cliente Ollama compartido. Clase `OllamaVisionClient(modelo, timeout)`. Métodos: `analizar_imagen()`, `analizar_imagenes()`, `generar_embedding()`. | ollama (Python) |
@@ -844,3 +877,6 @@ elif mode == "skip":
 - **CHANGELOG.md (Jul 2026)**: registro cronológico de todos los cambios del proyecto.
 - **db/util.py (Jul 2026)**: utilidades de DB centralizadas (`abrir`, `resolver_db`, `conectar`, `ModoHelper`) extraídas de 9 scripts que tenían sus propias versiones duplicadas. La refactorización incluye un fix para ejecución standalone (`if __name__ == "__main__" and __package__ is None: sys.path.insert(0, ...)`) para que `python scripts/foo.py` funcione desde cualquier directorio.
 - **import_telegram.py (Jul 2026)**: nuevo script para importar exports de Telegram. Crea tablas `telegram_chats`, `telegram_messages`, `telegram_media`. Opcionalmente ingiere multimedia en `media` table con vinculación bidireccional. Repara JSON truncado automáticamente. Integrado en TUI (Ingesta → 4) y CLI (`python flujos.py import-telegram` / `tg`). Migración v4.
+- **--destino en Telegram (Jul 2026)**: `import_telegram.py` ahora acepta `--destino` para copiar automáticamente los archivos a una carpeta canónica (`{destino}/telegram/`) durante la importación, evitando que queden atados al export temporal. Resuelve colisiones con `_1`, `_2`.
+- **Recuperación media pendiente Telegram (Jul 2026)**: al re-importar con `--mode skip`, los mensajes existentes se saltan pero se ejecuta una etapa de recuperación que busca `telegram_media` con `media_id=NULL` e intenta ingerir los archivos ahora disponibles. Permite N re-ejecuciones hasta completar.
+- **mover_media.py (Jul 2026)**: script para mover/copiar archivos de medios a nueva ubicación y actualizar DB automáticamente. Soporta sidecars (.AAE, .json, .xml, .XMP) moviéndolos desde el directorio fuente. Integrado en TUI (Mantenimiento DB → 9) y CLI (`python flujos.py mover`).

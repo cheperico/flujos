@@ -6,14 +6,22 @@ Procesa result.json de un export de Telegram, registra el chat, los mensajes
 y sus archivos multimedia. Opcionalmente ingiere los multimedia en la tabla media
 para que pasen por el pipeline de enriquecimiento (colores, transcripción, etc.).
 
+Si se especifica --destino, copia los archivos a una carpeta canónica durante
+la importación, evitando que queden atados al export temporal. Al re-importar
+con --mode skip, los mensajes existentes se saltan pero se recuperan los medios
+que no estaban disponibles anteriormente.
+
 Uso:
     python scripts/import_telegram.py --export-path RUTA_AL_EXPORT
+    python scripts/import_telegram.py --export-path RUTA --destino D:/Medios
     python flujos.py import-telegram --export-path RUTA_AL_EXPORT
+    python flujos.py tg -e RUTA
 
 Args:
     --export-path / -e    Ruta al directorio del export (con result.json)
     --include-system      Incluir mensajes de sistema (default: True)
     --ingest-media        Ingerir multimedia en tabla media (default: True)
+    --destino / -d        Carpeta canónica donde copiar los archivos multimedia
     --mode                skip | update | replace (default: skip)
     --dry-run             Solo previsualizar
     --db                  Ruta a la base de datos

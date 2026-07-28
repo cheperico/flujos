@@ -324,11 +324,13 @@ def opcion_importar_telegram(db_path: str | None = None):
     include_system = input("  ?Incluir mensajes de sistema? (S/n): ").strip().lower() != "n"
     ingest_media = input("  ?Ingerir multimedia en tabla media? (S/n): ").strip().lower() != "n"
     dry_run = input("  ?Solo previsualizar (dry-run)? (s/N): ").strip().lower() == "s"
+    destino = input("  ?Copiar media a carpeta canónica? (ej: D:/Medios) [Enter = no]: ").strip()
 
     print(f"\n  Resumen: export={export_path}  modo={modo_str}"
           f"  sistema={'SI' if include_system else 'NO'}"
           f"  ingest_media={'SI' if ingest_media else 'NO'}"
-          f"  dry_run={'SI' if dry_run else 'NO'}")
+          f"  dry_run={'SI' if dry_run else 'NO'}"
+          f"  destino={destino or '(no copiar)'}")
     confirm = input("  ?Ejecutar importación? (s/N): ").strip().lower()
     if confirm != "s":
         print("  Cancelado.")
@@ -343,6 +345,8 @@ def opcion_importar_telegram(db_path: str | None = None):
         args.append("--no-ingest")
     if dry_run:
         args.append("--dry-run")
+    if destino:
+        args.extend(["--destino", destino])
     if db_path:
         args.extend(["--db", db_path])
     import_telegram.main(args)
@@ -852,13 +856,12 @@ def _ejecutar_improve_db(pasos: str | None = None, modo: str = "skip"):
     from scripts import improve_db
 
     # Determinar si los pasos requieren IA
-    pasos_set = set()
+    pasos_set: set[str] = set()
     if pasos:
         pasos_set = set(p.strip() for p in pasos.split(","))
     else:
-        # Sin --steps, improve_db corre todos los pasos
-        pasos_set = {"keywords", "descriptions", "transcribe", "colors",
-                     "keypoints", "timestamps", "gps"}
+        # Sin --steps, improve_db corre todos los pasos (DEP_ORDER)
+        pasos_set = set(improve_db.DEP_ORDER)
 
     if pasos_set & _PASOS_IA:
         if not _verificar_ollama():
@@ -950,7 +953,12 @@ def opcion_improve_db():
 
         if parte == 1:
             if opc == "1":
-                _ejecutar_improve_db()
+                modo = _preguntar_modo(db_path)
+                if modo is None:
+                    print("  Cancelado.")
+                    pausa()
+                    continue
+                _ejecutar_improve_db(modo=modo)
                 pausa()
             elif opc == "2":
                 pasos = input("  Pasos (separados por coma, ej: colors,keywords): ").strip()
