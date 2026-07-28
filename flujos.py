@@ -16,7 +16,8 @@ Uso:
   python flujos.py gradient --dry-run                -> Previsualizar gradientes sin escribir en DB
   python flujos.py mover --new-root NUEVA_RAIZ --mode mover  -> Mover archivos a nueva ubicación
   python flujos.py mover --new-root NUEVA_RAIZ --mode copiar --update-db  -> Copiar archivos y actualizar DB
-  python flujos.py --help | --ayuda | -h             -> Esta ayuda
+  python flujos.py import-telegram -e RUTA_AL_EXPORT      -> Importar chat de Telegram a la DB
+  python flujos.py --help | --ayuda | -h                   -> Esta ayuda
 """
 
 import argparse
@@ -106,6 +107,12 @@ COMANDOS:
   backup-db         Solo backup (sin borrar): copia la DB actual con timestamp.
 
   restore-db        Restaura la DB desde un backup previo.
+
+  import-telegram  Importar un export de Telegram (chats, mensajes, multimedia).
+                   Ej: python flujos.py import-telegram -e RUTA_AL_EXPORT
+
+  mover            Mover o copiar archivos a nueva ubicacion y actualizar DB.
+                   Ej: python flujos.py mover --new-root NUEVA_RAIZ --mode mover
 
   --tui       Menu interactivo (tambien sin argumentos).
 
@@ -201,6 +208,7 @@ def opcion_ingesta(db_path: str | None = None):
         print("  1) Hacer ingesta (medios)")
         print("  2) Ingerir track GPS (GPX)")
         print("  3) Deshacer ingesta")
+        print("  4) Importar chat de Telegram")
         print("  0) Volver\n")
 
         opc = input("  Opcion: ").strip()
@@ -272,11 +280,73 @@ def opcion_ingesta(db_path: str | None = None):
         elif opc == "3":
             opcion_undo_ingest(db_path)
 
+        elif opc == "4":
+            opcion_importar_telegram(db_path)
+
         elif opc == "0":
             break
         else:
             print("  Opcion invalida.")
             pausa()
+
+
+def opcion_importar_telegram(db_path: str | None = None):
+    """Menu: importar chat de Telegram."""
+    limpiar_pantalla()
+    print("=== IMPORTAR CHAT DE TELEGRAM ===\n")
+
+    export_path = input("  Ruta al directorio del export (con result.json): ").strip()
+    if not export_path:
+        print("  Cancelado.")
+        pausa()
+        return
+
+    export_path = os.path.normpath(export_path)
+    json_path = os.path.join(export_path, "result.json")
+    if not os.path.isdir(export_path):
+        print(f"  ❌ Directorio no encontrado: {export_path}")
+        pausa()
+        return
+    if not os.path.isfile(json_path):
+        print(f"  ❌ No se encuentra result.json en: {export_path}")
+        pausa()
+        return
+
+    # Modo
+    print("\n  Modo de importación:")
+    print("    s) skip — solo mensajes nuevos")
+    print("    u) update — actualiza existentes")
+    print("    r) replace — limpia y reimporta todo")
+    modo = input("  Modo [s]: ").strip().lower() or "s"
+    mapa_modo = {"s": "skip", "u": "update", "r": "replace"}
+    modo_str = mapa_modo.get(modo, "skip")
+
+    include_system = input("  ?Incluir mensajes de sistema? (S/n): ").strip().lower() != "n"
+    ingest_media = input("  ?Ingerir multimedia en tabla media? (S/n): ").strip().lower() != "n"
+    dry_run = input("  ?Solo previsualizar (dry-run)? (s/N): ").strip().lower() == "s"
+
+    print(f"\n  Resumen: export={export_path}  modo={modo_str}"
+          f"  sistema={'SI' if include_system else 'NO'}"
+          f"  ingest_media={'SI' if ingest_media else 'NO'}"
+          f"  dry_run={'SI' if dry_run else 'NO'}")
+    confirm = input("  ?Ejecutar importación? (s/N): ").strip().lower()
+    if confirm != "s":
+        print("  Cancelado.")
+        pausa()
+        return
+
+    from scripts import import_telegram
+    args = ["--export-path", export_path, "--mode", modo_str]
+    if not include_system:
+        args.append("--no-system")
+    if not ingest_media:
+        args.append("--no-ingest")
+    if dry_run:
+        args.append("--dry-run")
+    if db_path:
+        args.extend(["--db", db_path])
+    import_telegram.main(args)
+    pausa()
 
 
 def opcion_listar(db_path: str | None = None):
@@ -1888,6 +1958,10 @@ def main():
     elif comando in ("export-csv", "csv"):
         from scripts import exportar_csv
         exportar_csv.main(resto)
+
+    elif comando in ("import-telegram", "tg"):
+        from scripts import import_telegram
+        import_telegram.main(resto)
 
     else:
         print(f"Comando desconocido: {comando}")

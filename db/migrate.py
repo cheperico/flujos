@@ -17,7 +17,7 @@ import sqlite3
 log = logging.getLogger("migrate")
 
 # Versión actual del schema (incrementar al agregar migraciones)
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 # Migraciones: cada entrada es (versión, descripción, [sentencias SQL])
 _MIGRACIONES = [
@@ -61,6 +61,67 @@ _MIGRACIONES = [
     (3, "Schema canónico para media_embeddings: UNIQUE(media_id, modelo) en vez de media_id PK", [
         # Callable: maneja tabla existente y DB nueva
         lambda conn: _migrar_media_embeddings(conn),
+    ]),
+    (4, "Tablas telegram_chats, telegram_messages, telegram_media + columna media.telegram_message_id", [
+        """
+        CREATE TABLE IF NOT EXISTS telegram_chats (
+            id                INTEGER PRIMARY KEY AUTOINCREMENT,
+            telegram_id       INTEGER NOT NULL UNIQUE,
+            name              TEXT NOT NULL,
+            chat_type         TEXT NOT NULL,
+            export_path       TEXT NOT NULL,
+            exported_at       TEXT,
+            imported_at       TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS telegram_messages (
+            id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id               INTEGER NOT NULL REFERENCES telegram_chats(id) ON DELETE CASCADE,
+            message_id            INTEGER NOT NULL,
+            type                  TEXT NOT NULL DEFAULT 'message',
+            message_type          TEXT NOT NULL DEFAULT 'text',
+            es_sistema            INTEGER NOT NULL DEFAULT 0,
+            from_name             TEXT,
+            from_id               TEXT,
+            text                  TEXT,
+            date_unixtime         INTEGER NOT NULL,
+            date_utc              TEXT NOT NULL,
+            edited_unixtime       INTEGER,
+            reply_to_message_id   INTEGER,
+            media_group_id        TEXT,
+            reactions             TEXT,
+            hashtags              TEXT,
+            action                TEXT,
+            actor_name            TEXT,
+            actor_id              TEXT,
+            members               TEXT,
+            UNIQUE(chat_id, message_id)
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS telegram_media (
+            id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+            message_id          INTEGER NOT NULL REFERENCES telegram_messages(id) ON DELETE CASCADE,
+            media_order         INTEGER NOT NULL DEFAULT 0,
+            media_type          TEXT NOT NULL,
+            file_relative_path  TEXT NOT NULL,
+            file_name           TEXT,
+            mime_type           TEXT,
+            file_size           INTEGER,
+            width               INTEGER,
+            height              INTEGER,
+            duration_seconds    REAL,
+            thumbnail_path      TEXT,
+            media_id            INTEGER REFERENCES media(id) ON DELETE SET NULL
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS idx_tg_chat_id ON telegram_messages(chat_id)",
+        "CREATE INDEX IF NOT EXISTS idx_tg_message_id ON telegram_messages(message_id)",
+        "CREATE INDEX IF NOT EXISTS idx_tg_date ON telegram_messages(date_unixtime)",
+        "CREATE INDEX IF NOT EXISTS idx_tg_media_msg ON telegram_media(message_id)",
+        "CREATE INDEX IF NOT EXISTS idx_tg_media_media ON telegram_media(media_id)",
+        lambda conn: _migrar_media_tg_message_id(conn),
     ]),
 ]
 
@@ -118,6 +179,22 @@ def _migrar_media_embeddings(conn: sqlite3.Connection):
     log.info("  → Migración de media_embeddings completada: %s registros migrados",
              conn.execute("SELECT COUNT(*) FROM media_embeddings").fetchone()[0])
 
+
+
+def _migrar_media_tg_message_id(conn: sqlite3.Connection):
+    """
+    Migración v4: agrega columna telegram_message_id a media si no existe.
+    """
+    cur = conn.execute("PRAGMA table_info(media)")
+    cols = {row[1] for row in cur.fetchall()}
+    if "telegram_message_id" not in cols:
+        conn.execute(
+            "ALTER TABLE media ADD COLUMN telegram_message_id INTEGER "
+            "REFERENCES telegram_messages(id) ON DELETE SET NULL"
+        )
+        log.info("  → Columna media.telegram_message_id agregada")
+    else:
+        log.info("  → Columna media.telegram_message_id ya existe")
 
 
 def schema_version(conn: sqlite3.Connection) -> int:

@@ -269,6 +269,68 @@ timestamp         TEXT                       -- si tiene timestamp asociado
 ingested_at       TEXT DEFAULT (datetime('now'))
 ```
 
+### Tablas: Telegram (`telegram_chats`, `telegram_messages`, `telegram_media`)
+
+Importadas desde exports de Telegram. Los multimedia de Telegram se ingieren también en `media` y se vinculan bidireccionalmente.
+
+**`telegram_chats`** — metadatos del chat
+```sql
+id                INTEGER PRIMARY KEY AUTOINCREMENT
+telegram_id       INTEGER NOT NULL UNIQUE    -- chat id de Telegram
+name              TEXT NOT NULL              -- nombre del grupo
+chat_type         TEXT NOT NULL              -- private_group|supergroup|channel
+export_path       TEXT NOT NULL              -- ruta absoluta al export
+exported_at       TEXT                       -- fecha del export
+imported_at       TEXT DEFAULT (datetime('now'))
+```
+
+**`telegram_messages`** — cada mensaje individual
+```sql
+id                    INTEGER PRIMARY KEY AUTOINCREMENT
+chat_id               INTEGER NOT NULL REFERENCES telegram_chats(id) ON DELETE CASCADE
+message_id            INTEGER NOT NULL       -- id de Telegram (único por chat)
+type                  TEXT DEFAULT 'message'  -- message|service
+message_type          TEXT DEFAULT 'text'     -- text|photo|video|voice|animation|sticker|document|location|poll|system
+es_sistema            INTEGER DEFAULT 0       -- 1 si es service message
+from_name             TEXT
+from_id               TEXT
+text                  TEXT                    -- texto plano (caption si aplica)
+date_unixtime         INTEGER NOT NULL
+date_utc              TEXT NOT NULL           -- ISO 8601 UTC
+edited_unixtime       INTEGER
+reply_to_message_id   INTEGER
+media_group_id        TEXT                    -- grouped_id (álbumes)
+reactions             TEXT                    -- JSON string
+hashtags              TEXT                    -- tags separados por espacio
+action                TEXT                    -- service: invite_members, join_group_by_link, etc.
+actor_name            TEXT
+actor_id              TEXT
+members               TEXT                    -- JSON array de nombres
+UNIQUE(chat_id, message_id)
+```
+
+**`telegram_media`** — archivos multimedia adjuntos a mensajes
+```sql
+id                  INTEGER PRIMARY KEY AUTOINCREMENT
+message_id          INTEGER NOT NULL REFERENCES telegram_messages(id) ON DELETE CASCADE
+media_order         INTEGER DEFAULT 0        -- orden dentro del mensaje
+media_type          TEXT NOT NULL            -- photo|video_file|voice_message|animation|sticker|document
+file_relative_path  TEXT NOT NULL            -- relativo al export (photos/photo_1@....jpg)
+file_name           TEXT
+mime_type           TEXT
+file_size           INTEGER
+width               INTEGER
+height              INTEGER
+duration_seconds    REAL
+thumbnail_path      TEXT
+media_id            INTEGER REFERENCES media(id) ON DELETE SET NULL  -- link a media table
+```
+
+**Columna agregada a `media`**:
+```sql
+telegram_message_id  INTEGER REFERENCES telegram_messages(id) ON DELETE SET NULL
+```
+
 ---
 
 ## Mapa de datos: qué se escribe y dónde
@@ -305,6 +367,10 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 | **GPX** | `ingest_gpx.py` | Ingesta de archivo GPX: waypoints, registro de track y backfill de altitud | `tracks` | name, filepath_absoluto, filepath_relativo, source_url, start_time, end_time, total_points |
 | | | | `waypoints` | name, description, category, type, latitude, longitude |
 | | | | `media` | altitude, geolocation_source='track_gps' |
+| **TELEGRAM** | `import_telegram.py` | Importa export de Telegram: chats, mensajes, multimedia vinculado | `telegram_chats` | telegram_id, name, chat_type, export_path |
+| | | | `telegram_messages` | message_id, type, message_type, es_sistema, from_name, from_id, text, date_unixtime, date_utc, edited_unixtime, reply_to_message_id, reactions, hashtags, action, members |
+| | | | `telegram_media` | media_type, file_relative_path, mime_type, file_size, width, height, duration_seconds, media_id |
+| | | | `media` | telegram_message_id (FK), columna agregada vía ALTER TABLE |
 
 > **Nota**: todas las operaciones que modifican la DB soportan `--mode skip|update|replace`.
 > - `skip`: solo procesa registros donde el dato es NULL
@@ -331,7 +397,8 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 2. Ingesta
   ├─ 1. Hacer ingesta → scripts/ingest.py (pide root, verbose, dry-run)
   ├─ 2. Ingerir track GPS (GPX) → opcion_ingestar_gpx()
-  └─ 3. Deshacer ingesta → opcion_undo_ingest() (medios por batch + tracks GPX)
+  ├─ 3. Deshacer ingesta → opcion_undo_ingest() (medios por batch + tracks GPX)
+  └─ 4. Importar chat de Telegram → opcion_importar_telegram() (export result.json)
 
 3. Mejorar base de datos
   ├─ Parte 1: IA y color
@@ -404,6 +471,7 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 | `undo-ingest/undo`  | `opcion_undo_ingest()` (interno) |
 | `export-csv`        | `exportar_csv.main()`           |
 | `backfill-end-time` | `opcion_backfill_end_time()` (int.) |
+| `import-telegram` / `tg` | `scripts/import_telegram.main()` |
 
 #### Funciones helper clave en flujos.py
 
@@ -562,6 +630,21 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
   - `enviar_imgs <color>`: envía N imágenes al azar de un color específico
   - `nube`: cuenta keywords en DB y envía top N con frecuencia y peso normalizado
 - **Dependencias**: python-osc, sqlite3
+
+#### `import_telegram.py`
+- **Propósito**: Importa exports de Telegram (result.json) a la base de datos. Procesa chats, mensajes (texto y multimedia) y sus archivos adjuntos. Opcionalmente ingiere los multimedia en la tabla `media` para que pasen por el pipeline de enriquecimiento.
+- **Args CLI**: `--export-path`/`-e` (obligatorio), `--include-system`/`--no-system`, `--ingest-media`/`--no-ingest`, `--mode` (skip|update|replace), `--dry-run`, `--db`, `--verbose`
+- **DB que modifica**: `telegram_chats` (INSERT/UPDATE), `telegram_messages` (INSERT/UPDATE), `telegram_media` (INSERT), `media` (INSERT/UPDATE con vínculo telefónico), `media_metadata` (INSERT)
+- **Estrategia**:
+  - Parsea `result.json` (repara JSON truncado automáticamente)
+  - Registra/actualiza el chat en `telegram_chats`
+  - Cada mensaje → `telegram_messages` (con tipo: text/photo/video/voice/animation/sticker/document/location/poll/system)
+  - Mensajes de sistema marcados con `es_sistema=1`
+  - Multimedia → `telegram_media` (ruta relativa al export)
+  - Si `--ingest-media` (default): también ingiere en `media` con SHA-256, timestamp del mensaje, type mapeado (photo→image, video_file→video, voice_message→audio, etc.)
+  - Vinculación bidireccional: `telegram_media.media_id` → `media.id`, y `media.telegram_message_id` → `telegram_messages.id`
+  - JSON se repara si está truncado (el export de Telegram a veces no cierra el array/objeto)
+- **Integración**: TUI (Ingesta → opción 4), CLI (`python flujos.py import-telegram` o `python flujos.py tg`)
 
 ### Scripts de IA (`scripts/ai_media/`)
 | `ollama_client.py` | Cliente Ollama compartido. Clase `OllamaVisionClient(modelo, timeout)`. Métodos: `analizar_imagen()`, `analizar_imagenes()`, `generar_embedding()`. | ollama (Python) |
@@ -750,7 +833,7 @@ elif mode == "skip":
 - **mode update vs replace (Jul 2026)**: se unificó el comportamiento en `improve_db.py` (`run_keypoints`, `run_timestamps`, `run_gps`), `fetch_weather.py` y `dia_semana.py`: `--mode update` reprocesa todos los registros sin limpiar primero, `--mode replace` limpia y regenera.
 - **gradiente NULL timestamp (Jul 2026)**: se agregó `AND timestamp_utc IS NOT NULL` a la query de `gradiente.py` para evitar que puntos GPS sin timestamp se ordenen al inicio (NULLs primero en SQLite) generando distancias sin sentido.
 - **viento_direccion_a_texto (Jul 2026)**: helper que convierte grados (0-360) a punto cardinal (N, NE, E, etc.) usando 16 rumbos. Agregado en `fetch_weather.py` junto con las variables `wind_speed_10m`, `wind_direction_10m`, `surface_pressure`.
-- **Schema versioning (Jul 2026)**: se creó `db/migrate.py` con migraciones centralizadas. Versión 1 = schema inicial, versión 2 = tracks + waypoints. `ingest_gpx.py` ahora usa el sistema central en vez de su propio `migrar_db()`.
+- **Schema versioning (Jul 2026)**: se creó `db/migrate.py` con migraciones centralizadas. Versión 1 = schema inicial, versión 2 = tracks + waypoints, versión 3 = embeddings schema canónico, versión 4 = tablas Telegram. `ingest_gpx.py` ahora usa el sistema central en vez de su propio `migrar_db()`.
 - **Auto-backup en replace (Jul 2026)**: `_preguntar_modo(db_path)` ahora crea backup automático en `db/backups/` cuando se elige modo "replace". El usuario ve el nombre del backup creado.
 - **Undo GPX (Jul 2026)**: `opcion_undo_ingest()` ahora lista también tracks GPX (prefijo `t<id>`) junto con batches de medios (prefijo `b<id>`). Al deshacer un track, se borra el track + sus waypoints (CASCADE) y se revierte la altitud de medios con `geolocation_source='track_gps'`.
 - **Puente TD (Jul 2026)**: se creó `scripts/puente_td.py` como puente Python ↔ TD vía OSC (puertos 9000→TD, 9001←TD). Arquitectura híbrida: Python = cerebro (DB, lógica de deriva), TD = músculo (reproducción audiovisual). Scripts TD externalizados a `td/osc_callbacks.dat` (OSC callbacks) y `td/nube_generar.dat` (tag cloud), vinculables desde TD via Text DAT con File + Sync to File = ON.
@@ -760,3 +843,4 @@ elif mode == "skip":
 - **Migración v3 con callables (Jul 2026)**: `db/migrate.py` ahora soporta callables como acciones de migración (no solo SQL strings). La migración v3 usa un callable `_migrar_media_embeddings` que maneja tanto DB nueva (crea tabla) como DB existente (migra datos del schema viejo al canónico). Testeado en simulación v2→v3 y en DB real (`db/flujos.db`).
 - **CHANGELOG.md (Jul 2026)**: registro cronológico de todos los cambios del proyecto.
 - **db/util.py (Jul 2026)**: utilidades de DB centralizadas (`abrir`, `resolver_db`, `conectar`, `ModoHelper`) extraídas de 9 scripts que tenían sus propias versiones duplicadas. La refactorización incluye un fix para ejecución standalone (`if __name__ == "__main__" and __package__ is None: sys.path.insert(0, ...)`) para que `python scripts/foo.py` funcione desde cualquier directorio.
+- **import_telegram.py (Jul 2026)**: nuevo script para importar exports de Telegram. Crea tablas `telegram_chats`, `telegram_messages`, `telegram_media`. Opcionalmente ingiere multimedia en `media` table con vinculación bidireccional. Repara JSON truncado automáticamente. Integrado en TUI (Ingesta → 4) y CLI (`python flujos.py import-telegram` / `tg`). Migración v4.

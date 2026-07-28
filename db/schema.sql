@@ -79,6 +79,9 @@ CREATE TABLE IF NOT EXISTS media (
     color_3_name_css  TEXT,
     color_3_name_basic TEXT,
 
+    -- Telegram
+    telegram_message_id  INTEGER REFERENCES telegram_messages(id) ON DELETE SET NULL,
+
     -- Control
     ingested_at       TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at        TEXT NOT NULL DEFAULT (datetime('now')),
@@ -171,3 +174,69 @@ CREATE INDEX IF NOT EXISTS idx_waypoints_loc ON waypoints(latitude, longitude);
 CREATE INDEX IF NOT EXISTS idx_waypoints_track ON waypoints(track_id);
 CREATE INDEX IF NOT EXISTS idx_waypoints_type ON waypoints(type);
 CREATE INDEX IF NOT EXISTS idx_tracks_start ON tracks(start_time);
+
+-- ------------------------------------------------------------------------
+-- Telegram: chats importados
+-- ------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS telegram_chats (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    telegram_id       INTEGER NOT NULL UNIQUE,     -- chat id numérico de Telegram
+    name              TEXT NOT NULL,                -- nombre del chat/grupo
+    chat_type         TEXT NOT NULL,                -- private_group, supergroup, channel
+    export_path       TEXT NOT NULL,                -- ruta absoluta al directorio del export
+    exported_at       TEXT,                         -- fecha del export
+    imported_at       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ------------------------------------------------------------------------
+-- Telegram: mensajes individuales
+-- ------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS telegram_messages (
+    id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id               INTEGER NOT NULL REFERENCES telegram_chats(id) ON DELETE CASCADE,
+    message_id            INTEGER NOT NULL,            -- message_id de Telegram (único por chat)
+    type                  TEXT NOT NULL DEFAULT 'message',  -- message | service
+    message_type          TEXT NOT NULL DEFAULT 'text',     -- text | photo | video | voice | animation | sticker | document | location | poll | other
+    es_sistema            INTEGER NOT NULL DEFAULT 0,       -- 1 si es service message
+    from_name             TEXT,                              -- display name del autor
+    from_id               TEXT,                              -- userID o "user12345"
+    text                  TEXT,                              -- texto plano (caption si aplica)
+    date_unixtime         INTEGER NOT NULL,                  -- timestamp Unix
+    date_utc              TEXT NOT NULL,                     -- ISO 8601 UTC
+    edited_unixtime       INTEGER,                           -- si fue editado
+    reply_to_message_id   INTEGER,                           -- mensaje al que responde
+    media_group_id        TEXT,                              -- grouped_id (álbumes)
+    reactions             TEXT,                              -- JSON string con [{emoji, count, ...}]
+    hashtags              TEXT,                              -- tags extraídos, separados por espacio
+    -- Campos específicos de service messages:
+    action                TEXT,                              -- invite_members, join_group_by_link, remove_members, etc.
+    actor_name            TEXT,
+    actor_id              TEXT,
+    members               TEXT,                              -- JSON array de nombres
+    UNIQUE(chat_id, message_id)
+);
+
+-- ------------------------------------------------------------------------
+-- Telegram: archivos multimedia adjuntos a mensajes
+-- ------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS telegram_media (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    message_id          INTEGER NOT NULL REFERENCES telegram_messages(id) ON DELETE CASCADE,
+    media_order         INTEGER NOT NULL DEFAULT 0,     -- orden dentro del mensaje (0 si único)
+    media_type          TEXT NOT NULL,                   -- photo | video | voice | animation | sticker | document
+    file_relative_path  TEXT NOT NULL,                   -- relativo al export (photos/photo_1@....jpg)
+    file_name           TEXT,                            -- nombre del archivo
+    mime_type           TEXT,
+    file_size           INTEGER,
+    width               INTEGER,
+    height              INTEGER,
+    duration_seconds    REAL,
+    thumbnail_path      TEXT,                            -- relativo al export
+    media_id            INTEGER REFERENCES media(id) ON DELETE SET NULL  -- link a media table (post-ingesta)
+);
+
+CREATE INDEX IF NOT EXISTS idx_tg_chat_id ON telegram_messages(chat_id);
+CREATE INDEX IF NOT EXISTS idx_tg_message_id ON telegram_messages(message_id);
+CREATE INDEX IF NOT EXISTS idx_tg_date ON telegram_messages(date_unixtime);
+CREATE INDEX IF NOT EXISTS idx_tg_media_msg ON telegram_media(message_id);
+CREATE INDEX IF NOT EXISTS idx_tg_media_media ON telegram_media(media_id);
