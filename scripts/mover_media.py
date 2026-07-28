@@ -42,6 +42,9 @@ logging.basicConfig(
 )
 log = logging.getLogger("mover_media")
 
+# Extensiones de sidecar conocidas
+SIDECAR_EXTS = [".AAE", ".json", ".xml", ".XMP"]
+
 
 # ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -198,24 +201,21 @@ def ejecutar_movimiento(conn, old_root: str, new_root: str) -> dict:
             stats["errores"] += 1
             continue
 
-        # Actualizar sidecar si existe (mismo directorio, mismo nombre base)
+        # Actualizar sidecar si existe (mismo directorio fuente, mismo nombre base)
         if rel_path:
             base = os.path.splitext(os.path.basename(abs_path))[0]
+            dir_origen = os.path.dirname(abs_path)
             dir_destino_final = os.path.dirname(destino_final)
-            sidecars_posibles = [
-                os.path.join(dir_destino_final, base + ext)
-                for ext in [".AAE", ".json", ".xml", ".XMP"]
-            ]
-            for sc_old in sidecars_posibles:
-                if os.path.isfile(sc_old):
-                    sc_new = os.path.join(
+            for ext in SIDECAR_EXTS:
+                sc_origen = os.path.join(dir_origen, base + ext)
+                if os.path.isfile(sc_origen):
+                    sc_destino = os.path.join(
                         dir_destino_final,
-                        os.path.splitext(os.path.basename(destino_final))[0]
-                        + os.path.splitext(sc_old)[1],
+                        os.path.splitext(os.path.basename(destino_final))[0] + ext,
                     )
-                    if not os.path.exists(sc_new):
+                    if not os.path.exists(sc_destino):
                         try:
-                            shutil.move(sc_old, sc_new)
+                            shutil.move(sc_origen, sc_destino)
                             stats["sidecars"] += 1
                         except OSError:
                             pass
@@ -316,21 +316,20 @@ def ejecutar_copia(
             stats["errores"] += 1
             continue
 
-        # Copiar sidecar si existe
+        # Copiar sidecar si existe (mismo directorio fuente)
         if rel_path:
             base = os.path.splitext(os.path.basename(abs_path))[0]
+            dir_origen = os.path.dirname(abs_path)
             dir_destino_final = os.path.dirname(destino_final)
-            sidecar_exts = [".AAE", ".json", ".xml", ".XMP"]
-            for ext in sidecar_exts:
-                sc_old = os.path.join(os.path.dirname(abs_path), base + ext)
-                sc_new = os.path.join(
+            for ext in SIDECAR_EXTS:
+                sc_origen = os.path.join(dir_origen, base + ext)
+                sc_destino = os.path.join(
                     dir_destino_final,
-                    os.path.splitext(os.path.basename(destino_final))[0]
-                    + ext,
+                    os.path.splitext(os.path.basename(destino_final))[0] + ext,
                 )
-                if os.path.isfile(sc_old) and not os.path.exists(sc_new):
+                if os.path.isfile(sc_origen) and not os.path.exists(sc_destino):
                     try:
-                        shutil.copy2(sc_old, sc_new)
+                        shutil.copy2(sc_origen, sc_destino)
                         stats["sidecars"] += 1
                     except OSError:
                         pass

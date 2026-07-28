@@ -21,10 +21,12 @@ Args:
 """
 
 import argparse
+import datetime
 import hashlib
 import json
 import logging
 import os
+import shutil
 import sqlite3
 import sys
 
@@ -57,12 +59,16 @@ def reparar_json(texto: str) -> str:
     """
     Intenta reparar un JSON de Telegram que pueda venir truncado.
     El export a veces no cierra el array messages ni el objeto raíz.
+    Usa conteo de brackets para determinar qué falta.
     """
     t = texto.rstrip().rstrip(",")
-    if not t.endswith("]"):
-        t += "\n]\n}"
-    if not t.endswith("}"):
-        t += "\n}"
+    # Contar brackets abiertos/cerrados
+    llaves = t.count("{") - t.count("}")
+    corchetes = t.count("[") - t.count("]")
+    if corchetes > 0:
+        t += "\n" + "]" * corchetes
+    if llaves > 0:
+        t += "\n" + "}" * llaves
     return t
 
 
@@ -159,10 +165,8 @@ def detectar_message_type(msg: dict) -> str:
             return "image"
         return "document"
 
-    # Texto plano
-    text = msg.get("text", "")
-    if text or text == "":
-        return "text"
+    # Texto plano (último recurso)
+    return "text"
 
     return "other"
 
@@ -229,9 +233,15 @@ def ingerir_media_telegram(
     mensaje: dict,
     media_type_tg: str,       # media_type del item (photo, video_file, voice_message, etc.)
     mime_type: str,            # mime_type del item
+    destino: str | None = None,  # si se pasa, copia el archivo a esta carpeta canónica
 ) -> int | None:
     """
     Ingiere un archivo multimedia de Telegram en la tabla media.
+
+    Si ``destino`` se especifica, copia el archivo a ``{destino}/telegram/``
+    y registra la copia como filepath_absoluto (evita que quede atado al
+    export temporal). Si el archivo ya existe en destino (mismo hash), no
+    duplica.
     Retorna el id del medio insertado, o None si falla.
     """
     abs_path = os.path.normpath(os.path.join(export_path, file_rel_path))
@@ -255,21 +265,36 @@ def ingerir_media_telegram(
                              (tipo, existente[0]))
             return existente[0]
 
+    # ── Copiar a destino canónico si corresponde ──
+    filename = os.path.basename(file_rel_path)
+    carpeta_original = os.path.dirname(file_rel_path).replace("\\", "/")
+    filepath_absoluto = abs_path           # valor por defecto: ruta dentro del export
+    filepath_relativo = file_rel_path.replace("\\", "/")
+    carpeta = carpeta_original
+
+    if destino:
+        destino_norm = os.path.normpath(destino)
+        # Subcarpeta telegram/ para mantener orden
+        dest_dir = os.path.join(destino_norm, "telegram")
+        os.makedirs(dest_dir, exist_ok=True)
+
+        dest_path = os.path.join(dest_dir, filename)
+        dest_path = _resolver_colision(dest_path, file_hash)
+
+        if not os.path.isfile(dest_path):
+            shutil.copy2(abs_path, dest_path)
+            log.debug("  Copiado a: %s", dest_path)
+
+        filepath_absoluto = dest_path
+        filepath_relativo = os.path.relpath(dest_path, destino_norm).replace("\\", "/")
+        carpeta = "telegram"
+
     # Timestamp desde el mensaje
     date_iso = mensaje.get("date", "")
     timestamp_utc = fecha_iso_a_utc(date_iso)
 
-    # Nombre de archivo
-    filename = os.path.basename(file_rel_path)
-
     # Tamaño
     size = mensaje.get("file_size") or mensaje.get("photo_file_size") or 0
-
-    # Carpeta = subdirectorio dentro del export (photos, video_files, voice_messages, etc.)
-    carpeta = os.path.dirname(file_rel_path).replace("\\", "/")
-
-    # Filepath relativo completo (usamos el export_path como raíz virtual)
-    filepath_relativo = file_rel_path.replace("\\", "/")
 
     # Insertar
     conn.execute(
@@ -283,7 +308,7 @@ def ingerir_media_telegram(
         """,
         (
             filename,
-            abs_path,
+            filepath_absoluto,
             filepath_relativo,
             carpeta,
             tipo,
@@ -310,6 +335,30 @@ def ingerir_media_telegram(
     return media_id
 
 
+def _resolver_colision(dest_path: str, file_hash: str | None) -> str:
+    """
+    Si ya existe un archivo en *dest_path* con diferente hash, agrega
+    sufijo _1, _2, etc. Si tiene el mismo hash, devuelve dest_path
+    (no hace falta copiar de nuevo).
+    """
+    MAX_INTENTOS = 999
+    if not os.path.isfile(dest_path):
+        return dest_path
+    if file_hash and sha256_archivo(dest_path) == file_hash:
+        return dest_path  # mismo archivo, reutilizar
+    # Colisión: agregar sufijo
+    base, ext = os.path.splitext(dest_path)
+    for n in range(1, MAX_INTENTOS + 1):
+        candidato = f"{base}_{n}{ext}"
+        if not os.path.isfile(candidato):
+            return candidato
+        if file_hash and sha256_archivo(candidato) == file_hash:
+            return candidato
+    # Último recurso: devolver con timestamp
+    import time
+    return f"{base}_{int(time.time())}{ext}"
+
+
 # ── Procesamiento principal ───────────────────────────────────────────
 
 def procesar_export(
@@ -321,6 +370,7 @@ def procesar_export(
     ingest_media: bool = True,
     modo: str = "skip",
     dry_run: bool = False,
+    destino: str | None = None,   # copiar media a carpeta canónica
 ) -> dict:
     """
     Procesa el export de Telegram y escribe en DB.
@@ -520,6 +570,7 @@ def procesar_export(
                 media_id = ingerir_media_telegram(
                     conn, export_path, mitem["file_relative_path"],
                     msg, mitem["media_type"], mitem.get("mime_type", ""),
+                    destino=destino,
                 )
                 if media_id:
                     # Vincular telegram_media → media
@@ -556,19 +607,31 @@ def procesar_export(
                     continue
                 # Obtener datos del mensaje original para el ingest
                 msg_data = conn.execute(
-                    "SELECT date_utc, from_name, from_id FROM telegram_messages WHERE id=?",
+                    "SELECT date_utc, from_name, from_id, date_unixtime "
+                    "FROM telegram_messages WHERE id=?",
                     (msg_db_id,),
                 ).fetchone()
                 if not msg_data:
                     continue
+
+                # Reconstruir datos de file_size/duration desde telegram_media
+                tgm_data = conn.execute(
+                    "SELECT file_size, duration_seconds "
+                    "FROM telegram_media WHERE id=?",
+                    (tg_media_id,),
+                ).fetchone()
+
                 msg_min = {
                     "date": msg_data[0] or "",
                     "from": msg_data[1] or "",
                     "from_id": msg_data[2] or "",
+                    "file_size": tgm_data[0] if tgm_data else 0,
+                    "duration_seconds": tgm_data[1] if tgm_data else None,
                 }
                 media_id = ingerir_media_telegram(
                     conn, export_path, file_rel, msg_min,
                     media_type_tg, mime_t or "",
+                    destino=destino,
                 )
                 if media_id:
                     conn.execute(
@@ -689,6 +752,11 @@ def crear_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--db", help="Ruta a la base de datos")
     p.add_argument("--verbose", "-v", action="store_true", help="Modo verbose")
+    p.add_argument(
+        "--destino", "-d",
+        help="Carpeta canónica donde copiar los archivos multimedia "
+             "(evita que queden atados al export temporal)",
+    )
     return p
 
 
@@ -726,7 +794,6 @@ def main(argv: list[str] | None = None):
         # Auto-backup antes de reemplazar
         backup_dir = os.path.join(os.path.dirname(db_path), "backups")
         os.makedirs(backup_dir, exist_ok=True)
-        import shutil, datetime
         ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_path = os.path.join(backup_dir, f"flujos_auto_{ts}.db")
         shutil.copy2(db_path, backup_path)
@@ -745,6 +812,10 @@ def main(argv: list[str] | None = None):
     if args.dry_run:
         log.info("── DRY RUN ──")
 
+    if args.destino:
+        args.destino = os.path.normpath(args.destino)
+        os.makedirs(os.path.join(args.destino, "telegram"), exist_ok=True)
+
     stats = procesar_export(
         conn,
         export_path,
@@ -753,6 +824,7 @@ def main(argv: list[str] | None = None):
         ingest_media=args.ingest_media,
         modo=args.mode,
         dry_run=args.dry_run,
+        destino=args.destino,
     )
 
     if args.dry_run:
