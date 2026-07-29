@@ -174,14 +174,14 @@ def obtener_media_sin_embeddings(
     limite: Optional[int] = None,
 ):
     """
-    Busca medios (imágenes o videos) que NO tengan embeddings guardados
+    Busca medios (imágenes, videos o audios) que NO tengan embeddings guardados
     para el modelo indicado. Devuelve lista de dicts con id, filepath_absoluto,
     filename_original, type.
     """
     query = """
         SELECT m.id, m.filepath_absoluto, m.filename_original, m.type
         FROM media m
-        WHERE m.type IN ('image', 'video')
+        WHERE m.type IN ('image', 'video', 'audio')
           AND m.id NOT IN (
                 SELECT media_id FROM media_embeddings
                 WHERE modelo = ?
@@ -501,7 +501,7 @@ def main():
         datefmt="%H:%M:%S",
     )
     parser = argparse.ArgumentParser(
-        description="Genera embeddings vectoriales para medios (imágenes/video) "
+        description="Genera embeddings vectoriales para medios (imágenes/video/audio) "
                     "y los guarda en la tabla media_embeddings o como side‑car.\n\n"
                     "Modos:\n"
                     "  --db ruta            : procesa medios de la DB que no tengan embeddings\n"
