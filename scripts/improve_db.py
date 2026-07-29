@@ -393,9 +393,6 @@ def run_transcribe(conn, db_path, mode, stats):
     log.info("Paso: transcribe — Transcribiendo audios/videos")
 
     if mode == "replace":
-        conn.execute("DELETE FROM media_metadata WHERE key = 'whisper_segments'")
-        conn.execute("DELETE FROM media_metadata WHERE key = 'whisper_info'")
-        conn.commit()
         query = "SELECT id, filepath_absoluto FROM media WHERE type IN ('video', 'audio')"
     elif mode == "update":
         query = "SELECT id, filepath_absoluto FROM media WHERE type IN ('video', 'audio')"
@@ -750,17 +747,6 @@ def run_video_metadata(conn, db_path, mode, stats):
     log.info("Paso: video_metadata — Extrayendo metadatos de videos con ExifTool")
 
     if mode == "replace":
-        # ⚠ OR tiene menor precedencia que AND. Sin paréntesis, la condición
-        #    (media_id IN ... AND key LIKE 'xml_%') aplica y las otras dos
-        #    condiciones (key LIKE 'xmp_%' OR key = 'video_spherical_projection')
-        #    se evalúan en TODAS las filas sin filtrar por media_id.
-        conn.execute("""
-            DELETE FROM media_metadata WHERE media_id IN (
-                SELECT id FROM media WHERE type='video'
-            ) AND (key LIKE 'xml_%' OR key LIKE 'xmp_%' OR key = 'video_spherical_projection')
-        """)
-        conn.execute("UPDATE media SET subtype = NULL WHERE type='video' AND subtype = '360'")
-        conn.commit()
         query = "SELECT id, filepath_absoluto FROM media WHERE type='video'"
     elif mode == "update":
         query = "SELECT id, filepath_absoluto FROM media WHERE type='video'"
@@ -818,6 +804,14 @@ def run_video_metadata(conn, db_path, mode, stats):
             if not meta:
                 continue
 
+            # En replace/update: limpiar metadatos previos de este video
+            if mode in ("replace", "update"):
+                conn.execute(
+                    "DELETE FROM media_metadata WHERE media_id = ? AND (key LIKE 'xml_%' OR key LIKE 'xmp_%' OR key = 'video_spherical_projection')",
+                    (mid,),
+                )
+                conn.execute("UPDATE media SET subtype = NULL WHERE id = ?", (mid,))
+
             # Guardar metadatos en media_metadata
             for key, value in meta.items():
                 if value is None:
@@ -830,7 +824,7 @@ def run_video_metadata(conn, db_path, mode, stats):
             # Detectar 360 y actualizar subtype
             if detect_360(meta):
                 conn.execute(
-                    "UPDATE media SET subtype = '360' WHERE id = ? AND subtype IS NULL",
+                    "UPDATE media SET subtype = '360' WHERE id = ?",
                     (mid,),
                 )
 
