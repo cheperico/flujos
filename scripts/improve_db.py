@@ -217,8 +217,6 @@ def run_keywords(conn, db_path, mode, stats):
 
     # Determinar imágenes a procesar
     if mode == "replace":
-        conn.execute("DELETE FROM media_metadata WHERE key = 'ia_keywords'")
-        conn.commit()
         query = "SELECT id, filepath_absoluto FROM media WHERE type='image'"
     elif mode == "update":
         query = "SELECT id, filepath_absoluto FROM media WHERE type='image'"
@@ -285,6 +283,13 @@ def run_keywords(conn, db_path, mode, stats):
                 errors += 1
 
     if batch:
+        # En replace/update: limpiar SOLO los que se regeneraron (atómicamente con el insert)
+        if mode in ("replace", "update"):
+            ids_ok = [str(mid) for mid, _ in batch]
+            conn.execute(
+                f"DELETE FROM media_metadata WHERE key = 'ia_keywords' AND media_id IN ({','.join('?' * len(ids_ok))})",
+                [int(mid) for mid in ids_ok],
+            )
         conn.executemany(
             "INSERT OR REPLACE INTO media_metadata (media_id, key, value) "
             "VALUES (?, 'ia_keywords', ?)", batch)
@@ -301,8 +306,6 @@ def run_descriptions(conn, db_path, mode, stats):
     log.info("Paso: descriptions — Describiendo imágenes con IA")
 
     if mode == "replace":
-        conn.execute("DELETE FROM media_metadata WHERE key = 'ia_description'")
-        conn.commit()
         query = "SELECT id, filepath_absoluto FROM media WHERE type='image'"
     elif mode == "update":
         query = "SELECT id, filepath_absoluto FROM media WHERE type='image'"
@@ -367,6 +370,13 @@ def run_descriptions(conn, db_path, mode, stats):
                 errors += 1
 
     if batch:
+        # En replace/update: limpiar SOLO los que se regeneraron (atómicamente con el insert)
+        if mode in ("replace", "update"):
+            ids_ok = [str(mid) for mid, _ in batch]
+            conn.execute(
+                f"DELETE FROM media_metadata WHERE key = 'ia_description' AND media_id IN ({','.join('?' * len(ids_ok))})",
+                [int(mid) for mid in ids_ok],
+            )
         conn.executemany(
             "INSERT OR REPLACE INTO media_metadata (media_id, key, value) "
             "VALUES (?, 'ia_description', ?)", batch)
@@ -455,28 +465,22 @@ def run_keypoints(conn, db_path, mode, stats):
     log.info("Paso: keypoints — Poblando keypoints desde transcripciones")
 
     if mode == "replace":
-        # Replace: limpia TODO y regenera desde cero
-        conn.execute("DELETE FROM media_keypoints")
-        conn.commit()
+        # Replace: limpia TODO y regenera desde cero.
+        # El clean se hace justo antes del insert (misma transacción).
         query = """
             SELECT m.id, m.filepath_absoluto, m.timestamp_utc, mm.value AS segments_json
             FROM media m
             JOIN media_metadata mm ON mm.media_id = m.id AND mm.key = 'whisper_segments'
         """
     elif mode == "update":
-        # Update: regenera keypoints para medios que tienen transcripcion
-        conn.execute("""
-            DELETE FROM media_keypoints WHERE media_id IN (
-                SELECT DISTINCT media_id FROM media_metadata WHERE key = 'whisper_segments'
-            )
-        """)
-        conn.commit()
+        # Update: regenera keypoints para medios que tienen transcripcion.
+        # El clean se hace justo antes del insert (misma transacción).
         query = """
             SELECT m.id, m.filepath_absoluto, m.timestamp_utc, mm.value AS segments_json
             FROM media m
             JOIN media_metadata mm ON mm.media_id = m.id AND mm.key = 'whisper_segments'
         """
-    else:  # skip
+    else:
         # Solo medios transcritos que aun no tienen keypoints
         query = """
             SELECT m.id, m.filepath_absoluto, m.timestamp_utc, mm.value AS segments_json
@@ -495,6 +499,12 @@ def run_keypoints(conn, db_path, mode, stats):
 
     inserted = 0
     errors = 0
+
+    # En replace/update: limpiar datos previos (misma transacción que los inserts)
+    if mode in ("replace", "update"):
+        conn.execute("DELETE FROM media_keypoints")
+        # No commit — se comitea al final con los inserts
+
     for mid, fpath, ts_utc, segments_json in tqdm(
         rows, desc="  Keypoints", unit="arch", ncols=80
     ):
