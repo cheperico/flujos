@@ -40,6 +40,10 @@
     //  FLOW — duración y ciclo de paleta
     // ═══════════════════════════════════════════════════════
 
+    var DATOS_CARGADOS = false;
+    var DATOS_TOTAL = 0;
+    var DATOS_API = null;
+
     var FLOW = {
         activo: false,
         inicio: 0,
@@ -52,17 +56,18 @@
     //  BLOQUES — definición y estado
     // ═══════════════════════════════════════════════════════
 
-    var BLOQUES = [
-        { id: 'colores',     tipo: 'selector', titulo: 'Colores',     w: 900, h: 100, mx: 0, my: 0 },
-        { id: 'horas',       tipo: 'selector', titulo: 'Horas',       w: 900, h: 120, mx: 0, my: 0 },
-        { id: 'provincias',  tipo: 'selector', titulo: 'Provincias',  w: 700, h: 80,  mx: 0, my: 0 },
-        { id: 'municipios',  tipo: 'selector', titulo: 'Municipios',  w: 800, h: 80,  mx: 0, my: 0 },
-        { id: 'tags',        tipo: 'selector', titulo: 'Tags',        w: 600, h: 320, mx: 0, my: 0 },
-        { id: 'imagenes',    tipo: 'media',    titulo: 'Im\u00e1genes', w: 620, h: 400, mx: 0, my: 0 },
-        { id: 'videos',      tipo: 'media',    titulo: 'Videos',      w: 540, h: 360, mx: 0, my: 0 },
-        { id: 'textos',      tipo: 'media',    titulo: 'Textos',      w: 440, h: 280, mx: 0, my: 0 },
-        { id: 'sonidos',     tipo: 'media',    titulo: 'Sonidos',     w: 340, h: 200, mx: 0, my: 0 },
-        { id: 'mapa',        tipo: 'media',    titulo: 'Mapa',        w: 540, h: 360, mx: 0, my: 0 }
+    var BLOQUES = [];
+    var BLOQUES_TEMPLATE = [
+        { id: 'colores',     tipo: 'selector', titulo: 'Colores',     w: 500, h: 220 },
+        { id: 'horas',       tipo: 'selector', titulo: 'Horas',       w: 550, h: 260 },
+        { id: 'provincias',  tipo: 'selector', titulo: 'Provincias',  w: 350, h: 160 },
+        { id: 'municipios',  tipo: 'selector', titulo: 'Municipios',  w: 420, h: 340 },
+        { id: 'tags',        tipo: 'selector', titulo: 'Tags',        w: 500, h: 380 },
+        { id: 'imagenes',    tipo: 'media',    titulo: 'Im\u00e1genes', w: 700, h: 520 },
+        { id: 'videos',      tipo: 'media',    titulo: 'Videos',      w: 520, h: 380 },
+        { id: 'textos',      tipo: 'media',    titulo: 'Textos',      w: 420, h: 300 },
+        { id: 'sonidos',     tipo: 'media',    titulo: 'Sonidos',     w: 340, h: 240 },
+        { id: 'mapa',        tipo: 'media',    titulo: 'Mapa',        w: 520, h: 380 }
     ];
 
     // ═══════════════════════════════════════════════════════
@@ -151,6 +156,73 @@
     var paleta = interpolar(12);
     var paletaTarget = paleta;
     var TASA = 0.08;
+
+    // ═══════════════════════════════════════════════════════
+    //  MUNDO FINITO — límites que contienen todos los bloques
+    // ═══════════════════════════════════════════════════════
+
+    var worldBounds = { x: 0, y: 0, w: 0, h: 0 };
+
+    function calcularBounds() {
+        var minX = Infinity, maxX = -Infinity;
+        var minY = Infinity, maxY = -Infinity;
+        BLOQUES.forEach(function(b) {
+            if (b.mx < minX) minX = b.mx;
+            if (b.mx + b.w > maxX) maxX = b.mx + b.w;
+            if (b.my < minY) minY = b.my;
+            if (b.my + b.h > maxY) maxY = b.my + b.h;
+        });
+        if (!isFinite(minX)) return;
+        var pad = 40;
+        worldBounds.x = minX - pad;
+        worldBounds.y = minY - pad;
+        worldBounds.w = (maxX - minX) + pad * 2;
+        worldBounds.h = (maxY - minY) + pad * 2;
+    }
+
+    function ajustarProporcionMundo() {
+        if (worldBounds.w === 0 || dims.w === 0) return;
+        var ratioPantalla = dims.w / dims.h;
+        var ratioMundo = worldBounds.w / worldBounds.h;
+        if (ratioMundo > ratioPantalla) {
+            // Mundo más ancho que la pantalla → aumentar altura
+            var nuevoH = worldBounds.w / ratioPantalla;
+            var diff = nuevoH - worldBounds.h;
+            worldBounds.y -= diff / 2;
+            worldBounds.h = nuevoH;
+        } else {
+            // Mundo más alto que la pantalla → aumentar ancho
+            var nuevoW = worldBounds.h * ratioPantalla;
+            var diff = nuevoW - worldBounds.w;
+            worldBounds.x -= diff / 2;
+            worldBounds.w = nuevoW;
+        }
+    }
+
+    function aplicarLimitesCamara() {
+        if (worldBounds.w === 0) return;
+        // tx cuando el borde izquierdo del mundo toca el borde izq. del viewport
+        var izq = -worldBounds.x * cam.scale;
+        // tx cuando el borde derecho del mundo toca el borde der. del viewport
+        var der = dims.w - (worldBounds.x + worldBounds.w) * cam.scale;
+        // tx cuando el borde superior del mundo toca el borde sup. del viewport
+        var sup = -worldBounds.y * cam.scale;
+        // tx cuando el borde inferior del mundo toca el borde inf. del viewport
+        var inf = dims.h - (worldBounds.y + worldBounds.h) * cam.scale;
+
+        if (izq > der) {
+            // Mundo más ancho que el viewport → permitir paneo limitado
+            cam.tx = Math.max(der, Math.min(izq, cam.tx));
+        } else {
+            // Mundo entra en el viewport → centrar
+            cam.tx = (izq + der) / 2;
+        }
+        if (sup > inf) {
+            cam.ty = Math.max(inf, Math.min(sup, cam.ty));
+        } else {
+            cam.ty = (sup + inf) / 2;
+        }
+    }
 
     // ═══════════════════════════════════════════════════════
     //  ALGORITMO DE COLOCACIÓN ALEATORIA
@@ -300,19 +372,8 @@
             case 'municipios': renderChipsMunicipios(cont); break;
             case 'tags':      renderTags(cont); break;
             default:
-                cont.innerHTML = '<div class="media-placeholder">' + iconoMedia(id) + '</div>';
+                cont.innerHTML = '';
         }
-    }
-
-    function iconoMedia(id) {
-        var map = {
-            imagenes: '\uD83D\uDCF7',
-            videos: '\uD83C\uDFAC',
-            textos: '\uD83D\uDCDD',
-            sonidos: '\uD83C\uDFB5',
-            mapa: '\uD83D\uDDFA\uFE0F'
-        };
-        return map[id] || '\u2753';
     }
 
     // ═══════════════════════════════════════════════════════
@@ -320,7 +381,7 @@
     // ═══════════════════════════════════════════════════════
 
     function renderChipsColores(cont) {
-        var html = '';
+        var html = '<div style="display:flex;flex-wrap:wrap;gap:.3rem;align-items:center;width:100%">';
         COLORES.forEach(function(c) {
             var activo = coloresSeleccionados.indexOf(c.nombre) !== -1 ? ' activo' : '';
             html += '<button class="chip' + activo + '" data-accion="toggle-color" data-valor="' + c.nombre + '">'
@@ -329,6 +390,7 @@
                   + '</button>';
         });
         html += '<span class="info-filtro" id="info-colores">Todos</span>';
+        html += '</div>';
         cont.innerHTML = html;
         // Bind events
         cont.querySelectorAll('[data-accion="toggle-color"]').forEach(function(btn) {
@@ -363,15 +425,18 @@
     // ═══════════════════════════════════════════════════════
 
     function renderChipsHoras(cont) {
-        var html = '';
+        var html = '<div style="display:flex;flex-wrap:wrap;gap:.25rem;align-items:center;width:100%">';
         HORAS.forEach(function(h) {
+            var p = PALETTAS[h];
             var hh = (h < 10 ? '0' : '') + h;
             var activo = horasSeleccionadas.indexOf(h) !== -1 ? ' activo' : '';
-            html += '<button class="chip-hora' + activo + '" data-accion="toggle-hora" data-valor="' + h + '">'
+            html += '<button class="chip-hora' + activo + '" data-accion="toggle-hora" data-valor="' + h + '"'
+                  + ' style="--chip-bg:' + p.bg.join(',') + ';--chip-txt:' + p.text.join(',') + '">'
                   + hh + ':00'
                   + '</button>';
         });
         html += '<span class="info-filtro" id="info-horas">Ninguna</span>';
+        html += '</div>';
         cont.innerHTML = html;
         cont.querySelectorAll('[data-accion="toggle-hora"]').forEach(function(btn) {
             btn.addEventListener('click', function() {
@@ -418,7 +483,7 @@
     // ═══════════════════════════════════════════════════════
 
     function renderChipsProvincias(cont) {
-        var html = '';
+        var html = '<div style="display:flex;flex-wrap:wrap;gap:.3rem;align-items:center;width:100%">';
         PROVINCIAS.forEach(function(p) {
             var activo = provinciasSeleccionadas.indexOf(p.nombre) !== -1 ? ' activo' : '';
             html += '<button class="chip' + activo + '" data-accion="toggle-provincia" data-valor="' + p.nombre + '">'
@@ -426,6 +491,7 @@
                   + '</button>';
         });
         html += '<span class="info-filtro" id="info-provincias">Todas</span>';
+        html += '</div>';
         cont.innerHTML = html;
         cont.querySelectorAll('[data-accion="toggle-provincia"]').forEach(function(btn) {
             btn.addEventListener('click', function() {
@@ -458,7 +524,7 @@
     // ═══════════════════════════════════════════════════════
 
     function renderChipsMunicipios(cont) {
-        var html = '';
+        var html = '<div style="display:flex;flex-wrap:wrap;gap:.3rem;align-items:center;width:100%">';
         MUNICIPIOS.forEach(function(m) {
             var activo = municipiosSeleccionados.indexOf(m) !== -1 ? ' activo' : '';
             html += '<button class="chip' + activo + '" data-accion="toggle-municipio" data-valor="' + m + '">'
@@ -466,6 +532,7 @@
                   + '</button>';
         });
         html += '<span class="info-filtro" id="info-municipios">Todos</span>';
+        html += '</div>';
         cont.innerHTML = html;
         cont.querySelectorAll('[data-accion="toggle-municipio"]').forEach(function(btn) {
             btn.addEventListener('click', function() {
@@ -540,7 +607,6 @@
         FLOW.activo = false;
         document.getElementById('btn-fluir').classList.remove('activo');
         document.getElementById('btn-fluir').textContent = 'Fluir';
-        // Dejar la paleta donde está
     }
 
     function actualizarFlow() {
@@ -568,27 +634,12 @@
         if (interpHour >= 24) interpHour -= 24;
 
         paletaTarget = interpolar(interpHour);
-
-        // Actualizar botón cada ~1 segundo
-        var seg = Math.floor(elapsed / 1000);
-        if (seg !== FLOW.ultimoSegundo) {
-            FLOW.ultimoSegundo = seg;
-            actualizarBotonFluir();
-        }
     }
 
     function actualizarBotonFluir() {
         var btn = document.getElementById('btn-fluir');
         if (!btn) return;
-        if (!FLOW.activo) {
-            btn.textContent = 'Fluir';
-            return;
-        }
-        var restante = Math.max(0, FLOW.duracionMs - (Date.now() - FLOW.inicio));
-        var mins = Math.floor(restante / 60000);
-        var segs = Math.floor((restante % 60000) / 1000);
-        btn.textContent = (mins < 10 ? '0' : '') + mins + ':'
-                        + (segs < 10 ? '0' : '') + segs;
+        btn.textContent = 'Fluir';
     }
 
     // ═══════════════════════════════════════════════════════
@@ -596,42 +647,72 @@
     // ═══════════════════════════════════════════════════════
 
     function drawGrid() {
-        var vw = dims.w / cam.scale;
-        var vh = dims.h / cam.scale;
-        var spacing = Math.round(Math.max(dims.w, dims.h) / 10);
+        if (worldBounds.w === 0) return;
+        var spacing = Math.round(Math.max(worldBounds.w, worldBounds.h) / 14);
+        spacing = Math.max(spacing, 20);
 
-        var worldLeft   = -cam.tx / cam.scale;
-        var worldTop    = -cam.ty / cam.scale;
-        var worldRight  = worldLeft + vw;
-        var worldBottom = worldTop + vh;
+        var visLeft   = Math.max(-cam.tx / cam.scale, worldBounds.x);
+        var visTop    = Math.max(-cam.ty / cam.scale, worldBounds.y);
+        var visRight  = Math.min(visLeft + dims.w / cam.scale, worldBounds.x + worldBounds.w);
+        var visBottom = Math.min(visTop  + dims.h / cam.scale, worldBounds.y + worldBounds.h);
 
         ctx.strokeStyle = rgb(paleta.accent);
-        ctx.globalAlpha = 0.1;
+        ctx.globalAlpha = 0.08;
         ctx.lineWidth = 1;
         ctx.beginPath();
 
-        var startX = Math.floor(worldLeft / spacing) * spacing;
-        for (var x = startX; x <= worldRight; x += spacing) {
+        var startX = Math.floor(visLeft / spacing) * spacing;
+        for (var x = startX; x <= visRight; x += spacing) {
             var sx = Math.round(x * cam.scale + cam.tx) + 0.5;
-            ctx.moveTo(sx, 0);
-            ctx.lineTo(sx, dims.h);
+            var y0 = Math.round(visTop * cam.scale + cam.ty);
+            var y1 = Math.round(visBottom * cam.scale + cam.ty);
+            ctx.moveTo(sx, y0);
+            ctx.lineTo(sx, y1);
         }
-        var startY = Math.floor(worldTop / spacing) * spacing;
-        for (var y = startY; y <= worldBottom; y += spacing) {
+        var startY = Math.floor(visTop / spacing) * spacing;
+        for (var y = startY; y <= visBottom; y += spacing) {
             var sy = Math.round(y * cam.scale + cam.ty) + 0.5;
-            ctx.moveTo(0, sy);
-            ctx.lineTo(dims.w, sy);
+            var x0 = Math.round(visLeft * cam.scale + cam.tx);
+            var x1 = Math.round(visRight * cam.scale + cam.tx);
+            ctx.moveTo(x0, sy);
+            ctx.lineTo(x1, sy);
         }
         ctx.stroke();
         ctx.globalAlpha = 1;
     }
 
     function dibujar() {
-        ctx.clearRect(0, 0, dims.w, dims.h);
+        // 1. Aplicar límites de cámara
+        aplicarLimitesCamara();
+
+        // 2. Fondo completo con el color de la paleta (toda la pantalla)
         ctx.fillStyle = rgb(paleta.bg);
         ctx.fillRect(0, 0, dims.w, dims.h);
+
+        // 3. Borde sutil del mundo
+        if (worldBounds.w > 0) {
+            var sx = worldBounds.x * cam.scale + cam.tx;
+            var sy = worldBounds.y * cam.scale + cam.ty;
+            var sw = worldBounds.w * cam.scale;
+            var sh = worldBounds.h * cam.scale;
+            ctx.strokeStyle = 'rgba(255,255,255,.06)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(sx, sy, sw, sh);
+        }
+
+        // 4. Grid (limitada a worldBounds)
         drawGrid();
+
+        // 5. Bloques HTML
         syncBlocks();
+
+        // 6. Indicador de datos cargados
+        if (DATOS_CARGADOS) {
+            ctx.fillStyle = 'rgba(255,255,255,.08)';
+            ctx.font = '10px Inter, system-ui, sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText(DATOS_TOTAL + ' medios · ' + COLORES.length + ' colores · ' + PROVINCIAS.length + ' provincias', dims.w - 12, dims.h - 12);
+        }
     }
 
     // ═══════════════════════════════════════════════════════
@@ -666,14 +747,14 @@
     // ═══════════════════════════════════════════════════════
 
     function actualizarCSS() {
-        document.documentElement.style.setProperty('--thumb', rgb(paleta.accent));
-        document.documentElement.style.setProperty('--text', rgb(paleta.text));
-        document.documentElement.style.setProperty('--marcas', rgb(paleta.text));
-        zoomInBtn.style.background = rgb(paleta.surface);
-        zoomInBtn.style.color = rgb(paleta.text);
-        zoomOutBtn.style.background = rgb(paleta.surface);
-        zoomOutBtn.style.color = rgb(paleta.text);
-        zoomLabel.style.color = rgb(paleta.text);
+        var t = paleta.text;
+        var a = paleta.accent;
+        document.documentElement.style.setProperty('--tr', t[0]);
+        document.documentElement.style.setProperty('--tg', t[1]);
+        document.documentElement.style.setProperty('--tb', t[2]);
+        document.documentElement.style.setProperty('--ar', a[0]);
+        document.documentElement.style.setProperty('--ag', a[1]);
+        document.documentElement.style.setProperty('--ab', a[2]);
     }
 
     // ═══════════════════════════════════════════════════════
@@ -681,10 +762,14 @@
     // ═══════════════════════════════════════════════════════
 
     function redimensionar() {
-        dims.w = window.innerWidth;
+        dims.w = window.innerWidth - 90;
         dims.h = window.innerHeight;
         canvas.width = dims.w;
         canvas.height = dims.h;
+        if (worldBounds.w === 0) {
+            calcularBounds();
+        }
+        ajustarProporcionMundo();
         ajustarCamaraABloques();
         dibujar();
     }
@@ -752,22 +837,12 @@
     // ═══════════════════════════════════════════════════════
 
     function ajustarCamaraABloques() {
-        var minX = Infinity, maxX = -Infinity;
-        var minY = Infinity, maxY = -Infinity;
-        BLOQUES.forEach(function(b) {
-            if (b.mx < minX) minX = b.mx;
-            if (b.mx + b.w > maxX) maxX = b.mx + b.w;
-            if (b.my < minY) minY = b.my;
-            if (b.my + b.h > maxY) maxY = b.my + b.h;
-        });
-        if (!isFinite(minX)) return;
-        var cx = (minX + maxX) / 2;
-        var cy = (minY + maxY) / 2;
-        var rangeX = maxX - minX || 500;
-        var rangeY = maxY - minY || 500;
+        if (worldBounds.w === 0) return;
+        var cx = worldBounds.x + worldBounds.w / 2;
+        var cy = worldBounds.y + worldBounds.h / 2;
         var padding = 1.05;
-        var sX = dims.w / (rangeX * padding);
-        var sY = dims.h / (rangeY * padding);
+        var sX = dims.w / (worldBounds.w * padding);
+        var sY = dims.h / (worldBounds.h * padding);
         cam.zoomMin = Math.min(sX, sY);
         cam.zoomMax = 5;
         cam.scale = Math.max(cam.zoomMin, Math.min(cam.zoomMax, cam.scale));
@@ -777,19 +852,109 @@
     }
 
     // ═══════════════════════════════════════════════════════
-    //  ARRANQUE
-    //  ⚠ ORDEN: primero dims, después cámara, después dibujar
+    //  CARGAR DATOS DESDE API
     // ═══════════════════════════════════════════════════════
 
-    colocarBloques();
-    dims.w = window.innerWidth;
+    function cargarDatos() {
+        return fetch('api/recorrido.php')
+            .then(function(r) { return r.json(); })
+            .then(function(datos) {
+                DATOS_CARGADOS = true;
+                DATOS_API = datos;
+                DATOS_TOTAL = datos.total;
+                console.log('API datos cargados: ' + datos.total + ' medios, ' + (datos.colores||[]).length + ' colores');
+                if (datos.colores && datos.colores.length) {
+                    COLORES = datos.colores.map(function(c) {
+                        return { nombre: c.nombre, hex: c.hex };
+                    });
+                }
+                var provs = {};
+                datos.puntos.forEach(function(p) {
+                    if (p.provincia) provs[p.provincia] = true;
+                });
+                var provArr = Object.keys(provs).sort();
+                if (provArr.length) {
+                    PROVINCIAS = provArr.map(function(n) { return { nombre: n }; });
+                }
+                console.log('COLORES:', COLORES.map(function(c){return c.nombre;}).join(', '));
+                console.log('PROVINCIAS:', PROVINCIAS.map(function(p){return p.nombre;}).join(', '));
+            })
+            .catch(function(e) {
+                console.warn('API no disponible, usando datos hardcodeados', e);
+            });
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  RESUMEN EN SIDEBAR
+    // ═══════════════════════════════════════════════════════
+
+    function renderResumen() {
+        var el = document.getElementById('sidebar-resumen');
+        if (!el) return;
+        if (!DATOS_API) {
+            el.innerHTML = '<div style="opacity:.3">—</div>';
+            return;
+        }
+        var d = DATOS_API;
+        // Calcular rango de fechas
+        var fechas = [];
+        var tipos = {};
+        d.puntos.forEach(function(p) {
+            if (p.fecha) fechas.push(p.fecha);
+            var t = p.tipo || 'otro';
+            tipos[t] = (tipos[t] || 0) + 1;
+        });
+        fechas.sort();
+        var rango = '';
+        if (fechas.length) {
+            var ini = fechas[0].slice(5);
+            var fin = fechas[fechas.length - 1].slice(5);
+            rango = ini + '-' + fin;
+        }
+        var provCnt = PROVINCIAS.length;
+        var colCnt = COLORES.length;
+        var tipoHtml = '';
+        ['image','video','audio'].forEach(function(t) {
+            var icono = {image:'img', video:'vid', audio:'aud'}[t] || t;
+            if (tipos[t]) tipoHtml += '<div style="font-size:.55rem;opacity:.5">' + icono + ' <span class="num">' + tipos[t] + '</span></div>';
+        });
+        el.innerHTML = '<div><span class="num">' + d.total + '</span> medios</div>'
+                     + tipoHtml
+                     + '<div style="margin-top:.15rem"><span class="num">' + colCnt + '</span> col · <span class="num">' + provCnt + '</span> prov</div>'
+                     + '<div style="font-size:.5rem;opacity:.35;margin-top:.1rem">' + rango + '</div>';
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  INICIALIZAR (después de cargar datos)
+    // ═══════════════════════════════════════════════════════
+
+    function inicializar() {
+    dims.w = window.innerWidth - 60;
     dims.h = window.innerHeight;
     canvas.width = dims.w;
     canvas.height = dims.h;
+
+    // Construir BLOQUES desde la plantilla con escala y aleatoriedad
+    var escala = dims.h / 1080;
+    BLOQUES_TEMPLATE.forEach(function(t) {
+        var fw = 0.7 + Math.random() * 0.6; // ±30%
+        var fh = 0.7 + Math.random() * 0.6;
+        BLOQUES.push({
+            id: t.id, tipo: t.tipo, titulo: t.titulo,
+            w: Math.round(t.w * escala * fw),
+            h: Math.round(t.h * escala * fh),
+            mx: 0, my: 0
+        });
+    });
+
+    colocarBloques();
+    calcularBounds();
+    ajustarProporcionMundo();
     ajustarCamaraABloques();
     dibujar();
     actualizarCSS();
     actualizarZoomUI();
+    renderResumen();
 
     // Botón fluir
     document.getElementById('btn-fluir').addEventListener('click', function() {
@@ -801,5 +966,9 @@
             iniciarFlow();
         }
     });
+    }
+
+    // Arrancar: cargar datos de la API y luego inicializar
+    cargarDatos().then(inicializar);
 
 })();

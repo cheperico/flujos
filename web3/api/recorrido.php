@@ -6,16 +6,13 @@ header('Access-Control-Allow-Origin: *');
 require_once __DIR__ . '/../includes/db.php';
 $pdo = db();
 
-$sql = "SELECT id, archivo, carpeta, ruta_relativa,
-               embedding_x, embedding_y,
+$sql = "SELECT id, archivo, carpeta, tipo, ruta_relativa,
                fecha, hora,
                color_1, color_1_hex,
                color_2, color_2_hex,
                color_3, color_3_hex,
                provincia, descripcion
         FROM medios
-        WHERE embedding_x IS NOT NULL
-          AND embedding_y IS NOT NULL
         ORDER BY fecha, hora, id";
 
 $stmt = $pdo->query($sql);
