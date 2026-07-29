@@ -880,3 +880,37 @@ elif mode == "skip":
 - **--destino en Telegram (Jul 2026)**: `import_telegram.py` ahora acepta `--destino` para copiar automáticamente los archivos a una carpeta canónica (`{destino}/telegram/`) durante la importación, evitando que queden atados al export temporal. Resuelve colisiones con `_1`, `_2`.
 - **Recuperación media pendiente Telegram (Jul 2026)**: al re-importar con `--mode skip`, los mensajes existentes se saltan pero se ejecuta una etapa de recuperación que busca `telegram_media` con `media_id=NULL` e intenta ingerir los archivos ahora disponibles. Permite N re-ejecuciones hasta completar.
 - **mover_media.py (Jul 2026)**: script para mover/copiar archivos de medios a nueva ubicación y actualizar DB automáticamente. Soporta sidecars (.AAE, .json, .xml, .XMP) moviéndolos desde el directorio fuente. Integrado en TUI (Mantenimiento DB → 9) y CLI (`python flujos.py mover`).
+
+---
+
+## Riesgos conocidos
+
+### 1. Suspensión de la computadora durante procesos largos
+
+Si la PC entra en suspensión (S3 Sleep o Modern Standby S0) durante un proceso del pipeline:
+
+| Componente | Comportamiento | Riesgo |
+|---|---|---|
+| **Ollama** (localhost) | La conexión loopback a `127.0.0.1:11434` revive al despertar, pero el handler del modelo pierde contexto. La request HTTP puede colgar hasta el timeout (120s). | Bajo — timeout maneja el caso |
+| **Open-Meteo / Georef API** | Socket TCP muerto durante el sueño. `CLOSE_WAIT` hasta que Python detecte el error. | Medio — puede colgar 60-120s |
+| **faster-whisper** (local) | La computación se congela y reanuda limpio. | Muy bajo |
+| **ExifTool / ffprobe** (subprocess) | El hijo se congela con el padre, reanuda normal. | Muy bajo |
+| **SQLite WAL** | Transacciones atómicas, WAL checkpoint recupera al reanudar. | Muy bajo |
+| **ThreadPoolExecutor** (`keywords`, `descriptions`) | **Riesgo mayor**: un worker colgado en un `as_completed()` sin timeout puede congelar el pool **para siempre**. El script nunca termina, el usuario debe matarlo manualmente. | **Alto** |
+
+**Qué se pierde**: solo el tiempo de procesamiento. Los datos ya commiteados sobreviven. Al reiniciar con `--mode skip` se retoman los pendientes.
+
+**Fix pendiente**: agregar `timeout=` en `as_completed()` para `run_keywords` y `run_descriptions`, y verificar que `ollama_client.py` tenga `timeout=` en todos los `requests.post()`.
+
+### 2. Archivos movidos externamente
+
+Si los archivos se mueven/renombran por fuera del proyecto (explorador de archivos, Lightroom, etc.), la DB queda con rutas obsoletas. Solución: `relocate.py` o `mover_media.py`.
+
+### 3. Timeouts de API externas
+
+- **Open-Meteo**: sin API key, gratuito, pero puede rate-limit si se llaman muchas coordenadas seguidas. El agrupamiento por celda de 0.5° mitiga esto.
+- **Georef API**: gratuita, batch hasta 5000 coordenadas. Si falla, reintentar más tarde.
+
+### 4. Espacio en disco
+
+Los modelos Ollama ocupan ~50 GB totales. `faster-whisper` descarga modelos ~2 GB al primer uso. Las transcripciones y embeddings se guardan en DB (el archivo `.db` puede crecer significativamente).

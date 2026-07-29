@@ -118,6 +118,15 @@ Etapa 5: INSTALACIÓN          →  TouchDesigner + motor de deriva
 
 ---
 
+## Mejoras de robustez
+
+| Item | Prioridad | Estado |
+|------|-----------|--------|
+| Timeout en ThreadPoolExecutor (keywords/descriptions) para evitar colgado por suspensión | Media | ❌ Pendiente |
+| Verificar timeouts en ollama_client.py (requests.post) | Media | ❌ Pendiente |
+
+---
+
 ## Historial
 
 - **2026-07-13:** Pipeline completo documentado. Bug ExifTool fixeado.
