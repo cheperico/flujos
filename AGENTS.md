@@ -401,31 +401,35 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
   └─ 4. Importar chat de Telegram → opcion_importar_telegram() (export result.json)
 
 3. Mejorar base de datos
-  ├─ Parte 1: IA y color
+  ├─ Hoja 1: IA y color (1/2)
   │  ├─ 1. Todos los pasos              → improve_db con verificación Ollama (pregunta modo)
   │  ├─ 2. Elegir pasos manualmente     → pregunta pasos + modo
   │  ├─ 3. Colores dominantes           → improve_db --steps colors
   │  ├─ 4. Keywords con IA              → improve_db --steps keywords (verif. Ollama)
   │  ├─ 5. Descripción con IA           → improve_db --steps descriptions (verif. Ollama)
   │  ├─ 6. Keywords + Descripción       → improve_db --steps keywords,descriptions
-  │  ├─ 7. Transcripción                → improve_db --steps transcribe (verif. Ollama)
-  │  ├─ 8. Keypoints                    → improve_db --steps keypoints
-  │  ├─ 9. Refinar keywords             → scripts/ai_media/refinar_keywords.py (normaliza + sinónimos)
-  │  ├─ n. Siguiente >> → Parte 2
+  │  ├─ 9. Siguiente >> → Hoja 2
   │  └─ 0. Volver
-   └─ Parte 2: Inferencia y enriquecimiento (agrupado por temática)
-      ├─ 1. Inferir timestamps           → improve_db --steps timestamps
-      ├─ 2. Inferir GPS                  → improve_db --steps gps
-      ├─ 3. Localización (geocode)       → scripts/geocode.py (con modo)
-      ├─ 4. Condiciones climáticas       → scripts/fetch_weather.py (con modo)
-      ├─ 5. Día de la semana             → scripts/dia_semana.py (con modo)
-      ├─ 6. Posición del sol (astronomía) → scripts/astronomia.py (con modo)
-      ├─ 7. Embeddings
-      │   ├─ 1. Generar embeddings (solo pendientes)
-      │   ├─ 2. Previsualizar (dry-run)
-      │   └─ 0. Volver
-      ├─ p. << Anterior → Parte 1
-      └─ 0. Volver
+  ├─ Hoja 2: IA y color (2/2) + inferencia básica
+  │  ├─ 1. Refinar keywords             → scripts/ai_media/refinar_keywords.py (normaliza + sinónimos)
+  │  ├─ 2. Transcripción                → improve_db --steps transcribe (verif. Ollama)
+  │  ├─ 3. Keypoints                    → improve_db --steps keypoints
+  │  ├─ 4. Inferir timestamps           → improve_db --steps timestamps
+  │  ├─ 5. Inferir GPS                  → improve_db --steps gps
+  │  ├─ 8. << Anterior → Hoja 1
+  │  ├─ 9. Siguiente >> → Hoja 3
+  │  └─ 0. Volver
+  └─ Hoja 3: Ubicación y tiempo + búsqueda semántica
+     ├─ 1. Localización (geocode)       → scripts/geocode.py (con modo)
+     ├─ 2. Condiciones climáticas       → scripts/fetch_weather.py (con modo)
+     ├─ 3. Día de la semana             → scripts/dia_semana.py (con modo)
+     ├─ 4. Posición del sol (astronomía) → scripts/astronomia.py (con modo)
+     ├─ 5. Embeddings
+     │   ├─ 1. Generar embeddings (solo pendientes)
+     │   ├─ 2. Previsualizar (dry-run)
+     │   └─ 0. Volver
+     ├─ 8. << Anterior → Hoja 2
+     └─ 0. Volver
 
 4. Consultar base de datos
   ├─ 1. Ver resumen de la DB           → opcion_check_db() (solo Total, Imágenes, Videos, Audios, Textos, Otros)
@@ -465,12 +469,15 @@ El menú TUI organiza las opciones por **temática**, no por complejidad o crono
 | Grupo temático | Menú | Opciones |
 |---|---|---|
 | **Ingesta** (traer datos al proyecto) | 2. Ingesta | Ingesta de medios, GPX, Telegram, deshacer |
-| **IA y Color** (contenido semántico) | 3. Mejorar DB — Parte 1 | Colores, keywords, descripciones, transcripción, keypoints |
-| **Ubicación y tiempo** (contexto geo-temporal) | 3. Mejorar DB — Parte 2 (1-6) | Timestamps, GPS, localización, clima, día de la semana, astronomía |
-| **Búsqueda semántica** | 3. Mejorar DB — Parte 2 (7) | Embeddings |
+| **IA y Color** (contenido semántico) | 3. Mejorar DB — Hojas 1-2 | Colores, keywords, descripciones, refinar keywords, transcripción, keypoints |
+| **Inferencia básica** (timestamps/GPS) | 3. Mejorar DB — Hoja 2 (4-5) | Inferir timestamps, inferir GPS |
+| **Ubicación y tiempo** (contexto geo-temporal) | 3. Mejorar DB — Hoja 3 (1-4) | Localización, clima, día de la semana, astronomía |
+| **Búsqueda semántica** | 3. Mejorar DB — Hoja 3 (5) | Embeddings |
 | **Mantenimiento** (operaciones técnicas) | 5. Mantenimiento DB | Relocalizar, gradientes, astronomía, backfill, backup, restore, reset, export |
 
-> **Regla**: siempre que se agregue una opción nueva al TUI, debe insertarse cerca de opciones temáticamente relacionadas, no al final de la lista.
+> **Regla de agrupación**: siempre que se agregue una opción nueva al TUI, debe insertarse cerca de opciones temáticamente relacionadas, no al final de la lista.
+
+> **Regla de paginación**: cada hoja soporta hasta 7 opciones (1-7). La navegación es estándar en todos los menús paginados: **8 = << Anterior**, **9 = Siguiente >>**, **0 = Volver** al menú superior. Si una hoja se llena, las opciones nuevas se reparten en una hoja siguiente (no se cambia la numeración de navegación).
 
 #### CLI — Comandos disponibles
 
@@ -623,13 +630,13 @@ El menú TUI organiza las opciones por **temática**, no por complejidad o crono
 
 #### `refinar_keywords.py` (scripts/ai_media/)
 - **Propósito**: Refina y unifica las keywords generadas por IA (`media_metadata.ia_keywords`). Corrige los problemas típicos de los modelos de visión: artículos pegados (`la montaña`), géneros mal formateados, mezclas de géneros, basura regurgitada del prompt, sinónimos duplicados (`bici` vs `bicicleta`).
-- **Args CLI**: `--db`, `--mode` (skip|update|replace), `--usar-embeddings`, `--umbral` (default 0.82), `--dry-run`, `--verbose`
+- **Args CLI**: `--db`, `--mode` (skip|update|replace), `--usar-embeddings`, `--umbral` (default 0.87), `--dry-run`, `--verbose`
 - **DB que modifica**: `media_metadata` (sobrescribe `ia_keywords` con la lista refinada)
 - **3 capas de refinamiento**:
   1. **Léxica**: `normalizar_palabra()` (quita artículos `la/el/los/las/un/una/unos/unas` iniciales), `singularizar()` (plural→singular), `es_basura()` (filtra `PATRONES_BASURA`: `sa_\d+`, `dsc\d+`, restos del prompt, etc.)
   2. **Diccionario de sinónimos**: `SINONIMOS` (términos canónicos del dominio: bicicleta, motocicleta, automóvil, ruta, montaña, etc.) + `GENEROS_FOTOGRAFICOS` con `VARIANTES_GENERO` (nocturno→nocturna, street→callejera, etc.)
-  3. **Semántica (opcional, `--usar-embeddings`)**: agrupa sinónimos con `paraphrase-multilingual:latest` (coseno ≥ `--umbral`). El modelo se eligió tras evaluar varios: `bicicleta~bici` 0.993, `auto~automóvil` 0.985, `bici~perro` 0.146.
-- **Reglas del género**: el primer keyword debe ser un género fotográfico. `_tiene_mezcla_generos()` detecta basura como `retrato grupal paisaje`. `refinar_lista_keywords()` busca el género en cualquier posición, promueve el género a la primera posición y lo elimina del resto. Si no hay género → `otras`.
+  3. **Semántica (opcional, `--usar-embeddings`)**: agrupa sinónimos con `paraphrase-multilingual:latest` (coseno ≥ `--umbral`, default 0.87). El modelo se eligió tras evaluar varios: `bicicleta~bici` 0.993, `auto~automóvil` 0.985, `bici~perro` 0.146. El umbral se subió de 0.82 a 0.87 porque palabras truncadas generaban falsos positivos (`monta~obra` 0.844, `monta~cerro` 0.869); los sinónimos reales están ≥ 0.88.
+- **Reglas del género**: el primer keyword debe ser un género fotográfico. `_tiene_mezcla_generos()` detecta basura como `retrato grupal paisaje`. `refinar_lista_keywords()` busca el género en cualquier posición, promueve el género a la primera posición y lo elimina del resto. Si no hay género → `otras`. La capa semántica NUNCA re-mapea el género (posición 0 protegida) y excluye los géneros del clustering para evitar `naturaleza`→`paisaje`.
 - **Modos**: skip (solo registros con keywords), update/replace (reprocesa todos).
 - **Integración**: TUI (Mejorar DB → Parte 1 → 9. Refinar keywords), CLI (`python scripts/ai_media/refinar_keywords.py`)
 
@@ -898,7 +905,7 @@ elif mode == "skip":
 - **Recuperación media pendiente Telegram (Jul 2026)**: al re-importar con `--mode skip`, los mensajes existentes se saltan pero se ejecuta una etapa de recuperación que busca `telegram_media` con `media_id=NULL` e intenta ingerir los archivos ahora disponibles. Permite N re-ejecuciones hasta completar.
 - **mover_media.py (Jul 2026)**: script para mover/copiar archivos de medios a nueva ubicación y actualizar DB automáticamente. Soporta sidecars (.AAE, .json, .xml, .XMP) moviéndolos desde el directorio fuente. Integrado en TUI (Mantenimiento DB → 9) y CLI (`python flujos.py mover`).
 - **moondream no apto para keywords (Jul 2026)**: se detectó que `moondream:latest` regurgita el prompt y devuelve keywords basura (géneros solos, textos del prompt). Se cambió `MODELO_VISION_DEFAULT` a `qwen2.5vl:3b` en `image_analysis.py` y el default de `OllamaVision` en `ollama_client.py` (timeout 120→180s). Los prompts `PROMPT_KEYWORDS`/`PROMPT_COMBINADO` se simplificaron a "exactamente 5 keywords, género primero" y `_validar_genero()` ahora busca el género en cualquier posición.
-- **refinar_keywords.py (Jul 2026)**: script de 3 capas para limpiar/unificar `ia_keywords`. Evalúa sinónimos con `paraphrase-multilingual:latest` (coseno ≥ 0.82; `bicicleta~bici` 0.993, `bici~perro` 0.146). Se descartó `nextfire/paraphrase-multilingual-minilm` por confundir no-sinónimos. Integrado en TUI (Mejorar DB → Parte 1 → 9).
+- **refinar_keywords.py (Jul 2026)**: script de 3 capas para limpiar/unificar `ia_keywords`. Evalúa sinónimos con `paraphrase-multilingual:latest` (coseno ≥ 0.87; `bicicleta~bici` 0.993, `bici~perro` 0.146; falsos positivos de palabras truncadas `monta~obra` 0.844 quedan fuera). Se descartó `nextfire/paraphrase-multilingual-minilm` por confundir no-sinónimos. Integrado en TUI (Mejorar DB → Parte 1 → 9).
 
 ---
 

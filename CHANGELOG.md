@@ -13,7 +13,7 @@ Las versiones corresponden a entregas funcionales, no a releases semánticas.
 - **Refinamiento de keywords IA** (`scripts/ai_media/refinar_keywords.py`): 3 capas para limpiar y unificar `media_metadata.ia_keywords`:
   1. **Léxica**: normaliza (quita artículos `la/el/...`, singulariza plurales), filtra basura (`sa_\d+`, `dsc\d+`, restos del prompt).
   2. **Diccionario de sinónimos**: unifica variantes del dominio (`bici`→`bicicleta`, `auto`→`automóvil`, variantes de género `street`→`callejera`).
-  3. **Semántica (opcional `--usar-embeddings`)**: agrupa sinónimos con `paraphrase-multilingual:latest` (coseno ≥ 0.82, configurable con `--umbral`).
+  3. **Semántica (opcional `--usar-embeddings`)**: agrupa sinónimos con `paraphrase-multilingual:latest` (coseno ≥ 0.87, configurable con `--umbral`). Se subió de 0.82 a 0.87 porque palabras truncadas generaban falsos positivos (`monta~obra` 0.844); los sinónimos reales están ≥ 0.88.
 - **Opción en TUI**: `Mejorar DB > Parte 1 > 9) Refinar keywords` con submenú (léxico, +embeddings, dry-runs).
 - **CLI**: `python scripts/ai_media/refinar_keywords.py [--usar-embeddings] [--umbral N] [--mode skip|update|replace] [--dry-run]`.
 

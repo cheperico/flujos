@@ -17,8 +17,10 @@ en 3 capas:
 
   3. SEMÁNTICA (--usar-embeddings, opcional)
      - Embeddings con paraphrase-multilingual:latest (entrenado para sinónimos)
-     - Agrupa keywords con similitud coseno ≥ umbral (default 0.82)
+     - Agrupa keywords con similitud coseno ≥ umbral (default 0.87)
      - El canónico de cada grupo = el término más frecuente en la DB
+     - ⚠️ Umbral medido en pruebas: sinónimos reales ≥ 0.88; falsos positivos
+       de palabras truncadas (monta~obra 0.84, monta~cerro 0.87) quedan fuera.
 
 Después de refinar, reescribe `media_metadata.ia_keywords` con los valores
 canónicos, deduplicando y manteniendo el género fotográfico en primer lugar.
@@ -194,6 +196,24 @@ def normalizar_palabra(palabra: str) -> str:
     return p
 
 
+def _es_frase_basura(palabra: str) -> bool:
+    """
+    Detecta frases de 3+ palabras que no son sinónimos conocidos del dominio.
+
+    El modelo a veces regurgita frases completas como keyword
+    (ej: "pájaro de ánus morrison", "del tiempo no de de la").
+    Se excluyen las variantes multi-palabra de SINONIMOS
+    (ej: "bici de montaña" es válida y se mapea a "bicicleta").
+    """
+    if palabra.count(" ") < 2:  # 2 palabras o menos: no aplica
+        return False
+    p = palabra.lower()
+    for variantes in SINONIMOS.values():
+        if p in [v.lower() for v in variantes]:
+            return False
+    return True
+
+
 def es_basura(palabra: str) -> bool:
     """Detecta si una keyword es ruido (regurgitación del prompt, etc.)."""
     p = palabra.lower()
@@ -206,18 +226,24 @@ def es_basura(palabra: str) -> bool:
         return True
     if _tiene_mezcla_generos(p):
         return True
+    if _es_frase_basura(p):
+        return True
     return False
 
 
 def singularizar(palabra: str) -> str:
-    """Plural → singular simple (bicicletas → bicicleta, árboles → árbol)."""
+    """Plural → singular simple (montañas → montaña, perros → perro, autos → auto).
+
+    CONSERVADOR: NO toca palabras terminadas en "-es" (árboles, flores, viajes,
+    atardeceres) porque la regla no es segura sin morfología — los casos comunes
+    del dominio ya están cubiertos por SINONIMOS (se aplica antes).
+    """
     if not palabra or len(palabra) < 4:
         return palabra
-    # -es: árboles → árbol, peces → pez (pero no "res", "nes", "les" que son parte de raíz)
-    if palabra.endswith("es") and len(palabra) > 5 and not palabra.endswith(("res", "nes", "les")):
-        return palabra[:-2]
-    # -s tras vocal: montañas → montaña, perros → perro, autos → auto
-    if palabra.endswith("s") and len(palabra) > 3 and palabra[-2] in "aeiouáéíóú":
+    # -s tras vocal simple, salvo "-es" (no confiable): montañas→montaña, perros→perro
+    if (palabra.endswith("s") and len(palabra) > 3
+            and palabra[-2] in "aeiouáéíóú"
+            and not palabra.endswith("es")):
         return palabra[:-1]
     return palabra
 
@@ -293,8 +319,10 @@ def refinar_lista_keywords(keywords: list[str]) -> list[str]:
             genero = g
             resto = norm[1:]
         else:
-            resto = norm[1:]
-            # Buscar género dentro del resto (qwen a veces pone el sujeto primero)
+            # El género puede estar en cualquier posición (qwen a veces pone el sujeto primero).
+            # IMPORTANTE: conservar TODAS las keywords (incluida la posición 0,
+            # que no es género pero sí puede ser una keyword válida).
+            resto = list(norm)
             for i, kw in enumerate(resto):
                 g = es_genero(kw)
                 if g:
@@ -325,7 +353,7 @@ def refinar_lista_keywords(keywords: list[str]) -> list[str]:
     return [genero] + resto_uniq[:6]
 
 
-def refinar_con_embeddings(keywords_unicas: list[str], umbral: float = 0.82,
+def refinar_con_embeddings(keywords_unicas: list[str], umbral: float = 0.87,
                            frecuencias: Counter | None = None) -> dict[str, str]:
     """
     Capa semántica: agrupa keywords por similitud de embeddings y devuelve
@@ -333,7 +361,8 @@ def refinar_con_embeddings(keywords_unicas: list[str], umbral: float = 0.82,
 
     Args:
         keywords_unicas: Lista de keywords únicas normalizadas.
-        umbral: Similitud coseno mínima para considerar sinónimos.
+        umbral: Similitud coseno mínima para considerar sinónimos
+                (default 0.87, medido: reales ≥0.88, truncadas ~0.84-0.87).
         frecuencias: Contador de frecuencias para elegir el canónico
                      (el más frecuente gana).
 
@@ -433,8 +462,8 @@ def main(argv: list[str] | None = None) -> None:
                         help="skip: solo los que tienen keywords (default) | update: todos | replace: igual que update")
     parser.add_argument("--usar-embeddings", action="store_true",
                         help="Activa la capa semántica con paraphrase-multilingual")
-    parser.add_argument("--umbral", type=float, default=0.82,
-                        help="Similitud mínima para agrupar sinónimos (default: 0.82)")
+    parser.add_argument("--umbral", type=float, default=0.87,
+                        help="Similitud mínima para agrupar sinónimos (default: 0.87)")
     parser.add_argument("--dry-run", action="store_true", help="Previsualizar cambios sin escribir")
     parser.add_argument("--verbose", action="store_true", help="Log detallado")
 
@@ -491,11 +520,13 @@ def main(argv: list[str] | None = None) -> None:
     # --- Paso 3 (opcional): capa semántica sobre keywords únicas ---
     mapeo_semantico: dict[str, str] = {}
     if args.usar_embeddings:
-        # Keywords únicas después de la capa léxica/diccionario (para no embeddear ruido)
+        # Keywords únicas después de la capa léxica/diccionario (para no embeddear ruido).
+        # Excluimos los géneros fotográficos: son vocabulario cerrado y canónico,
+        # no deben re-mapearse por embeddings (evita "naturaleza"→"paisaje").
         unicas_post = set()
         for lista in refinadas.values():
             unicas_post.update(lista)
-        unicas_post = sorted(unicas_post)
+        unicas_post = sorted(k for k in unicas_post if es_genero(k) is None)
         if unicas_post:
             # Frecuencias post-refinamiento (para elegir canónico)
             freq_post: Counter = Counter()
@@ -503,13 +534,20 @@ def main(argv: list[str] | None = None) -> None:
                 freq_post.update(lista)
             mapeo_semantico = refinar_con_embeddings(
                 unicas_post, umbral=args.umbral, frecuencias=freq_post)
-            # Aplicar mapeo
+            # Aplicar mapeo (NUNCA al género: posición 0 queda intacta)
             for mid in refinadas:
-                refinadas[mid] = [mapeo_semantico.get(k, k) for k in refinadas[mid]]
+                if not refinadas[mid]:
+                    continue
+                genero_actual = refinadas[mid][0]
+                resto_mapeado = [mapeo_semantico.get(k, k) for k in refinadas[mid][1:]]
                 # Dedupe final preservando orden
-                vistos = set()
-                refinadas[mid] = [k for k in refinadas[mid]
-                                  if not (k in vistos or vistos.add(k))]
+                vistos = {genero_actual}
+                lista_final = [genero_actual]
+                for k in resto_mapeado:
+                    if k not in vistos:
+                        vistos.add(k)
+                        lista_final.append(k)
+                refinadas[mid] = lista_final
 
     # --- Paso 4: comparar y mostrar cambios ---
     cambios = 0

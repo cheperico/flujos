@@ -918,41 +918,50 @@ def _preguntar_modo(db_path: str | None = None):
 
 
 def opcion_improve_db():
-    """Menu para ejecutar pasos de mejora sobre la DB (2 partes)."""
+    """Menu para ejecutar pasos de mejora sobre la DB (3 hojas paginadas y balanceadas).
+    Regla de navegacion: 1-7 opciones por hoja, 8 = << Anterior,
+    9 = Siguiente >>, 0 = Volver al menu superior.
+    Distribucion: Hoja 1 (IA y color 1/2, 6 opc), Hoja 2 (IA y color 2/2 +
+    inferencia basica, 5 opc), Hoja 3 (ubicacion y tiempo + busqueda, 5 opc)."""
     db_path = leer_db()
-    parte = 1
+    hoja = 1  # 1: IA y color (1/2), 2: IA y color (2/2)+inferencia, 3: ubicacion/tiempo+busqueda
     while True:
         limpiar_pantalla()
         print("=== MEJORAR BASE DE DATOS ===\n")
 
-        if parte == 1:
-            print("  -- Pasos de IA y color --\n")
+        if hoja == 1:
+            print("  -- Pasos de IA y color (1/2) --\n")
             print("  1) Todos los pasos (skip)")
             print("  2) Elegir pasos manualmente")
             print("  3) Colores dominantes")
             print("  4) Keywords con IA")
             print("  5) Descripcion con IA")
             print("  6) Keywords + Descripcion (pasada unica, mas lenta)")
-            print("  7) Transcripcion (audios/videos)")
-            print("  8) Keypoints de transcripciones")
-            print("  9) Refinar keywords (normalizar + sinonimos)")
-            print("  n) Siguiente >>")
+            print("  9) Siguiente >>")
             print("  0) Volver\n")
-        else:
-            print("  -- Pasos de inferencia y enriquecimiento --\n")
-            print("  1) Inferir timestamps")
-            print("  2) Inferir GPS")
-            print("  3) Localizacion (provincia, municipio, localidad)")
-            print("  4) Condiciones climaticas")
-            print("  5) Dia de la semana")
-            print("  6) Posicion del sol (astronomia)")
-            print("  7) Embeddings")
-            print("  p) << Anterior")
+        elif hoja == 2:
+            print("  -- IA y color (2/2) + inferencia basica --\n")
+            print("  1) Refinar keywords (normalizar + sinonimos)")
+            print("  2) Transcripcion (audios/videos)")
+            print("  3) Keypoints de transcripciones")
+            print("  4) Inferir timestamps")
+            print("  5) Inferir GPS")
+            print("  8) << Anterior")
+            print("  9) Siguiente >>")
+            print("  0) Volver\n")
+        else:  # hoja == 3
+            print("  -- Ubicacion y tiempo + busqueda semantica --\n")
+            print("  1) Localizacion (provincia, municipio, localidad)")
+            print("  2) Condiciones climaticas")
+            print("  3) Dia de la semana")
+            print("  4) Posicion del sol (astronomia)")
+            print("  5) Embeddings")
+            print("  8) << Anterior")
             print("  0) Volver\n")
 
         opc = input("  Opcion: ").strip()
 
-        if parte == 1:
+        if hoja == 1:
             if opc == "1":
                 modo = _preguntar_modo(db_path)
                 if modo is None:
@@ -1003,41 +1012,17 @@ def opcion_improve_db():
                     continue
                 _ejecutar_improve_db(pasos="keywords,descriptions", modo=modo)
                 pausa()
-            elif opc == "7":
-                modo = _preguntar_modo(db_path)
-                if modo is None:
-                    print("  Cancelado.")
-                    pausa()
-                    continue
-                _ejecutar_improve_db(pasos="transcribe", modo=modo)
-                pausa()
-            elif opc == "8":
-                modo = _preguntar_modo(db_path)
-                if modo is None:
-                    print("  Cancelado.")
-                    pausa()
-                    continue
-                _ejecutar_improve_db(pasos="keypoints", modo=modo)
-                pausa()
             elif opc == "9":
-                opcion_refinar_keywords(db_path)
-                pausa()
-            elif opc.lower() in ("n", "next"):
-                parte = 2
+                hoja = 2
             elif opc == "0":
                 break
             else:
                 print("  Opcion invalida.")
                 pausa()
 
-        else:  # parte == 2
+        elif hoja == 2:
             if opc == "1":
-                modo = _preguntar_modo(db_path)
-                if modo is None:
-                    print("  Cancelado.")
-                    pausa()
-                    continue
-                _ejecutar_improve_db(pasos="timestamps", modo=modo)
+                opcion_refinar_keywords(db_path)
                 pausa()
             elif opc == "2":
                 modo = _preguntar_modo(db_path)
@@ -1045,20 +1030,55 @@ def opcion_improve_db():
                     print("  Cancelado.")
                     pausa()
                     continue
-                _ejecutar_improve_db(pasos="gps", modo=modo)
+                _ejecutar_improve_db(pasos="transcribe", modo=modo)
                 pausa()
             elif opc == "3":
-                opcion_geocode()
+                modo = _preguntar_modo(db_path)
+                if modo is None:
+                    print("  Cancelado.")
+                    pausa()
+                    continue
+                _ejecutar_improve_db(pasos="keypoints", modo=modo)
+                pausa()
             elif opc == "4":
-                opcion_weather()
+                modo = _preguntar_modo(db_path)
+                if modo is None:
+                    print("  Cancelado.")
+                    pausa()
+                    continue
+                _ejecutar_improve_db(pasos="timestamps", modo=modo)
+                pausa()
             elif opc == "5":
+                modo = _preguntar_modo(db_path)
+                if modo is None:
+                    print("  Cancelado.")
+                    pausa()
+                    continue
+                _ejecutar_improve_db(pasos="gps", modo=modo)
+                pausa()
+            elif opc == "8":
+                hoja = 1
+            elif opc == "9":
+                hoja = 3
+            elif opc == "0":
+                break
+            else:
+                print("  Opcion invalida.")
+                pausa()
+
+        else:  # hoja == 3
+            if opc == "1":
+                opcion_geocode()
+            elif opc == "2":
+                opcion_weather()
+            elif opc == "3":
                 opcion_dia_semana()
-            elif opc == "6":
+            elif opc == "4":
                 opcion_astronomia()
-            elif opc == "7":
+            elif opc == "5":
                 opcion_embeddings()
-            elif opc.lower() in ("p", "prev"):
-                parte = 1
+            elif opc == "8":
+                hoja = 2
             elif opc == "0":
                 break
             else:
