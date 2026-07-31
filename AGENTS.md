@@ -841,6 +841,8 @@ elif mode == "skip":
 | `docs/geocodificacion_reversa.md` | Estrategias de geocodificación: Georef API batch, Georef offline, python-gazetteer. |
 | `docs/limpieza_tandas_resultados.md` | Comparativa de 4 estrategias de limpieza de tandas (temporal, pHash, tags, embeddings). Embeddings fue la favorita. |
 | `docs/semantica_color.md` | Capa semántica del color: significados emocionales/culturales, Kuleshov effect, cross-modal retrieval. |
+| `docs/visualizaciones.md` | Decisiones de diseño de la visualización web3 (bloques, colocación, chips, Fluir). |
+| `docs/diseno_instalacion.md` | **Diseño de la instalación**: flujo completo DB → elecciones → filtros → loop de 5 min. Grupos de metadatos (7), modalidad de horas/ubicaciones, posicionamiento de medios, chiches. Próximo paso: motor de loop en Python. |
 | `docs/ideas_externas.md` | 22 ideas externas recopiladas para la instalación. |
 
 ## Archivos raíz
