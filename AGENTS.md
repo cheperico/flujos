@@ -410,7 +410,9 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
   │  ├─ 6. Keywords + Descripción       → improve_db --steps keywords,descriptions
   │  ├─ 7. Transcripción                → improve_db --steps transcribe (verif. Ollama)
   │  ├─ 8. Keypoints                    → improve_db --steps keypoints
-  │  └─ 9. Siguiente >> → Parte 2
+  │  ├─ 9. Refinar keywords             → scripts/ai_media/refinar_keywords.py (normaliza + sinónimos)
+  │  ├─ n. Siguiente >> → Parte 2
+  │  └─ 0. Volver
    └─ Parte 2: Inferencia y enriquecimiento (agrupado por temática)
       ├─ 1. Inferir timestamps           → improve_db --steps timestamps
       ├─ 2. Inferir GPS                  → improve_db --steps gps
@@ -422,7 +424,7 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
       │   ├─ 1. Generar embeddings (solo pendientes)
       │   ├─ 2. Previsualizar (dry-run)
       │   └─ 0. Volver
-      ├─ 9. << Anterior → Parte 1
+      ├─ p. << Anterior → Parte 1
       └─ 0. Volver
 
 4. Consultar base de datos
@@ -619,6 +621,18 @@ El menú TUI organiza las opciones por **temática**, no por complejidad o crono
 - **Args CLI**: `--db`, `--dry-run`, `--replace` (deprecated), `--mode`, `--limit`
 - **DB que modifica**: `media_metadata` (clave `dia_semana`, valor: lunes|martes|...|domingo)
 
+#### `refinar_keywords.py` (scripts/ai_media/)
+- **Propósito**: Refina y unifica las keywords generadas por IA (`media_metadata.ia_keywords`). Corrige los problemas típicos de los modelos de visión: artículos pegados (`la montaña`), géneros mal formateados, mezclas de géneros, basura regurgitada del prompt, sinónimos duplicados (`bici` vs `bicicleta`).
+- **Args CLI**: `--db`, `--mode` (skip|update|replace), `--usar-embeddings`, `--umbral` (default 0.82), `--dry-run`, `--verbose`
+- **DB que modifica**: `media_metadata` (sobrescribe `ia_keywords` con la lista refinada)
+- **3 capas de refinamiento**:
+  1. **Léxica**: `normalizar_palabra()` (quita artículos `la/el/los/las/un/una/unos/unas` iniciales), `singularizar()` (plural→singular), `es_basura()` (filtra `PATRONES_BASURA`: `sa_\d+`, `dsc\d+`, restos del prompt, etc.)
+  2. **Diccionario de sinónimos**: `SINONIMOS` (términos canónicos del dominio: bicicleta, motocicleta, automóvil, ruta, montaña, etc.) + `GENEROS_FOTOGRAFICOS` con `VARIANTES_GENERO` (nocturno→nocturna, street→callejera, etc.)
+  3. **Semántica (opcional, `--usar-embeddings`)**: agrupa sinónimos con `paraphrase-multilingual:latest` (coseno ≥ `--umbral`). El modelo se eligió tras evaluar varios: `bicicleta~bici` 0.993, `auto~automóvil` 0.985, `bici~perro` 0.146.
+- **Reglas del género**: el primer keyword debe ser un género fotográfico. `_tiene_mezcla_generos()` detecta basura como `retrato grupal paisaje`. `refinar_lista_keywords()` busca el género en cualquier posición, promueve el género a la primera posición y lo elimina del resto. Si no hay género → `otras`.
+- **Modos**: skip (solo registros con keywords), update/replace (reprocesa todos).
+- **Integración**: TUI (Mejorar DB → Parte 1 → 9. Refinar keywords), CLI (`python scripts/ai_media/refinar_keywords.py`)
+
 #### `exportar_csv.py`
 - **Propósito**: Exporta todas las tablas de la DB a CSVs dentro de `db/exports/<timestamp>/`.
 - **Args CLI**: `--db`, `--output/-o`, `--table/-t`, `--dry-run`, `--list-tables`
@@ -690,6 +704,7 @@ El menú TUI organiza las opciones por **temática**, no por complejidad o crono
 | `batch_selector.py` | Selecciona la mejor imagen de una tanda usando IA. | ollama_client |
 | `clustering.py` | Agrupa imágenes por tags o embeddings compartidos. | — |
 | `generate_embeddings.py` | Genera embeddings vectoriales vía nomic-embed-text. | ollama_client |
+| `refinar_keywords.py` | Refina y unifica keywords de IA (3 capas: léxica, diccionario de sinónimos, semántica con embeddings). Sobrescribe `media_metadata.ia_keywords`. | ollama_client |
 | `proxy.py` | Redimensiona imágenes a ~2MP para procesamiento IA más rápido. | Pillow |
 
 ### Scripts TouchDesigner (`td/`)
@@ -882,6 +897,8 @@ elif mode == "skip":
 - **--destino en Telegram (Jul 2026)**: `import_telegram.py` ahora acepta `--destino` para copiar automáticamente los archivos a una carpeta canónica (`{destino}/telegram/`) durante la importación, evitando que queden atados al export temporal. Resuelve colisiones con `_1`, `_2`.
 - **Recuperación media pendiente Telegram (Jul 2026)**: al re-importar con `--mode skip`, los mensajes existentes se saltan pero se ejecuta una etapa de recuperación que busca `telegram_media` con `media_id=NULL` e intenta ingerir los archivos ahora disponibles. Permite N re-ejecuciones hasta completar.
 - **mover_media.py (Jul 2026)**: script para mover/copiar archivos de medios a nueva ubicación y actualizar DB automáticamente. Soporta sidecars (.AAE, .json, .xml, .XMP) moviéndolos desde el directorio fuente. Integrado en TUI (Mantenimiento DB → 9) y CLI (`python flujos.py mover`).
+- **moondream no apto para keywords (Jul 2026)**: se detectó que `moondream:latest` regurgita el prompt y devuelve keywords basura (géneros solos, textos del prompt). Se cambió `MODELO_VISION_DEFAULT` a `qwen2.5vl:3b` en `image_analysis.py` y el default de `OllamaVision` en `ollama_client.py` (timeout 120→180s). Los prompts `PROMPT_KEYWORDS`/`PROMPT_COMBINADO` se simplificaron a "exactamente 5 keywords, género primero" y `_validar_genero()` ahora busca el género en cualquier posición.
+- **refinar_keywords.py (Jul 2026)**: script de 3 capas para limpiar/unificar `ia_keywords`. Evalúa sinónimos con `paraphrase-multilingual:latest` (coseno ≥ 0.82; `bicicleta~bici` 0.993, `bici~perro` 0.146). Se descartó `nextfire/paraphrase-multilingual-minilm` por confundir no-sinónimos. Integrado en TUI (Mejorar DB → Parte 1 → 9).
 
 ---
 

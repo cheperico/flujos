@@ -7,11 +7,11 @@ Proporciona una interfaz unificada para:
   - Listar y seleccionar modelos disponibles
 
 Modelos de visión recomendados (ordenados por capacidad):
-  1. moondream:latest (1.7 GB) — rápido y ligero (default)
-  2. qwen2.5vl:3b (3.2 GB) — liviano
-  3. qwen2.5vl:latest (6.0 GB) — mejor equilibrio calidad/velocidad
-  4. llama3.2-vision:latest (7.8 GB) — buena calidad general
-  5. gemma4:e4b (9.6 GB) — multimodal potente
+  1. qwen2.5vl:3b (3.2 GB) — liviano, sigue bien prompts complejos (default)
+  2. qwen2.5vl:latest (6.0 GB) — mejor equilibrio calidad/velocidad
+  3. llama3.2-vision:latest (7.8 GB) — buena calidad general
+  4. gemma4:e4b (9.6 GB) — multimodal potente
+  5. moondream:latest (1.7 GB) — rápido y ligero, pero NO sigue prompts complejos
 
 Uso básico:
     from scripts.ai_media.ollama_client import OllamaVision
@@ -52,7 +52,7 @@ MODELOS_TEXTO = [
 class OllamaVision:
     """Cliente para analizar imágenes usando modelos de visión de Ollama."""
 
-    def __init__(self, modelo: str = "moondream:latest", timeout: int = 120):
+    def __init__(self, modelo: str = "qwen2.5vl:3b", timeout: int = 180):
         """
         Args:
             modelo: Nombre del modelo de visión a usar.

@@ -7,6 +7,26 @@ Las versiones corresponden a entregas funcionales, no a releases semánticas.
 
 ---
 
+## [Entrega 10] — 2026-07-31
+
+### Añadido
+- **Refinamiento de keywords IA** (`scripts/ai_media/refinar_keywords.py`): 3 capas para limpiar y unificar `media_metadata.ia_keywords`:
+  1. **Léxica**: normaliza (quita artículos `la/el/...`, singulariza plurales), filtra basura (`sa_\d+`, `dsc\d+`, restos del prompt).
+  2. **Diccionario de sinónimos**: unifica variantes del dominio (`bici`→`bicicleta`, `auto`→`automóvil`, variantes de género `street`→`callejera`).
+  3. **Semántica (opcional `--usar-embeddings`)**: agrupa sinónimos con `paraphrase-multilingual:latest` (coseno ≥ 0.82, configurable con `--umbral`).
+- **Opción en TUI**: `Mejorar DB > Parte 1 > 9) Refinar keywords` con submenú (léxico, +embeddings, dry-runs).
+- **CLI**: `python scripts/ai_media/refinar_keywords.py [--usar-embeddings] [--umbral N] [--mode skip|update|replace] [--dry-run]`.
+
+### Cambiado
+- **Modelo de visión por defecto**: `MODELO_VISION_DEFAULT` pasó de `moondream:latest` a `qwen2.5vl:3b` (moondream regurgita el prompt en keywords). También en `ollama_client.py` (`OllamaVision`, timeout 120→180s).
+- **Prompts de keywords simplificados**: `PROMPT_KEYWORDS`/`PROMPT_COMBINADO` piden "exactamente 5 keywords, género primero"; `_validar_genero()` busca el género en cualquier posición y lo promueve.
+- **Navegación del menú Mejorar DB**: Parte 1 usa `n) Siguiente >>` y Parte 2 `p) << Anterior` (antes teclas 9/9); `0` sigue siendo Volver.
+
+### Corregido
+- **Modelo de sinónimos descartado**: `nextfire/paraphrase-multilingual-minilm` confundía no-sinónimos (`bici~perro` 0.771). Borrado de Ollama; se eligió `paraphrase-multilingual:latest` (`bici~perro` 0.146).
+
+---
+
 ## [Entrega 9] — 2026-07-23
 
 ### Añadido

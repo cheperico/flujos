@@ -935,7 +935,8 @@ def opcion_improve_db():
             print("  6) Keywords + Descripcion (pasada unica, mas lenta)")
             print("  7) Transcripcion (audios/videos)")
             print("  8) Keypoints de transcripciones")
-            print("  9) Siguiente >>")
+            print("  9) Refinar keywords (normalizar + sinonimos)")
+            print("  n) Siguiente >>")
             print("  0) Volver\n")
         else:
             print("  -- Pasos de inferencia y enriquecimiento --\n")
@@ -946,7 +947,7 @@ def opcion_improve_db():
             print("  5) Dia de la semana")
             print("  6) Posicion del sol (astronomia)")
             print("  7) Embeddings")
-            print("  9) << Anterior")
+            print("  p) << Anterior")
             print("  0) Volver\n")
 
         opc = input("  Opcion: ").strip()
@@ -1019,6 +1020,9 @@ def opcion_improve_db():
                 _ejecutar_improve_db(pasos="keypoints", modo=modo)
                 pausa()
             elif opc == "9":
+                opcion_refinar_keywords(db_path)
+                pausa()
+            elif opc.lower() in ("n", "next"):
                 parte = 2
             elif opc == "0":
                 break
@@ -1053,7 +1057,7 @@ def opcion_improve_db():
                 opcion_astronomia()
             elif opc == "7":
                 opcion_embeddings()
-            elif opc == "9":
+            elif opc.lower() in ("p", "prev"):
                 parte = 1
             elif opc == "0":
                 break
@@ -1149,6 +1153,41 @@ def opcion_embeddings():
         subprocess.run([sys.executable, script] + db_flag)
     elif opc == "2":
         subprocess.run([sys.executable, script] + db_flag + ["--dry-run"])
+    elif opc == "0":
+        return
+
+    pausa()
+
+
+def opcion_refinar_keywords(db_path: str | None = None):
+    """
+    Refina las keywords de IA: normaliza (léxico), unifica sinónimos del
+    dominio (diccionario) y opcionalmente agrupa por similitud semántica
+    con embeddings (paraphrase-multilingual).
+    """
+    import subprocess
+    script = os.path.join(os.path.dirname(__file__), "scripts", "ai_media", "refinar_keywords.py")
+    db_flag = ["--db", db_path or leer_db()]
+
+    limpiar_pantalla()
+    print("=== REFINAR KEYWORDS ===\n")
+    print("  Normaliza y unifica las keywords generadas por IA:\n")
+    print("  1) Solo léxico + diccionario (rápido, sin IA)")
+    print("  2) + capa semántica (embeddings, agrupa sinónimos)")
+    print("  3) Previsualizar (dry-run, léxico + diccionario)")
+    print("  4) Previsualizar (dry-run, con embeddings)")
+    print("  0) Volver\n")
+
+    opc = input("  Opcion: ").strip()
+
+    if opc == "1":
+        subprocess.run([sys.executable, script] + db_flag)
+    elif opc == "2":
+        subprocess.run([sys.executable, script] + db_flag + ["--usar-embeddings"])
+    elif opc == "3":
+        subprocess.run([sys.executable, script] + db_flag + ["--dry-run"])
+    elif opc == "4":
+        subprocess.run([sys.executable, script] + db_flag + ["--dry-run", "--usar-embeddings"])
     elif opc == "0":
         return
 

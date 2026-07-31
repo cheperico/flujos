@@ -121,18 +121,21 @@ Al ejecutar `python flujos.py` sin argumentos se ingresa al menú TUI:
   │  ├─ 6. Keywords + Descripción
   │  ├─ 7. Transcripción
   │  ├─ 8. Keypoints
-  │  └─ 9. Siguiente >> → Parte 2
+  │  ├─ 9. Refinar keywords (normaliza + sinónimos)
+  │  ├─ n. Siguiente >> → Parte 2
+  │  └─ 0. Volver
   └─ Parte 2: Inferencia y enriquecimiento
      ├─ 1. Inferir timestamps
      ├─ 2. Inferir GPS
      ├─ 3. Localización (geocode)
      ├─ 4. Condiciones climáticas
      ├─ 5. Día de la semana
-     ├─ 6. Embeddings
+     ├─ 6. Posición del sol (astronomía)
+     ├─ 7. Embeddings
      │   ├─ 1. Generar embeddings
      │   ├─ 2. Previsualizar (dry-run)
      │   └─ 0. Volver
-     ├─ 9. << Anterior → Parte 1
+     ├─ p. << Anterior → Parte 1
      └─ 0. Volver
 
 4. Consultar base de datos
@@ -199,6 +202,7 @@ Todas las operaciones que modifican la DB preguntan el modo
 | `batch_selector.py` | Selección de mejor imagen de tanda con IA |
 | `clustering.py` | Agrupamiento por tags o embeddings |
 | `generate_embeddings.py` | Embeddings vectoriales (nomic-embed-text) |
+| `refinar_keywords.py` | Refina y unifica keywords IA (léxico + sinónimos + embeddings) |
 | `proxy.py` | Redimensiona imágenes a ~2MP para IA |
 
 ---

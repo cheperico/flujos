@@ -58,36 +58,37 @@ GENEROS_FOTOGRAFICOS = [
 ]
 
 _GENEROS_STR = (
-    "retrato, retrato grupal (varias personas), paisaje, nocturna, macro, "
-    "arquitectura (edificios), documento (fotografía documental), "
-    "callejera (street photography), naturaleza (flora/fauna), abstracto, "
-    "deporte, comida, objeto (bodegón/producto), urbano (entorno ciudad), "
-    "evento (fiestas/conciertos), animales, otras"
+    "retrato, retrato grupal, paisaje, nocturna, macro, "
+    "arquitectura, documento, "
+    "callejera, naturaleza, abstracto, "
+    "deporte, comida, objeto, urbano, "
+    "evento, animales, otras"
 )
 
 # ──────────────────────────────────────────────
 #  MODELO POR DEFECTO
 # ──────────────────────────────────────────────
 # Se puede cambiar según la máquina:
-#   - moondream:latest  → rápido, liviano (1.7 GB), ideal para PCs modestas
+#   - qwen2.5vl:3b      → balance calidad/velocidad (3.2 GB). DEFAULT (sigue bien prompts complejos)
 #   - qwen2.5vl:latest  → más calidad, más lento (6 GB)
-#   - qwen2.5vl:3b      → balance (3.2 GB)
-MODELO_VISION_DEFAULT = "moondream:latest"
+#   - moondream:latest  → rápido, liviano (1.7 GB), ideal para PCs modestas
+#                       ⚠️ NO sigue prompts complejos con listas controladas.
+#                       Devuelve el primer género o regurgita el prompt.
+MODELO_VISION_DEFAULT = "qwen2.5vl:3b"
 
 # ──────────────────────────────────────────────
 #  PROMPTS
 # ──────────────────────────────────────────────
 
 PROMPT_KEYWORDS = (
-    "Analizá esta imagen y devolvé únicamente una lista de 5 a 7 palabras clave "
-    "en español que describan su contenido. "
-    "La PRIMERA palabra clave debe ser el género fotográfico de la imagen. "
-    "Elegí UNICAMENTE de esta lista, NO inventes: "
-    + _GENEROS_STR + ". "
-    "Si ningún género encaja bien, elegí 'otras'. "
-    "Las siguientes (2 a 6) deben describir elementos, colores, escena. "
-    "Separalas con comas. No incluyas explicación ni ningún otro texto. "
-    "Ejemplo: 'paisaje, montaña, lago, atardecer, bosque, cielo, reflejo'"
+    "Respondé con exactamente 5 palabras clave en español para esta imagen, "
+    "separadas por comas y nada más.\n"
+    "La PRIMERA palabra debe ser el género fotográfico. Elegila SOLO de esta lista: "
+    + _GENEROS_STR + ".\n"
+    "Si ningún género encaja, usá 'otras'.\n"
+    "Las otras 4 palabras describen lo que se ve: objetos, personas, animales, "
+    "colores, escena, acción.\n"
+    "Ejemplo: paisaje, montaña, lago, atardecer, bosque"
 )
 
 PROMPT_DESCRIBIR = (
@@ -98,17 +99,16 @@ PROMPT_DESCRIBIR = (
 )
 
 PROMPT_COMBINADO = (
-    "Analizá esta imagen y devolvé únicamente un JSON con dos campos:\n"
-    '1. "keywords": una lista de 5 a 7 palabras clave en español.\n'
-    "   La PRIMERA debe ser el género fotográfico. "
-    "Elegí UNICAMENTE de esta lista, NO inventes: "
+    "Respondé únicamente con un JSON con dos campos sobre esta imagen:\n"
+    '1. "keywords": exactamente 5 palabras clave en español.\n'
+    "   La PRIMERA debe ser el género fotográfico, elegido SOLO de esta lista: "
     + _GENEROS_STR + ".\n"
-    "   Si ningún género encaja bien, elegí 'otras'.\n"
-    '   Las siguientes describen elementos, colores, escena.\n'
+    "   Si ningún género encaja, usá 'otras'.\n"
+    '   Las otras 4 describen lo que se ve: objetos, personas, colores, escena.\n'
     '2. "description": UNA oración en español, arrancando por el sujeto principal. '
     "No uses frases como 'la imagen muestra' ni similares. "
     "Incluí elementos principales, colores y acción.\n\n"
-    'Formato exacto: {"keywords": ["paisaje", "montaña", "lago"], "description": "Un lago rodeado de montañas bajo un cielo despejado."}\n'
+    'Formato exacto: {"keywords": ["paisaje", "montaña", "lago", "atardecer", "bosque"], "description": "Un lago rodeado de montañas bajo un cielo despejado."}\n'
     "No incluyas nada más que el JSON."
 )
 
@@ -132,6 +132,10 @@ def _validar_genero(keywords: list[str]) -> list[str]:
     También limpia cualquier texto entre paréntesis que el modelo pudiera
     repetir del prompt (ej: "retrato grupal (varias personas)" → "retrato grupal").
 
+    Si la primera keyword NO es un género pero hay un género válido más
+    adelante en la lista (qwen a veces pone el sujeto primero), lo promueve
+    a la primera posición.
+
     Args:
         keywords: Lista de keywords extraídas por el modelo.
 
@@ -141,33 +145,66 @@ def _validar_genero(keywords: list[str]) -> list[str]:
     if not keywords:
         return keywords
 
-    genero_raw = keywords[0].strip().lower()
+    # Limpiar texto entre paréntesis de TODAS las keywords (no solo la primera)
+    keywords = [k[:k.index("(")].strip() if "(" in k else k for k in keywords]
+    keywords = [_limpiar_kw(k) for k in keywords if k.strip()]
+    if not keywords:
+        return keywords
 
-    # Limpiar texto entre paréntesis (el modelo a veces repite la descripción)
-    if "(" in genero_raw:
-        genero_raw = genero_raw[:genero_raw.index("(")].strip()
-        keywords[0] = genero_raw
+    def _es_genero(palabra: str) -> bool:
+        p = palabra.strip().lower()
+        if "(" in p:
+            p = p[:p.index("(")].strip()
+        for valido in GENEROS_FOTOGRAFICOS:
+            v = valido.lower()
+            if p == v:
+                return True
+            # Búsqueda aproximada: contener o ser contenido (evita falsos
+            # positivos con palabras cortas como "de" o "es")
+            if len(p) >= 4 and (p in v or v in p):
+                return True
+        return False
 
-    # Búsqueda exacta (case-insensitive)
-    for valido in GENEROS_FOTOGRAFICOS:
-        if genero_raw == valido.lower():
-            keywords[0] = valido
-            return keywords
+    # Si la primera no es género válido, buscar un género dentro de la lista
+    genero_idx = None
+    for i, kw in enumerate(keywords):
+        if _es_genero(kw):
+            genero_idx = i
+            break
 
-    # Búsqueda aproximada: contener o ser contenido
-    for valido in GENEROS_FOTOGRAFICOS:
-        v = valido.lower()
-        if genero_raw in v or v in genero_raw:
-            keywords[0] = valido
-            logger.info("  -> Género mapeado: '%s' → '%s'", genero_raw, valido)
-            return keywords
+    genero_final = "otras"
+    if genero_idx is not None:
+        genero_raw = keywords[genero_idx].strip().lower()
+        # 1er pasada: match EXACTO (evita que "retrato grupal" caiga en "retrato")
+        for valido in GENEROS_FOTOGRAFICOS:
+            if genero_raw == valido.lower():
+                genero_final = valido
+                break
+        else:
+            # 2da pasada: match aproximado
+            for valido in GENEROS_FOTOGRAFICOS:
+                v = valido.lower()
+                if len(genero_raw) >= 4 and (genero_raw in v or v in genero_raw):
+                    genero_final = valido
+                    break
+        # Promover: quitar el género de su posición y ponerlo primero
+        if genero_idx != 0:
+            keywords.pop(genero_idx)
+            keywords.insert(0, genero_final)
+        else:
+            keywords[0] = genero_final
+    else:
+        # No se encontró género → reemplazar la primera por "otras"
+        logger.warning(
+            "  -> Género no encontrado en keywords: %s, reemplazado por 'otras'",
+            keywords[:3]
+        )
+        keywords[0] = "otras"
 
-    # No se encontró match → reemplazar por "otras"
-    logger.warning(
-        "  -> Género '%s' no reconocido, reemplazado por 'otras'",
-        genero_raw
-    )
-    keywords[0] = "otras"
+    # Recortar a 7 keywords (el prompt pide 5-7, qwen tiende a dar 10+)
+    if len(keywords) > 7:
+        keywords = keywords[:7]
+
     return keywords
 
 
