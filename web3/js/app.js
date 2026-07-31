@@ -43,6 +43,24 @@
     var DATOS_CARGADOS = false;
     var DATOS_TOTAL = 0;
     var DATOS_API = null;
+    var TAGS_API = null;
+    var MEDIOS_FILTRADOS = null;
+    var MENSAJES_TELEGRAM = null;
+    var MENSAJES_TELEGRAM_MUNICIPIO = '';
+
+    var SLIDESHOW = {
+        items: [],
+        index: 0,
+        cont: null,
+        ultimoAvance: 0,
+        intervaloMs: 4000  // 4 segundos entre imágenes
+    };
+
+    var VENTANA_CHAT = {
+        tamano: 10,
+        inicio: 0,
+        ultimoInicio: -1
+    };
 
     var FLOW = {
         activo: false,
@@ -67,7 +85,8 @@
         { id: 'videos',      tipo: 'media',    titulo: 'Videos',      w: 520, h: 380 },
         { id: 'textos',      tipo: 'media',    titulo: 'Textos',      w: 420, h: 300 },
         { id: 'sonidos',     tipo: 'media',    titulo: 'Sonidos',     w: 340, h: 240 },
-        { id: 'mapa',        tipo: 'media',    titulo: 'Mapa',        w: 520, h: 380 }
+        { id: 'mapa',        tipo: 'media',    titulo: 'Mapa',        w: 520, h: 380 },
+        { id: 'comunicacion', tipo: 'media',   titulo: 'Comunicaci\u00f3n', w: 480, h: 420 }
     ];
 
     // ═══════════════════════════════════════════════════════
@@ -251,7 +270,7 @@
 
     function colocarBloques() {
         // --- MEDIA TERRITORY (contiguo) ---
-        var mediaIds = ['imagenes', 'videos', 'textos', 'sonidos', 'mapa'];
+        var mediaIds = ['imagenes', 'videos', 'textos', 'sonidos', 'mapa', 'comunicacion'];
         shuffle(mediaIds);
         var colocados = [];
 
@@ -371,14 +390,243 @@
             case 'provincias': renderChipsProvincias(cont); break;
             case 'municipios': renderChipsMunicipios(cont); break;
             case 'tags':      renderTags(cont); break;
+            case 'imagenes':
+            case 'videos':
+            case 'sonidos':
+            case 'textos':
+                renderMediosLista(id, cont);
+                break;
+            case 'comunicacion':
+                renderComunicacion(cont);
+                break;
             default:
                 cont.innerHTML = '';
         }
     }
 
+    function renderMediosLista(id, cont) {
+        var tipoMap = { imagenes:'image', videos:'video', sonidos:'audio', textos:'text' };
+        var tipo = tipoMap[id] || id;
+        var items = (MEDIOS_FILTRADOS && MEDIOS_FILTRADOS.resultados && MEDIOS_FILTRADOS.resultados[tipo])
+                    ? MEDIOS_FILTRADOS.resultados[tipo] : [];
+
+        if (!items.length) {
+            cont.innerHTML = '<div style="opacity:.2;font-size:.6rem;text-align:center;padding:.5rem">—</div>';
+            return;
+        }
+
+        if (tipo === 'image') {
+            // Imágenes: slideshow (una imagen a la vez, cambia src)
+            if (!items.length) {
+                cont.innerHTML = '<div style="opacity:.2;font-size:.6rem;text-align:center;padding:.5rem">—</div>';
+                return;
+            }
+
+            SLIDESHOW.items = items;
+            SLIDESHOW.index = 0;
+            SLIDESHOW.cont = cont;
+
+            var primeraUrl = 'api/servir_medio.php?id=' + items[0].id;
+            var desc0 = items[0].descripcion || '';
+            if (desc0.length > 120) desc0 = desc0.slice(0, 117) + '...';
+            var html = '<div class="slideshow-wrap" style="display:flex;flex-direction:column;width:100%;flex:1;min-height:0;position:relative;overflow:hidden">'
+                     + '<div class="slide-img-area" style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.1)">'
+                     + '<img id="slide-actual" src="' + primeraUrl + '"'
+                     + ' style="width:100%;height:100%;object-fit:cover;transition:opacity .6s ease">'
+                     + '</div>'
+                     + '<div id="slide-desc" style="padding:.2rem .4rem;font-size:.5rem;opacity:.65;line-height:1.3;text-align:center;border-top:1px solid rgba(var(--tr),var(--tg),var(--tb),.06);flex-shrink:0">' + desc0 + '</div>'
+                     + '<div class="slide-counter" style="position:absolute;top:.3rem;right:.4rem;font-size:.45rem;opacity:.5;background:rgba(0,0,0,.4);padding:.05rem .3rem;border-radius:2px;pointer-events:none">1/' + items.length + '</div>'
+                     + '</div>';
+            cont.innerHTML = html;
+        } else if (tipo === 'audio') {
+            // Sonidos: reproductor de audio (máximo 5)
+            var html = '<div style="display:flex;flex-direction:column;gap:.2rem;width:100%">';
+            items.slice(0, 5).forEach(function(item) {
+                var desc = item.descripcion || '';
+                if (desc.length > 50) desc = desc.slice(0, 47) + '...';
+                html += '<div style="display:flex;flex-direction:column;gap:.05rem;padding:.1rem 0">'
+                      + (desc ? '<span style="font-size:.5rem;opacity:.5;line-height:1.2">' + desc + '</span>' : '')
+                       + '<audio controls style="width:100%;height:24px" preload="metadata">'
+                      + '<source src="api/servir_medio.php?id=' + item.id + '">'
+                      + '</audio>'
+                      + '</div>';
+            });
+            html += '</div>';
+            cont.innerHTML = html;
+        } else {
+            // Otros (texto, video): lista simple
+            var html = '<div style="display:flex;flex-direction:column;gap:.15rem;width:100%">';
+            items.forEach(function(item) {
+                var desc = item.descripcion || item.archivo || '';
+                if (desc.length > 80) desc = desc.slice(0, 77) + '...';
+                html += '<div style="font-size:.5rem;opacity:.5;padding:.1rem 0;line-height:1.3">' + desc + '</div>';
+            });
+            html += '</div>';
+            cont.innerHTML = html;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  TELEGRAM — bloque Comunicación
+    // ═══════════════════════════════════════════════════════
+
+    function renderComunicacion(cont, inicio, cantidad) {
+        if (!MENSAJES_TELEGRAM || !MENSAJES_TELEGRAM.mensajes || !MENSAJES_TELEGRAM.mensajes.length) {
+            cont.innerHTML = '';
+            return;
+        }
+        var todos = MENSAJES_TELEGRAM.mensajes;
+        if (inicio === undefined) inicio = 0;
+        if (cantidad === undefined) cantidad = todos.length;
+        var ventana = todos.slice(inicio, inicio + cantidad);
+        var html = '<div class="tg-scroll" style="display:flex;flex-direction:column;gap:.1rem;width:100%;flex:1;min-height:0;overflow-y:auto;padding:.2rem .3rem">';
+        ventana.forEach(function(m) {
+            var fecha = m.date_utc || '';
+            var hora = fecha.length > 16 ? fecha.slice(11, 16) : '';
+            var fechaCorta = fecha.length > 10 ? fecha.slice(5, 10) : '';
+            var nombre = m.from_name || 'Desconocido';
+            var texto = m.text || '';
+            if (texto.length > 150) texto = texto.slice(0, 147) + '...';
+            var conFoto = m.fotos && m.fotos.length > 0;
+            if (!conFoto && parseInt(m.has_media) === 1) {
+                if (m.message_type === 'photo') conFoto = true;
+            }
+            var icono = '';
+            if (!conFoto && parseInt(m.has_media) === 1) {
+                if (m.message_type === 'photo') icono = '\uD83D\uDCF7 ';
+                else if (m.message_type === 'video') icono = '\uD83C\uDFAC ';
+                else if (m.message_type === 'voice') icono = '\uD83C\uDFA4 ';
+                else icono = '\uD83D\uDCCE ';
+            }
+            html += '<div class="tg-msg" style="font-size:.5rem;line-height:1.3;border-bottom:1px solid rgba(var(--tr),var(--tg),var(--tb),.08);padding:.1rem 0">'
+                  + '<span style="opacity:.5;font-size:.45rem">' + fechaCorta + ' ' + hora + '</span> '
+                  + '<strong style="opacity:.85">' + nombre + '</strong> '
+                  + '<span style="opacity:.65">' + (icono || (conFoto ? '\uD83D\uDCF7 ' : '')) + texto + '</span>';
+            if (conFoto) {
+                var fotosIds = m.fotos && m.fotos.length ? m.fotos : (m.media_ids ? m.media_ids : []);
+                if (fotosIds.length) {
+                    html += '<div style="display:flex;gap:.15rem;margin-top:.1rem;flex-wrap:wrap">';
+                    fotosIds.forEach(function(fid) {
+                        html += '<img src="api/servir_medio.php?id=' + fid + '&thumb=1"'
+                              + ' style="width:auto;height:1.4rem;max-width:2.5rem;object-fit:cover;border-radius:2px;border:1px solid rgba(var(--tr),var(--tg),var(--tb),.12);cursor:pointer"'
+                              + ' onclick="window.open(\'api/servir_medio.php?id=' + fid + '\',\'_blank\')"'
+                              + ' loading="lazy">';
+                    });
+                    html += '</div>';
+                }
+            }
+            html += '</div>';
+        });
+        html += '</div>';
+        cont.innerHTML = html;
+    }
+
+    function cargarMensajesTelegram(municipio) {
+        if (!municipio) {
+            MENSAJES_TELEGRAM = null;
+            renderComunicacionBlock();
+            return;
+        }
+        MENSAJES_TELEGRAM_MUNICIPIO = municipio;
+        return fetch('api/mensajes_telegram.php?municipio=' + encodeURIComponent(municipio) + '&limite=200')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                MENSAJES_TELEGRAM = data;
+                renderComunicacionBlock();
+            })
+            .catch(function(e) {
+                console.warn('Error cargando mensajes Telegram', e);
+                MENSAJES_TELEGRAM = null;
+                renderComunicacionBlock();
+            });
+    }
+
+    function renderComunicacionBlock() {
+        var bloque = document.getElementById('bloque-comunicacion');
+        if (!bloque) return;
+        var cont = bloque.querySelector('.bloque-contenido');
+        if (!cont) return;
+        renderComunicacion(cont, VENTANA_CHAT.inicio, VENTANA_CHAT.tamano);
+    }
+
+    function actualizarVentanaChat(elapsed) {
+        if (!FLOW.activo) return;
+        if (!MENSAJES_TELEGRAM || !MENSAJES_TELEGRAM.mensajes || !MENSAJES_TELEGRAM.mensajes.length) return;
+
+        var total = MENSAJES_TELEGRAM.mensajes.length;
+        var progreso = Math.min(1, elapsed / FLOW.duracionMs);
+        var maxInicio = Math.max(0, total - VENTANA_CHAT.tamano);
+        var nuevoInicio = Math.round(progreso * maxInicio);
+
+        if (nuevoInicio === VENTANA_CHAT.ultimoInicio) return; // sin cambios
+
+        VENTANA_CHAT.inicio = nuevoInicio;
+        VENTANA_CHAT.ultimoInicio = nuevoInicio;
+        renderComunicacionBlock();
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  SLIDESHOW — avance automático de imágenes
+    // ═══════════════════════════════════════════════════════
+
+    function avanzarSlideshow() {
+        if (!SLIDESHOW.items || !SLIDESHOW.items.length || !SLIDESHOW.cont) return;
+        var img = document.getElementById('slide-actual');
+        if (!img) return;
+
+        // Calcular el próximo índice
+        var prox = (SLIDESHOW.index + 1) % SLIDESHOW.items.length;
+
+        // Fade out
+        img.style.opacity = '0';
+
+        setTimeout(function() {
+            SLIDESHOW.index = prox;
+            var item = SLIDESHOW.items[prox];
+            img.src = 'api/servir_medio.php?id=' + item.id;
+            img.style.opacity = '1';
+
+            // Actualizar descripción
+            var descEl = document.getElementById('slide-desc');
+            if (descEl) {
+                var txt = item.descripcion || '';
+                if (txt.length > 120) txt = txt.slice(0, 117) + '...';
+                descEl.textContent = txt;
+            }
+        }, 300);
+
+        // Actualizar contador
+        var counter = SLIDESHOW.cont.querySelector('.slide-counter');
+        if (counter) {
+            counter.textContent = (prox + 1) + '/' + SLIDESHOW.items.length;
+        }
+    }
+
+    function reiniciarSlideshow() {
+        if (!SLIDESHOW.cont || !SLIDESHOW.items.length) return;
+        SLIDESHOW.index = 0;
+        SLIDESHOW.ultimoAvance = 0;
+        SLIDESHOW.items = SLIDESHOW.items; // mantener referencia
+        var img = document.getElementById('slide-actual');
+        if (img) {
+            var item0 = SLIDESHOW.items[0];
+            img.src = 'api/servir_medio.php?id=' + item0.id;
+            img.style.opacity = '1';
+            // Resetear descripción
+            var descEl = document.getElementById('slide-desc');
+            if (descEl) {
+                var txt = item0.descripcion || '';
+                if (txt.length > 120) txt = txt.slice(0, 117) + '...';
+                descEl.textContent = txt;
+            }
+        }
+        var counter = SLIDESHOW.cont.querySelector('.slide-counter');
+        if (counter) counter.textContent = '1/' + SLIDESHOW.items.length;
+    }
+
     // ═══════════════════════════════════════════════════════
     //  CHIPS: COLORES
-    // ═══════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════
 
     function renderChipsColores(cont) {
         var html = '<div style="display:flex;flex-wrap:wrap;gap:.3rem;align-items:center;width:100%">';
@@ -560,25 +808,31 @@
         else info.textContent = municipiosSeleccionados.length + ' municipios';
     }
 
-    // ═══════════════════════════════════════════════════════
-    //  TAGS (placeholder)
-    // ═══════════════════════════════════════════════════════
+    function rerenderBloque(id) {
+        var bloque = document.getElementById('bloque-' + id);
+        if (!bloque) return;
+        var cont = bloque.querySelector('.bloque-contenido');
+        if (cont) renderContenidoBloque(id, cont);
+    }
 
-    var TAGS_PLACEHOLDER = [
-        'ruta', 'bicicleta', 'atardecer', 'asfalto',
-        'arboles', 'nubes', 'sol', 'paisaje',
-        'pedaleo', 'polvo', 'camino', 'horizonte',
-        'descanso', 'almuerzo', 'sombra', 'calor',
-        'viento', 'llanura', 'sierras', 'rio'
-    ];
+    // ═══════════════════════════════════════════════════════
+    //  TAGS
+    // ═══════════════════════════════════════════════════════
 
     function renderTags(cont) {
-        var html = '<div class="tag-cloud">';
-        var shuffled = shuffle(TAGS_PLACEHOLDER.slice());
-        shuffled.forEach(function(tag, i) {
-            var size = 0.55 + Math.random() * 0.4;
-            html += '<span class="tag-item" style="font-size:' + size.toFixed(2) + 'rem">'
-                  + tag
+        var tags = TAGS_API || [];
+        if (!tags.length) {
+            cont.innerHTML = '<div style="font-size:.5rem;opacity:.4;padding:.3rem">Sin datos</div>';
+            return;
+        }
+        var html = '<div class="tag-cloud" style="display:flex;flex-wrap:wrap;gap:.2rem .25rem;align-content:flex-start;padding:.2rem">';
+        tags.forEach(function(t, i) {
+            // Tamaño: peso entre 0.45rem y 0.85rem
+            var peso = t.peso || 0.5;
+            var size = 0.45 + peso * 0.4;
+            var opacidad = 0.5 + peso * 0.5;
+            html += '<span class="tag-item" style="font-size:' + size.toFixed(2) + 'rem;opacity:' + opacidad.toFixed(2) + ';cursor:default">'
+                  + t.tag
                   + '</span>';
         });
         html += '</div>';
@@ -588,6 +842,47 @@
     // ═══════════════════════════════════════════════════════
     //  FLOW — iniciar, actualizar, detener
     // ═══════════════════════════════════════════════════════
+
+    function obtenerFiltrosActivos() {
+        var params = {};
+        if (municipiosSeleccionados.length === 1) params.municipio = municipiosSeleccionados[0];
+        if (coloresSeleccionados.length === 1) params.color = coloresSeleccionados[0];
+        if (provinciasSeleccionadas.length === 1) params.provincia = provinciasSeleccionadas[0];
+        return params;
+    }
+
+    function cargarMediosFiltrados() {
+        var params = obtenerFiltrosActivos();
+        var qs = Object.keys(params).map(function(k) {
+            return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+        }).join('&');
+        if (qs) qs += '&';
+        qs += 'limite=20&tipo=image,audio';  // 20 imágenes para slideshow, 20 audios
+
+        return fetch('api/medios_filtrados.php?' + qs)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                MEDIOS_FILTRADOS = data;
+                // Re-renderear los bloques de medios
+                renderMediaBlocks();
+            })
+            .catch(function(e) {
+                console.warn('Error cargando medios filtrados', e);
+                MEDIOS_FILTRADOS = null;
+                renderMediaBlocks();
+            });
+    }
+
+    function renderMediaBlocks() {
+        // Re-renderear todos los bloques de medios
+        ['imagenes', 'sonidos', 'textos', 'comunicacion'].forEach(function(id) {
+            var bloque = document.getElementById('bloque-' + id);
+            if (!bloque) return;
+            var cont = bloque.querySelector('.bloque-contenido');
+            if (!cont) return;
+            renderContenidoBloque(id, cont);
+        });
+    }
 
     function iniciarFlow() {
         // Congelar las horas seleccionadas como el ciclo
@@ -599,8 +894,21 @@
         FLOW.inicio = Date.now();
         FLOW.activo = true;
         FLOW.ultimoSegundo = -1;
+        FLOW.ultimoScroll = -1;
+        // Resetear slideshow para que arranque desde el frame 0
+        SLIDESHOW.ultimoAvance = 0;
+        reiniciarSlideshow();
         document.getElementById('btn-fluir').classList.add('activo');
         actualizarBotonFluir();
+        // Cargar medios filtrados (no bloquear el flow)
+        cargarMediosFiltrados();
+        // Cargar mensajes Telegram si hay un municipio seleccionado
+        if (municipiosSeleccionados.length === 1) {
+            cargarMensajesTelegram(municipiosSeleccionados[0]);
+        } else {
+            MENSAJES_TELEGRAM = null;
+            renderComunicacionBlock();
+        }
     }
 
     function detenerFlow() {
@@ -634,6 +942,15 @@
         if (interpHour >= 24) interpHour -= 24;
 
         paletaTarget = interpolar(interpHour);
+
+        // Scroll de Telegram durante el flow
+        actualizarVentanaChat(elapsed);
+
+        // Avance del slideshow de imágenes cada ~4s
+        if (elapsed - SLIDESHOW.ultimoAvance > SLIDESHOW.intervaloMs) {
+            avanzarSlideshow();
+            SLIDESHOW.ultimoAvance = elapsed;
+        }
     }
 
     function actualizarBotonFluir() {
@@ -876,8 +1193,35 @@
                 if (provArr.length) {
                     PROVINCIAS = provArr.map(function(n) { return { nombre: n }; });
                 }
+                // Extraer municipios reales
+                var munMap = {};
+                datos.puntos.forEach(function(p) {
+                    if (p.municipio) munMap[p.municipio] = true;
+                });
+                var munArr = Object.keys(munMap).sort();
+                if (munArr.length) MUNICIPIOS = munArr;
+
                 console.log('COLORES:', COLORES.map(function(c){return c.nombre;}).join(', '));
                 console.log('PROVINCIAS:', PROVINCIAS.map(function(p){return p.nombre;}).join(', '));
+                console.log('MUNICIPIOS:', MUNICIPIOS.join(', '));
+                // Re-renderear bloques de selección con datos reales
+                rerenderBloque('colores');
+                rerenderBloque('provincias');
+                rerenderBloque('municipios');
+            })
+            .then(function() {
+                // Cargar tags reales desde la API
+                return fetch('api/tags.php?limite=40')
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (data && data.tags && data.tags.length) {
+                            TAGS_API = data.tags;
+                            rerenderBloque('tags');
+                        }
+                    })
+                    .catch(function(e) {
+                        console.warn('Error cargando tags', e);
+                    });
             })
             .catch(function(e) {
                 console.warn('API no disponible, usando datos hardcodeados', e);

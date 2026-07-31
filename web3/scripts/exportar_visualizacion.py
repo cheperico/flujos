@@ -37,7 +37,7 @@ def main():
     # Obtener registros
     cur = src.execute("""
         SELECT id, filename_original, carpeta, type, subtype,
-               filepath_relativo, size_bytes, timestamp_utc, duration_secs,
+               filepath_absoluto, filepath_relativo, size_bytes, timestamp_utc, duration_secs,
                latitude, longitude, localidad, municipio, provincia,
                author,
                color_1_hex, color_1_name_basic,
@@ -63,6 +63,7 @@ def main():
             carpeta TEXT,
             tipo TEXT,
             subtipo TEXT,
+            ruta_absoluta TEXT,
             ruta_relativa TEXT NOT NULL,
             tamano_bytes INTEGER,
             fecha TEXT,
@@ -111,7 +112,7 @@ def main():
     insert_sql = """
         INSERT INTO medios (
             id, archivo, carpeta, tipo, subtipo,
-            ruta_relativa, tamano_bytes,
+            ruta_absoluta, ruta_relativa, tamano_bytes,
             fecha, hora, mes, anio, duracion_seg,
             latitud, longitud, localidad, municipio, provincia,
             autor,
@@ -119,7 +120,7 @@ def main():
             color_2, color_2_hex,
             color_3, color_3_hex,
             dia_semana, clima, descripcion
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
 
     count = 0
@@ -147,6 +148,7 @@ def main():
             r['carpeta'],
             r['type'],
             r['subtype'],
+            r['filepath_absoluto'],
             r['filepath_relativo'],
             r['size_bytes'],
             fecha, hora, mes, anio,
@@ -180,7 +182,7 @@ def main():
         print(f"    {r[0]}: {r[1]}")
     cur = dst.execute("SELECT MIN(fecha), MAX(fecha) FROM medios")
     dr = cur.fetchone()
-    print(f"  Rango fechas: {dr[0]} → {dr[1]}")
+    print(f"  Rango fechas: {dr[0]} -> {dr[1]}")
     cur = dst.execute("SELECT COUNT(*) FROM medios WHERE provincia IS NOT NULL")
     print(f"  Con provincia: {cur.fetchone()[0]}")
     cur = dst.execute("SELECT COUNT(*) FROM medios WHERE latitud IS NOT NULL")

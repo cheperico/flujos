@@ -11,7 +11,7 @@ $sql = "SELECT id, archivo, carpeta, tipo, ruta_relativa,
                color_1, color_1_hex,
                color_2, color_2_hex,
                color_3, color_3_hex,
-               provincia, descripcion
+               provincia, municipio, descripcion
         FROM medios
         ORDER BY fecha, hora, id";
 

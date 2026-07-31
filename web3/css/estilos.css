@@ -36,7 +36,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Inter', 
   position: absolute;
   top: 0; left: 0;
   transform-origin: 0 0;
-  pointer-events: auto;
+  pointer-events: none;
   border-radius: 0;
   background: transparent;
   border: 1.5px solid rgba(var(--tr), var(--tg), var(--tb), .3);
@@ -44,6 +44,19 @@ html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Inter', 
   display: flex;
   flex-direction: column;
 }
+.bloque > * { pointer-events: none; }
+.bloque .chip,
+.bloque .chip-hora,
+.bloque .tag-item,
+.bloque button,
+.bloque audio,
+.bloque video,
+.bloque a,
+.bloque select,
+.bloque input,
+.bloque textarea,
+.bloque .tg-scroll,
+.bloque .tg-msg { pointer-events: auto; }
 .bloque-titulo {
   font-size: .7rem;
   font-weight: 500;
@@ -60,6 +73,9 @@ html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Inter', 
   display: flex;
   flex-direction: column;
   gap: .15rem;
+  min-height: 0;
+  overflow-y: auto;
+  color: rgb(var(--tr), var(--tg), var(--tb));
 }
 /* bloque de medios */
 .bloque-media {
@@ -78,18 +94,18 @@ html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Inter', 
 .chip {
   display: flex;
   align-items: center;
-  gap: .35rem;
-  padding: .2rem .5rem;
+  gap: .3rem;
+  padding: .15rem .4rem;
   border: none;
   background: transparent;
   cursor: pointer;
   font-family: 'Inter', system-ui, sans-serif;
-  font-size: .7rem;
+  font-size: .6rem;
   font-weight: 350;
   letter-spacing: .04em;
   color: rgba(var(--tr), var(--tg), var(--tb), .55);
   transition: color .2s ease, padding .2s ease;
-  line-height: 1.3;
+  line-height: 1.2;
   text-align: left;
   white-space: nowrap;
 }
