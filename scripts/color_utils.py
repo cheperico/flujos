@@ -7,6 +7,38 @@ Dependencias: Pillow, webcolors
 import webcolors
 
 # -----------------------------------------------------------------------
+# Mapa CSS3 {hex: nombre}: compatible con webcolors >= 24 (API nueva)
+# y con versiones anteriores (que exponían CSS3_HEX_TO_NAMES directo).
+# En webcolors 25.x la constante dict fue removida; ahora se usa
+# webcolors.names(spec=webcolors.CSS3) + name_to_hex().
+# -----------------------------------------------------------------------
+
+def _construir_mapa_css3() -> dict[str, str]:
+    """Devuelve {hex_normalizado: nombre} para los 147 colores CSS3."""
+    try:
+        # API nueva (>= 24): construir el dict desde names + name_to_hex
+        if hasattr(webcolors, "names") and hasattr(webcolors, "name_to_hex"):
+            return {
+                webcolors.name_to_hex(nombre, spec=webcolors.CSS3): nombre
+                for nombre in webcolors.names(spec=webcolors.CSS3)
+            }
+    except Exception:
+        pass
+    # API vieja: dict directo
+    if hasattr(webcolors, "CSS3_HEX_TO_NAMES"):
+        return dict(webcolors.CSS3_HEX_TO_NAMES)
+    # Último recurso: paleta mínima hardcodeada (no debería ocurrir)
+    return {
+        "#000000": "black", "#ffffff": "white", "#ff0000": "red",
+        "#00ff00": "green", "#0000ff": "blue", "#ffff00": "yellow",
+        "#ffa500": "orange", "#800080": "purple", "#a52a2a": "brown",
+        "#808080": "gray",
+    }
+
+
+CSS3_HEX_TO_NAMES = _construir_mapa_css3()
+
+# -----------------------------------------------------------------------
 # Mapping: nombre CSS inglés → español
 # -----------------------------------------------------------------------
 
@@ -285,7 +317,7 @@ def closest_css_color(hex_color: str) -> str:
     min_dist = float("inf")
     closest = None
 
-    for css_hex, css_name in webcolors.CSS3_HEX_TO_NAMES.items():
+    for css_hex, css_name in CSS3_HEX_TO_NAMES.items():
         cr, cg, cb = hex_to_rgb(css_hex)
         dist = _redmean(r, g, b, cr, cg, cb)
         if dist < min_dist:
@@ -301,7 +333,7 @@ def closest_css_color(hex_color: str) -> str:
     if cat_closest in _CATEGORIAS_NO_COLOR:
         mejor_color = None
         mejor_dist = float("inf")
-        for css_hex, css_name in webcolors.CSS3_HEX_TO_NAMES.items():
+        for css_hex, css_name in CSS3_HEX_TO_NAMES.items():
             cat = _CSS_TO_BASIC.get(css_name, "gris")
             if cat in _CATEGORIAS_NO_COLOR:
                 continue

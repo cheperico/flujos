@@ -357,7 +357,7 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 | **TIMESTAMPS** | `improve_db.py --step timestamps` | Timestamps inferidos desde EXIF/ExifTool | `media` | timestamp_original, timestamp_utc, timezone_note, updated_at |
 | **GPS** | `improve_db.py --step gps` | GPS inferido desde EXIF/ExifTool | `media` | latitude, longitude, altitude, geolocation_source, updated_at |
 | **VIDEO_METADATA** | `improve_db.py --step video_metadata` | ExifTool en videos (cámara, 360°, author) | `media` + `media_metadata` | subtype, author, xml_devicemanufacturer, xml_devicemodelname, xmp_spherical |
-| **GEOCODE** | `geocode.py` | Provincia, municipio, localidad (Georef API Argentina) | `media` | provincia, departamento, municipio, localidad, geocode_source, geocode_date |
+| **GEOCODE** | `geocode.py` | Provincia, departamento, municipio (Georef API Argentina; ⚠️ localidad siempre NULL, la API no la devuelve) | `media` | provincia, departamento, municipio, localidad (NULL), geocode_source, geocode_date |
 | **WEATHER** | `fetch_weather.py` | Clima histórico (Open-Meteo ERA5-Land) | `media_metadata` | keys: weather_temp_c, weather_humidity_pct, weather_precip_mm, weather_cloud_pct, weather_code, weather_label, weather_wind_speed_kmh, weather_wind_dir_deg, weather_wind_dir_text, weather_pressure_hpa, weather_hour_utc, weather_source |
 | **DÍA SEMANA** | `dia_semana.py` | Día de la semana en español | `media_metadata` | key=`dia_semana`, value=lunes\|martes\|...\|domingo |
 | **GRADIENTES** | `gradiente.py` | Distancia Haversine, cambio elevación, pendiente % y acumulados | `media` | distance_from_prev_m, elevation_gain_m, gradient_pct, cumul_distance_m, cumul_elevation_gain_m |
@@ -401,34 +401,30 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
   └─ 4. Importar chat de Telegram → opcion_importar_telegram() (export result.json)
 
 3. Mejorar base de datos
-  ├─ Hoja 1: IA y color (1/2)
+  ├─ Hoja 1: IA y color
   │  ├─ 1. Todos los pasos              → improve_db con verificación Ollama (pregunta modo)
   │  ├─ 2. Elegir pasos manualmente     → pregunta pasos + modo
   │  ├─ 3. Colores dominantes           → improve_db --steps colors
   │  ├─ 4. Keywords con IA              → improve_db --steps keywords (verif. Ollama)
   │  ├─ 5. Descripción con IA           → improve_db --steps descriptions (verif. Ollama)
   │  ├─ 6. Keywords + Descripción       → improve_db --steps keywords,descriptions
-  │  ├─ 9. Siguiente >> → Hoja 2
+  │  ├─ 7. Refinar keywords             → scripts/ai_media/refinar_keywords.py (normaliza + sinónimos)
+  │  ├─ 8. Transcripción                → improve_db --steps transcribe (verif. Ollama)
+  │  ├─ 9. Keypoints                    → improve_db --steps keypoints
+  │  ├─ n. Siguiente >> → Hoja 2
   │  └─ 0. Volver
-  ├─ Hoja 2: IA y color (2/2) + inferencia básica
-  │  ├─ 1. Refinar keywords             → scripts/ai_media/refinar_keywords.py (normaliza + sinónimos)
-  │  ├─ 2. Transcripción                → improve_db --steps transcribe (verif. Ollama)
-  │  ├─ 3. Keypoints                    → improve_db --steps keypoints
-  │  ├─ 4. Inferir timestamps           → improve_db --steps timestamps
-  │  ├─ 5. Inferir GPS                  → improve_db --steps gps
-  │  ├─ 8. << Anterior → Hoja 1
-  │  ├─ 9. Siguiente >> → Hoja 3
-  │  └─ 0. Volver
-  └─ Hoja 3: Ubicación y tiempo + búsqueda semántica
-     ├─ 1. Localización (geocode)       → scripts/geocode.py (con modo)
-     ├─ 2. Condiciones climáticas       → scripts/fetch_weather.py (con modo)
-     ├─ 3. Día de la semana             → scripts/dia_semana.py (con modo)
-     ├─ 4. Posición del sol (astronomía) → scripts/astronomia.py (con modo)
-     ├─ 5. Embeddings
+  └─ Hoja 2: Inferencia y enriquecimiento (agrupado por temática)
+     ├─ 1. Inferir timestamps           → improve_db --steps timestamps
+     ├─ 2. Inferir GPS                  → improve_db --steps gps
+     ├─ 3. Localización (geocode)       → scripts/geocode.py (con modo)
+     ├─ 4. Condiciones climáticas       → scripts/fetch_weather.py (con modo)
+     ├─ 5. Día de la semana             → scripts/dia_semana.py (con modo)
+     ├─ 6. Posición del sol (astronomía) → scripts/astronomia.py (con modo)
+     ├─ 7. Embeddings
      │   ├─ 1. Generar embeddings (solo pendientes)
      │   ├─ 2. Previsualizar (dry-run)
      │   └─ 0. Volver
-     ├─ 8. << Anterior → Hoja 2
+     ├─ p. << Anterior → Hoja 1
      └─ 0. Volver
 
 4. Consultar base de datos
@@ -469,15 +465,15 @@ El menú TUI organiza las opciones por **temática**, no por complejidad o crono
 | Grupo temático | Menú | Opciones |
 |---|---|---|
 | **Ingesta** (traer datos al proyecto) | 2. Ingesta | Ingesta de medios, GPX, Telegram, deshacer |
-| **IA y Color** (contenido semántico) | 3. Mejorar DB — Hojas 1-2 | Colores, keywords, descripciones, refinar keywords, transcripción, keypoints |
-| **Inferencia básica** (timestamps/GPS) | 3. Mejorar DB — Hoja 2 (4-5) | Inferir timestamps, inferir GPS |
-| **Ubicación y tiempo** (contexto geo-temporal) | 3. Mejorar DB — Hoja 3 (1-4) | Localización, clima, día de la semana, astronomía |
-| **Búsqueda semántica** | 3. Mejorar DB — Hoja 3 (5) | Embeddings |
+| **IA y Color** (contenido semántico) | 3. Mejorar DB — Hoja 1 | Colores, keywords, descripciones, refinar keywords, transcripción, keypoints |
+| **Inferencia básica** (timestamps/GPS) | 3. Mejorar DB — Hoja 2 (1-2) | Inferir timestamps, inferir GPS |
+| **Ubicación y tiempo** (contexto geo-temporal) | 3. Mejorar DB — Hoja 2 (3-6) | Localización, clima, día de la semana, astronomía |
+| **Búsqueda semántica** | 3. Mejorar DB — Hoja 2 (7) | Embeddings |
 | **Mantenimiento** (operaciones técnicas) | 5. Mantenimiento DB | Relocalizar, gradientes, astronomía, backfill, backup, restore, reset, export |
 
 > **Regla de agrupación**: siempre que se agregue una opción nueva al TUI, debe insertarse cerca de opciones temáticamente relacionadas, no al final de la lista.
 
-> **Regla de paginación**: cada hoja soporta hasta 7 opciones (1-7). La navegación es estándar en todos los menús paginados: **8 = << Anterior**, **9 = Siguiente >>**, **0 = Volver** al menú superior. Si una hoja se llena, las opciones nuevas se reparten en una hoja siguiente (no se cambia la numeración de navegación).
+> **Regla de paginación**: cada hoja soporta hasta **9 opciones** (1-9). Solo cuando se superan las 9 opciones se crea una hoja nueva (la hoja 2 puede tener menos de 9 si no hay más opciones). La navegación es: **n = Siguiente >>**, **p = << Anterior**, **0 = Volver** al menú superior. Las opciones nuevas se insertan cerca de las temáticamente relacionadas; si la hoja correspondiente está llena, se reparten en la hoja siguiente.
 
 #### CLI — Comandos disponibles
 
@@ -559,10 +555,11 @@ El menú TUI organiza las opciones por **temática**, no por complejidad o crono
 - **DB que modifica**: `media.filepath_absoluto`, `media.filepath_relativo`, `media.carpeta`
 
 #### `geocode.py`
-- **Propósito**: Geocodificación inversa (GPS → provincia/municipio/localidad) vía API Georef Argentina (batch).
+- **Propósito**: Geocodificación inversa (GPS → provincia/departamento/municipio) vía API Georef Argentina (batch).
 - **Args CLI**: `--coords` (modo directo), `--db`, `--limit`, `--dry-run`, `--mode` (skip|update|replace)
 - **DB que modifica**: `media.provincia`, `.departamento`, `.municipio`, `.localidad`, `.geocode_source`, `.geocode_date`
 - **API**: `https://apis.datos.gob.ar/georef/api/ubicacion?lat=X&lon=Y`
+- **⚠️ La API NO devuelve `localidad`**: verificada la documentación y probada empíricamente (Jul 2026), el endpoint `/ubicacion` solo devuelve `provincia`, `departamento` y `municipio`. Ni `campos=localidad` (400), ni `campos=completo`, ni Georef v2.1 (`/api/v2.1/ubicacion`, que renombra `municipio` → `gobierno_local`) incluyen localidad. Por eso la columna `media.localidad` queda NULL. Jerarquía real argentina: **provincia → departamento → localidad**, con el municipio como gobierno local del tercer nivel (en pueblos, municipio ≈ localidad). Ver `docs/geocodificacion_reversa.md` para alternativas de localidad (dataset INDEC offline).
 - **Notas**: 
   - Modo replace: limpia columnas de geocode antes de reprocesar.
   - Agrupa coordenadas iguales para evitar llamadas duplicadas a la API.
@@ -638,7 +635,7 @@ El menú TUI organiza las opciones por **temática**, no por complejidad o crono
   3. **Semántica (opcional, `--usar-embeddings`)**: agrupa sinónimos con `paraphrase-multilingual:latest` (coseno ≥ `--umbral`, default 0.87). El modelo se eligió tras evaluar varios: `bicicleta~bici` 0.993, `auto~automóvil` 0.985, `bici~perro` 0.146. El umbral se subió de 0.82 a 0.87 porque palabras truncadas generaban falsos positivos (`monta~obra` 0.844, `monta~cerro` 0.869); los sinónimos reales están ≥ 0.88.
 - **Reglas del género**: el primer keyword debe ser un género fotográfico. `_tiene_mezcla_generos()` detecta basura como `retrato grupal paisaje`. `refinar_lista_keywords()` busca el género en cualquier posición, promueve el género a la primera posición y lo elimina del resto. Si no hay género → `otras`. La capa semántica NUNCA re-mapea el género (posición 0 protegida) y excluye los géneros del clustering para evitar `naturaleza`→`paisaje`.
 - **Modos**: skip (solo registros con keywords), update/replace (reprocesa todos).
-- **Integración**: TUI (Mejorar DB → Parte 1 → 9. Refinar keywords), CLI (`python scripts/ai_media/refinar_keywords.py`)
+- **Integración**: TUI (Mejorar DB → Hoja 1 → 7. Refinar keywords), CLI (`python scripts/ai_media/refinar_keywords.py`)
 
 #### `exportar_csv.py`
 - **Propósito**: Exporta todas las tablas de la DB a CSVs dentro de `db/exports/<timestamp>/`.
@@ -882,8 +879,10 @@ elif mode == "skip":
 
 - **GPS Sign Bug (Jul 2026)**: durante semanas los GPS se guardaron con signo positivo (lat=+31 en vez de -31). La DB actual puede tener coordenadas incorrectas. Fixeado en `ingest.py` con `_es_sur_oeste()`. (Nota: verificado que los 226 registros con GPS tienen signo negativo correcto.)
 - **Color anti-gray bias**: implementado después de que usuarios reportaran que verdes desaturados y marrones oscuros caían en "gris". La distancia Redmean + umbral 1.5x resolvió el caso.
+- **webcolors 25.x rompió color_utils (Ago 2026)**: la versión 25.10.0 removió la constante `CSS3_HEX_TO_NAMES` (dict). `extract_dominant_colors` seguía funcionando, pero `get_color_names` fallaba con `AttributeError`. El pipeline lo tragaba silenciosamente: `run_colors` contaba los fallos en `stats["colors_err"]` pero el resumen final solo sumaba `stats["errors"]`, mostrando "Errores: 0" pese a 626 imágenes fallidas (además los errores individuales estaban en `log.debug`). Fix en `color_utils.py`: mapa cacheado `CSS3_HEX_TO_NAMES` construido con la API nueva (`webcolors.names(spec=CSS3)` + `name_to_hex`) con fallback a la API vieja. Fix en `improve_db.py`: el resumen final ahora suma los `*_err` individuales de cada paso, y los errores por archivo pasaron de `log.debug` a `log.warning`. Se re-procesaron las 626 imágenes pendientes (852/852 con colores, 100%).
 - **Open-Meteo**: se eligió sobre otras APIs climáticas por ser gratuito, sin API key, y cubrir datos históricos desde 1940 (ERA5-Land).
 - **Georef**: API del gobierno argentino, gratuita, sin key. Soporta batch de hasta 5000 coordenadas.
+- **Georef no devuelve localidad (Jul 2026)**: el endpoint `/api/ubicacion` (georreferencia inversa) solo devuelve `provincia`, `departamento` y `municipio`. Se verificó empíricamente que `campos=localidad` da HTTP 400, `campos=completo` solo agrega `fuente`, y Georef v2.1 (`/api/v2.1/ubicacion`) renombra `municipio` → `gobierno_local` sin agregar localidad. La columna `media.localidad` queda NULL. La jerarquía territorial argentina es provincia → departamento → localidad (municipio = gobierno local de tercer nivel, en pueblos ≈ localidad). Documentado en `docs/geocodificacion_reversa.md` y en el agente `.opencode/agents/gis.md`.
 - **gradiente.py**: implementado en Python puro (Haversine, sin numpy/gdal) para mantener cero dependencias pesadas. Fix: `min(a, 1.0)` en `asin` para evitar NaN por error de punto flotante.
 - **astronomia.py (Jul 2026)**: implementado algoritmo NOAA Solar Calculator en Python puro (math, datetime). Calcula elevación, azimut y distancia del sol para cada registro GPS. Clasifica twilight: día, golden_hour, blue_hour, crepúsculos (civil/náutico/astronómico), noche. También calcula amanecer, atardecer y cenit solar para cada fecha/ubicación. Maneja sol de medianoche y noche polar. Cero dependencias externas. Precisión ~0.01°.
 - **--types filter (Jul 2026)**: se corrigió el filtro de tipos en `ingest.py` para que XML no-sidecar no pase cuando se usan `--types image,video` (antes cualquier `.xml` pasaba por ser extensión de sidecar).

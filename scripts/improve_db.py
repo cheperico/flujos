@@ -10,6 +10,7 @@ Uso:
     python scripts/improve_db.py --mode update            # Re-ejecutar y actualizar
     python scripts/improve_db.py --mode replace           # Borrar y regenerar
     python scripts/improve_db.py --db ruta/a/flujos.db    # DB personalizada
+    python scripts/improve_db.py --steps keywords --mostrar  # Mostrar en vivo cada keyword
 
 Modos:
     skip    (default) Saltar medios que ya tienen el dato procesado
@@ -202,7 +203,7 @@ def run_colors(conn, db_path, mode, stats):
                 )
             ok += 1
         except Exception as e:
-            log.debug("  Error en media id=%s: %s", mid, e)
+            log.warning("  ⚠ Error en media id=%s: %s", mid, e)
             errors += 1
 
     conn.commit()
@@ -273,13 +274,16 @@ def run_keywords(conn, db_path, mode, stats):
                 warnings += 1
             elif result == "ok":
                 mid, keywords = data
+                if CONTEXTO["mostrar"] and keywords:
+                    kw_str = ", ".join(keywords) if isinstance(keywords, list) else str(keywords)
+                    tqdm.write(f"    [media {mid}] {kw_str}")
                 if keywords:
                     batch.append((mid, keywords if isinstance(keywords, str)
                                   else ", ".join(keywords)))
                 ok += 1
             else:
                 fpath, exc = data
-                log.debug("  Error en imagen %s: %s", fpath, exc)
+                log.warning("  ⚠ Error en imagen %s: %s", fpath, exc)
                 errors += 1
 
     if batch:
@@ -361,12 +365,14 @@ def run_descriptions(conn, db_path, mode, stats):
                 warnings += 1
             elif result == "ok":
                 mid, desc = data
+                if CONTEXTO["mostrar"] and desc:
+                    tqdm.write(f"    [media {mid}] {desc}")
                 if desc:
                     batch.append((mid, desc if isinstance(desc, str) else str(desc)))
                 ok += 1
             else:
                 fpath, exc = data
-                log.debug("  Error en imagen %s: %s", fpath, exc)
+                log.warning("  ⚠ Error en imagen %s: %s", fpath, exc)
                 errors += 1
 
     if batch:
@@ -445,7 +451,7 @@ def run_transcribe(conn, db_path, mode, stats):
                 )
             ok += 1
         except Exception as e:
-            log.debug("  Error transcribiendo %s: %s", fpath, e)
+            log.warning("  ⚠ Error transcribiendo %s: %s", fpath, e)
             errors += 1
 
     conn.commit()
@@ -529,7 +535,7 @@ def run_keypoints(conn, db_path, mode, stats):
             )
             inserted += len(batch)
         except Exception as e:
-            log.debug("  Error generando keypoints para media id=%s: %s", mid, e)
+            log.warning("  ⚠ Error generando keypoints para media id=%s: %s", mid, e)
             errors += 1
 
     conn.commit()
@@ -844,7 +850,7 @@ def run_video_metadata(conn, db_path, mode, stats):
 
             ok += 1
         except Exception as e:
-            log.debug("  Error en video id=%s: %s", mid, e)
+            log.warning("  ⚠ Error en video id=%s: %s", mid, e)
             errors += 1
 
     conn.commit()
@@ -911,6 +917,9 @@ REGISTRY = {
 DEP_ORDER = ["colors", "keywords", "descriptions", "transcribe", "keypoints",
              "timestamps", "gps", "video_metadata"]
 
+# Contexto global compartido con las funciones run_* (evita cambiar la firma de todas)
+CONTEXTO: dict = {"mostrar": False}
+
 
 def listar_pasos():
     """Muestra los pasos disponibles con su estado."""
@@ -955,6 +964,7 @@ Ejemplos:
   python scripts/improve_db.py --steps keypoints --mode replace  # regenerar keypoints
   python scripts/improve_db.py --list                       # listar pasos
   python scripts/improve_db.py --db db/flujos.db            # DB personalizada
+  python scripts/improve_db.py --steps keywords,descriptions --mostrar  # mostrar en vivo
         """,
     )
     parser.add_argument(
@@ -976,6 +986,11 @@ Ejemplos:
         "--list", "-l",
         action="store_true",
         help="Listar pasos disponibles",
+    )
+    parser.add_argument(
+        "--mostrar",
+        action="store_true",
+        help="Mostrar en vivo keywords/descripciones imagen por imagen (solo pasos keywords/descriptions)",
     )
 
     args = parser.parse_args(argv)
@@ -1005,6 +1020,7 @@ Ejemplos:
     pasos = check_dependencias(pasos)
     log.info("Pasos a ejecutar: %s", ", ".join(pasos))
     log.info("Modo: %s", args.mode)
+    CONTEXTO["mostrar"] = args.mostrar
 
     conn = abrir(db_path)
 
@@ -1046,8 +1062,19 @@ Ejemplos:
     log.info("=" * 50)
     log.info("  IMPROVE DB COMPLETADO")
     log.info("=" * 50)
+    # Sumar errores de pasos completos (stats["errors"]) + errores individuales
+    # de cada paso (stats["<paso>_err"]) — antes solo se contaban los primeros,
+    # por lo que el resumen decía "Errores: 0" aunque fallaran cientos de archivos.
+    errores_individuales = sum(
+        v for k, v in stats.items()
+        if k.endswith("_err") and isinstance(v, int)
+    )
     log.info("  Advertencias:  %d", stats.get("warnings", 0))
     log.info("  Errores:       %d", stats.get("errors", 0))
+    if errores_individuales:
+        log.info("    (de los cuales %d son errores por archivo/medio)", errores_individuales)
+    else:
+        log.info("    (sin errores individuales por archivo/medio)")
 
     conn.close()
 
