@@ -12,7 +12,7 @@ Módulos:
   - batch_selector: Identificación y selección de la mejor imagen de una tanda
   - clustering: Agrupamiento por tags/embeddings
   - generate_embeddings: Embeddings vectoriales (nomic-embed-text)
-  - proxy: Redimensiona imágenes a ~2MP para procesamiento IA
+  - proxy: Redimensiona imágenes a ~800px para procesamiento IA
 """
 
 from . import ollama_client

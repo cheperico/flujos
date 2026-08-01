@@ -27,7 +27,7 @@ import re
 from pathlib import Path
 from typing import Optional
 
-from scripts.ai_media.ollama_client import OllamaVision
+from scripts.ai_media.ollama_client import OllamaVision, asegurar_ollama
 from scripts.ai_media.proxy import obtener_proxy
 
 logger = logging.getLogger(__name__)
@@ -69,47 +69,36 @@ _GENEROS_STR = (
 #  MODELO POR DEFECTO
 # ──────────────────────────────────────────────
 # Se puede cambiar según la máquina:
-#   - qwen2.5vl:3b      → balance calidad/velocidad (3.2 GB). DEFAULT (sigue bien prompts complejos)
-#   - qwen2.5vl:latest  → más calidad, más lento (6 GB)
-#   - moondream:latest  → rápido, liviano (1.7 GB), ideal para PCs modestas
-#                       ⚠️ NO sigue prompts complejos con listas controladas.
-#                       Devuelve el primer género o regurgita el prompt.
-MODELO_VISION_DEFAULT = "qwen2.5vl:3b"
+#   - minicpm-v4.6:latest → GANADOR de la comparativa (Ago 2026). Grilla fija
+#                           ~340 tokens (la resolución NO infla el contexto),
+#                           keywords conceptuales + descripciones largas.
+#                           ~13-19s por imagen a 800px. 1.6 GB.
+#   - qwen2.5vl:3b        → balance calidad/velocidad (3.2 GB). ~25-37s a 800px.
+#   - moondream:latest    → rápido, liviano (1.7 GB) pero NO da listas
+#                           estructuradas de keywords ni descripciones largas.
+# ⚠️ PROMPTS EN INGLÉS (modelos vision multilingües responden mejor en su
+#    idioma de entrenamiento). La traducción a español se hace después sobre
+#    la DB (scripts/ai_media/traducir_metadata.py).
+MODELO_VISION_DEFAULT = "minicpm-v4.6:latest"
 
 # ──────────────────────────────────────────────
-#  PROMPTS
+#  PROMPTS (en inglés, mínimos — validados Ago 2026)
 # ──────────────────────────────────────────────
+# minicpm responde mejor a prompts simples. El género fotográfico quedó
+# PENDIENTE de investigar (cómo forzarlo con minicpm); por ahora las keywords
+# son libres y la primera NO es género.
 
-PROMPT_KEYWORDS = (
-    "Respondé con exactamente 5 palabras clave en español para esta imagen, "
-    "separadas por comas y nada más.\n"
-    "La PRIMERA palabra debe ser el género fotográfico. Elegila SOLO de esta lista: "
-    + _GENEROS_STR + ".\n"
-    "Si ningún género encaja, usá 'otras'.\n"
-    "Las otras 4 palabras describen lo que se ve: objetos, personas, animales, "
-    "colores, escena, acción.\n"
-    "Ejemplo: paisaje, montaña, lago, atardecer, bosque"
-)
+PROMPT_KEYWORDS = "Give me exactly 5 keywords for this image, comma-separated."
 
-PROMPT_DESCRIBIR = (
-    "Describí esta imagen en UNA oración en español, empezando por el sujeto principal. "
-    "No uses frases como 'la imagen muestra', 'la foto presenta', 'en esta imagen se ve' "
-    "ni ningún otro encabezado. Arrancá directo: 'Un perro...', 'Dos personas...', "
-    "'Un paisaje...', etc. Incluí elementos principales, colores y acción si la hay."
-)
+PROMPT_DESCRIBIR = "Give me a long description of this image."
 
 PROMPT_COMBINADO = (
-    "Respondé únicamente con un JSON con dos campos sobre esta imagen:\n"
-    '1. "keywords": exactamente 5 palabras clave en español.\n'
-    "   La PRIMERA debe ser el género fotográfico, elegido SOLO de esta lista: "
-    + _GENEROS_STR + ".\n"
-    "   Si ningún género encaja, usá 'otras'.\n"
-    '   Las otras 4 describen lo que se ve: objetos, personas, colores, escena.\n'
-    '2. "description": UNA oración en español, arrancando por el sujeto principal. '
-    "No uses frases como 'la imagen muestra' ni similares. "
-    "Incluí elementos principales, colores y acción.\n\n"
-    'Formato exacto: {"keywords": ["paisaje", "montaña", "lago", "atardecer", "bosque"], "description": "Un lago rodeado de montañas bajo un cielo despejado."}\n'
-    "No incluyas nada más que el JSON."
+    "Respond with ONLY JSON about this image with two fields:\n"
+    '1. "keywords": exactly 5 keywords comma-separated.\n'
+    '2. "description": a long description.\n'
+    'Exact format: {"keywords": ["bicycle", "road", "repair", "gravel", "helmet"], '
+    '"description": "Long description text here."}\n'
+    "Nothing else but the JSON."
 )
 
 PROMPT_CLASIFICAR = (
@@ -221,7 +210,7 @@ def extraer_keywords(
         ruta_imagen: Ruta al archivo de imagen.
         modelo: Modelo de visión a usar. Por defecto MODELO_VISION_DEFAULT.
         temperatura: Control de creatividad. Bajo para keywords predecibles.
-        usar_proxy: Si True, usa proxy redimensionado a 2MP para acelerar.
+        usar_proxy: Si True, usa proxy redimensionado a 800px para acelerar.
 
     Returns:
         Lista de palabras clave (strings).
@@ -250,8 +239,9 @@ def extraer_keywords(
         # Fallback: devolver la respuesta completa como única keyword
         return [respuesta.strip()]
 
-    # Validar que el género esté en la lista controlada
-    keywords = _validar_genero(keywords)
+    # NOTA (Ago 2026): el género fotográfico quedó pendiente de investigar.
+    # Las keywords ahora son libres (EN) y NO se valida género acá.
+    # El refinamiento (refinar_keywords.py) fuerza "otras" si no hay.
 
     logger.info("Keywords extraídas de %s: %s", Path(ruta_imagen).name, keywords)
     return keywords
@@ -300,7 +290,7 @@ def extraer_keywords_batch(
             })
         else:
             keywords = _parsear_keywords(item["respuesta"])
-            keywords = _validar_genero(keywords)
+            # NOTA (Ago 2026): género pendiente — sin validación en keywords EN.
             resultados.append({
                 "ruta": ruta_orig,
                 "keywords": keywords,
@@ -377,14 +367,12 @@ def analizar_imagen_completo(
         )
         # Fallback: tratar de parsear keywords y descripción por separado
         keywords = _parsear_keywords(respuesta)
-        keywords = _validar_genero(keywords)
         return {
             "keywords": keywords,
             "description": respuesta.strip(),
         }
 
-    # Validar género en keywords
-    resultado["keywords"] = _validar_genero(resultado.get("keywords", []))
+    # NOTA (Ago 2026): género pendiente — sin validación en keywords EN.
 
     logger.info(
         "Análisis completo de %s: %d keywords, %d chars descripción",
@@ -441,7 +429,6 @@ def analizar_imagen_completo_batch(
             parsed = _parsear_combinado(item["respuesta"])
             if parsed is None:
                 keywords = _parsear_keywords(item["respuesta"])
-                keywords = _validar_genero(keywords)
                 resultados.append({
                     "ruta": ruta_orig,
                     "keywords": keywords,
@@ -449,7 +436,7 @@ def analizar_imagen_completo_batch(
                     "error": None,
                 })
             else:
-                keywords = _validar_genero(parsed.get("keywords", []))
+                keywords = parsed.get("keywords", [])
                 resultados.append({
                     "ruta": ruta_orig,
                     "keywords": keywords,
@@ -458,6 +445,76 @@ def analizar_imagen_completo_batch(
                 })
 
     return resultados
+
+
+def _reparar_json(texto: str) -> Optional[dict]:
+    """
+    Intenta reparar JSON malformado que devuelven los modelos.
+
+    Problema común: el modelo corta la respuesta o le falta cerrar un bracket.
+    Caso típico detectado: '{"keywords": ["a", "b"}, "description": "..."}'
+    (el array de keywords se cierra con '}' en vez de ']').
+
+    Estrategia (en orden):
+      1. Intentar json.loads directo (y con comillas simples → dobles).
+      2. Reparación quirúrgica: si falta ']' del array keywords antes de
+         "description", insertar el cierre en el lugar correcto.
+      3. Recortar basura alrededor del primer '{' y último '}'.
+
+    Returns:
+        Dict parseado, o None si no se pudo reparar.
+    """
+    texto = texto.strip()
+
+    # Recortar basura alrededor del JSON: desde el primer { hasta el último }
+    ini = texto.find("{")
+    fin = texto.rfind("}")
+    if ini != -1 and fin != -1 and fin > ini:
+        texto = texto[ini:fin + 1]
+
+    intentos = [texto, texto.replace("'", '"')]
+    # Probar primero parseos directos
+    for intento in intentos:
+        try:
+            datos = json.loads(intento)
+            if isinstance(datos, dict):
+                return datos
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    # Reparación quirúrgica 1: array de keywords cerrado con '}' en vez de ']'.
+    # Patrón: ..."última_kw"}, "description": ...  →  ..."última_kw"], "description": ...
+    for base in intentos:
+        if base.count("[") > base.count("]"):
+            reparado = re.sub(r'"},\s*("description"\s*:)', '"], \\1', base, count=1)
+            if reparado != base:
+                try:
+                    datos = json.loads(reparado)
+                    if isinstance(datos, dict):
+                        return datos
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+    # Reparación quirúrgica 2: cerrar brackets faltantes al final del string.
+    # Solo funciona si el error es de truncamiento al final (no en el medio).
+    for base in intentos:
+        for _ in range(8):  # hasta 8 intentos de cierre
+            abren = base.count("[") + base.count("{")
+            cierran = base.count("]") + base.count("}")
+            if abren == cierran:
+                break
+            # Agregar el bracket que falta (los arrays suelen faltar antes que objetos)
+            if base.count("[") > base.count("]"):
+                base = base.rstrip() + "]"
+            elif base.count("{") > base.count("}"):
+                base = base.rstrip() + "}"
+            try:
+                datos = json.loads(base)
+                if isinstance(datos, dict):
+                    return datos
+            except (json.JSONDecodeError, TypeError):
+                continue
+    return None
 
 
 def _parsear_combinado(respuesta: str) -> Optional[dict]:
@@ -477,25 +534,20 @@ def _parsear_combinado(respuesta: str) -> Optional[dict]:
     texto = re.sub(r"\n?```\s*$", "", texto)
     texto = texto.strip()
 
-    # Intentar parsear como JSON
-    # A veces el modelo usa comillas simples
-    for attempt in [texto, texto.replace("'", '"')]:
-        try:
-            datos = json.loads(attempt)
-            if isinstance(datos, dict):
-                keywords = datos.get("keywords", [])
-                description = datos.get("description", "")
-                # Asegurar tipos
-                if isinstance(keywords, str):
-                    # Vino como string "paisaje, montaña" en vez de lista
-                    keywords = _parsear_keywords(keywords)
-                elif not isinstance(keywords, list):
-                    keywords = [str(keywords)]
-                if not isinstance(description, str):
-                    description = str(description)
-                return {"keywords": keywords, "description": description}
-        except (json.JSONDecodeError, TypeError):
-            continue
+    # Intentar parsear como JSON (con reparación de JSON truncado)
+    datos = _reparar_json(texto)
+    if datos is not None:
+        keywords = datos.get("keywords", [])
+        description = datos.get("description", "")
+        # Asegurar tipos
+        if isinstance(keywords, str):
+            # Vino como string "paisaje, montaña" en vez de lista
+            keywords = _parsear_keywords(keywords)
+        elif not isinstance(keywords, list):
+            keywords = [str(keywords)]
+        if not isinstance(description, str):
+            description = str(description)
+        return {"keywords": keywords, "description": description}
 
     # Si no se pudo parsear, buscar keywords con _parsear_keywords y descripción en el resto
     lines = texto.split("\n")
@@ -644,6 +696,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.list_models:
+        if not asegurar_ollama():
+            print("  ⚠️  Ollama no está disponible. No se pueden listar modelos.")
+            sys.exit(1)
         try:
             import ollama
             response = ollama.list()

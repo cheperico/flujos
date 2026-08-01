@@ -695,6 +695,10 @@ def procesar_archivo_individual(
 # ═══════════════════════════════════════════════════════════════
 
 def listar_modelos():
+    from scripts.ai_media.ollama_client import asegurar_ollama
+    if not asegurar_ollama():
+        print("  ⚠️  Ollama no está disponible. No se pueden listar modelos.")
+        return
     try:
         import ollama
         response = ollama.list()

@@ -56,44 +56,57 @@ MODELO_EMBEDDINGS = "paraphrase-multilingual:latest"
 
 # ── Diccionario de sinónimos del dominio (bici, viaje, Argentina) ───────────
 # Clave = canónico, valor = lista de variantes que se unifican al canónico.
+# Incluye variantes EN del pipeline IA (los modelos de visión responden en
+# inglés; la traducción a ES puede dejar alguna palabra sin traducir, y este
+# diccionario la recupera en el refinamiento).
 SINONIMOS: dict[str, list[str]] = {
-    "bicicleta": ["bici", "bicicletas", "bike", "bici de montaña", "mtb", "mountain bike"],
-    "motocicleta": ["moto", "motocicletas", "moto de enduro", "motomel"],
-    "automóvil": ["auto", "autos", "coche", "coches", "camioneta", "camionetas", "vehículo", "vehiculo"],
-    "ruta": ["carretera", "caminos", "camino", "autopista", "autovía", "ruta nacional", "ruta 9"],
-    "montaña": ["montañas", "cerro", "cerros", "sierra", "sierras", "cordillera", "cordilleras"],
-    "atardecer": ["puesta de sol", "ocaso", "anochecer", "atardeceres"],
-    "amanecer": ["salida del sol", "alba", "aurora", "amaneceres"],
-    "ciudad": ["ciudades", "pueblo", "pueblos", "zona urbana"],
-    "naturaleza": ["campo", "paisaje natural"],
-    "bosque": ["bosques", "selva", "arboleda"],
-    "árbol": ["arboles", "arbol", "árboles", "plantas"],
+    "bicicleta": ["bici", "bicicletas", "bike", "bicycle", "bicycles", "bici de montaña", "mtb", "mountain bike", "cycling"],
+    "motocicleta": ["moto", "motocicletas", "moto de enduro", "motomel", "motorcycle"],
+    "automóvil": ["auto", "autos", "coche", "coches", "camioneta", "camionetas", "vehículo", "vehiculo", "car", "vehicle"],
+    "ruta": ["carretera", "caminos", "camino", "autopista", "autovía", "ruta nacional", "ruta 9", "road", "highway"],
+    "montaña": ["montañas", "cerro", "cerros", "sierra", "sierras", "cordillera", "cordilleras", "mountain", "mountains"],
+    "atardecer": ["puesta de sol", "ocaso", "anochecer", "atardeceres", "sunset"],
+    "amanecer": ["salida del sol", "alba", "aurora", "amaneceres", "sunrise"],
+    "ciudad": ["ciudades", "pueblo", "pueblos", "zona urbana", "city", "town"],
+    "naturaleza": ["campo", "paisaje natural", "nature", "outdoor"],
+    "bosque": ["bosques", "selva", "arboleda", "forest"],
+    "árbol": ["arboles", "arbol", "árboles", "plantas", "tree", "branch", "rama", "ramas", "branches"],
     "animales": ["animal", "vaca", "vacas", "caballo", "caballos", "perro", "perros",
-                 "gato", "gatos", "oveja", "ovejas", "burro", "burros", "ganado"],
-    "comida": ["gastronomía", "comidas", "plato", "platos", "almuerzo", "cena", "desayuno", "asado"],
+                 "gato", "gatos", "oveja", "ovejas", "burro", "burros", "ganado", "animals"],
+    "comida": ["gastronomía", "comidas", "plato", "platos", "almuerzo", "cena", "desayuno", "asado", "food"],
     "personas": ["persona", "gente", "hombres", "mujeres", "ciclista", "ciclistas",
-                 "caminante", "caminantes", "viajero", "viajeros", "baqueano"],
-    "deporte": ["deportes", "ciclismo", "competición", "carrera"],
-    "viaje": ["trayecto", "recorrido", "ruta viajera"],
-    "fotografía": ["foto", "fotos", "imagen", "imágenes", "retrato fotográfico"],
-    "urbanismo": ["edificios", "edificio", "rascacielos", "construcción"],
-    "arquitectura": ["edificaciones", "fachada", "fachadas"],
-    "noche": ["nocturna", "nocturno", "noche estrellada"],
-    "cielo": ["cielos", "nubes", "cielo azul", "horizonte"],
-    "lluvia": ["lluvioso", "tormenta", "tormentas", "llovizna"],
-    "frío": ["frio", "helada", "escarcha"],
-    "calor": ["sol intenso", "sequía", "caluroso"],
-    "música": ["musica", "banda", "recital", "show", "concierto", "tocar"],
-    "arte": ["pintura", "mural", "murales", "graffiti"],
+                 "caminante", "caminantes", "viajero", "viajeros", "baqueano", "people", "cyclists", "cyclist"],
+    "deporte": ["deportes", "ciclismo", "competición", "carrera", "sport"],
+    "viaje": ["trayecto", "recorrido", "ruta viajera", "trip", "adventure", "aventura", "road trip", "viaje en ruta"],
+    "fotografía": ["foto", "fotos", "imagen", "imágenes", "retrato fotográfico", "photography"],
+    "urbanismo": ["edificios", "edificio", "rascacielos", "construcción", "buildings"],
+    "arquitectura": ["edificaciones", "fachada", "fachadas", "architecture"],
+    "noche": ["nocturna", "nocturno", "noche estrellada", "night"],
+    "cielo": ["cielos", "nubes", "cielo azul", "horizonte", "sky", "clouds", "cloud"],
+    "lluvia": ["lluvioso", "tormenta", "tormentas", "llovizna", "rain"],
+    "frío": ["frio", "helada", "escarcha", "cold"],
+    "calor": ["sol intenso", "sequía", "caluroso", "heat"],
+    "música": ["musica", "banda", "recital", "show", "concierto", "tocar", "music"],
+    "arte": ["pintura", "mural", "murales", "graffiti", "art"],
     "abuela": ["abuelita", "anciana", "abuelo", "anciano"],
-    "niño": ["niños", "nene", "nenes", "chico", "chicos", "pequeño"],
-    "amigo": ["amigos", "compañero", "compañeros", "compañera"],
-    "felicidad": ["alegría", "sonrisa", "sonrisas", "risa", "risas"],
-    "cansancio": ["fatiga", "agotamiento"],
-    "mochila": ["mochilas", "equipaje", "alforjas", "alforja", "bolso", "bolsos"],
-    "carpas": ["carpa", "campamento", "acampar", "campaña"],
+    "niño": ["niños", "nene", "nenes", "chico", "chicos", "pequeño", "kids"],
+    "amigo": ["amigos", "compañero", "compañeros", "compañera", "friends"],
+    "felicidad": ["alegría", "sonrisa", "sonrisas", "risa", "risas", "smile"],
+    "cansancio": ["fatiga", "agotamiento", "tired"],
+    "mochila": ["mochilas", "equipaje", "alforjas", "alforja", "bolso", "bolsos", "backpack", "pannier", "alforja"],
+    "carpas": ["carpa", "campamento", "acampar", "campaña", "camping", "camp"],
     "comida_argentina": ["empanadas", "asado", "milanesa", "locro", "mate", "dulce de leche"],
     "mate": ["yerba", "termo"],
+    "casco": ["helmet", "cascos"],
+    "reparación": ["repair", "reparar", "fix", "mantenimiento"],
+    "tela": ["cloth", "fabric", "telas", "tela roja"],
+    "equipamiento": ["gear", "equipamento"],
+    "viento": ["wind"],
+    "camino_de_tierra": ["gravel", "ripio", "grava"],
+    "banquina": ["roadside"],
+    "senderismo": ["trail", "sendero", "hiking"],
+    "esfuerzo": ["effort", "esfuerzos"],
+    "paisaje": ["landscape", "scenery", "vista"],
 }
 
 # Palabras tan genéricas que no aportan (se descartan si no son género)
@@ -102,6 +115,8 @@ STOPWORDS = {
     "en", "con", "por", "para", "que", "es", "se", "su", "al", "lo", "a",
     "the", "and", "of", "to", "in", "imagen", "foto", "fotografía", "fotografía",
     "este", "esta", "eso", "esa", "una escena", "escena", "otro", "otra",
+    "image", "photo", "scene", "outdoor", "object", "objects", "color", "colors",
+    "person", "people", "colours",
 }
 
 # Patrones de ruido del modelo (cuando regurgitó el prompt en vez de keywords)
@@ -371,8 +386,13 @@ def refinar_con_embeddings(keywords_unicas: list[str], umbral: float = 0.87,
     """
     try:
         import ollama
+        from scripts.ai_media.ollama_client import asegurar_ollama
     except ImportError:
         log.warning("  No se pudo importar ollama. Capa semántica desactivada.")
+        return {}
+
+    if not asegurar_ollama():
+        log.warning("  Ollama no está disponible. Capa semántica desactivada.")
         return {}
 
     log.info("  Generando embeddings para %d keywords con %s...",

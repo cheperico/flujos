@@ -1,7 +1,7 @@
 """
 Manejo de proxies (imágenes redimensionadas) para acelerar el análisis con IA.
 
-Reduce imágenes grandes a un tamaño máximo configurable (por defecto 2MP)
+Reduce imágenes grandes a un tamaño máximo configurable (por defecto 800px)
 para que los modelos de visión de Ollama procesen menos datos innecesarios.
 
 Los proxies se guardan en una carpeta `.proxies/` dentro del mismo directorio
@@ -24,7 +24,11 @@ from PIL import Image
 logger = logging.getLogger(__name__)
 
 # Configuración por defecto
-MAX_LADO_PX = 1600          # lado mayor máximo en píxeles (~2MP en 4:3)
+# 800px: ~4x menos tokens de visión que 1600px (1085 vs 2500 medidos con
+# qwen2.5vl:3b), 2.5x más rápido por imagen y menos presión sobre el
+# umbral de degradación acumulativa (swap). Calidad de tags/descripciones
+# sigue siendo buena para este modelo.
+MAX_LADO_PX = 800           # lado mayor máximo en píxeles (~0.5MP en 4:3)
 CALIDAD_JPEG = 85           # calidad JPEG del proxy
 NOMBRE_CARPETA_PROXIES = ".proxies"
 

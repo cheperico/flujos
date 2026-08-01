@@ -47,16 +47,35 @@ que devuelve datos oficiales de IGN + INDEC.
 
 **Endpoint batch:** acepta hasta 100 coordenadas por request POST.
 
+**⚠️ Qué devuelve realmente:** el endpoint `/api/ubicacion` (georreferencia
+inversa) **NO devuelve `localidad`**. Devuelve **solo**:
+
+| Campo | Ejemplo real (Inriville, Córdoba) |
+|-------|----------------------------------|
+| `provincia` | Córdoba |
+| `departamento` | Marcos Juárez |
+| `municipio` | Inriville |
+
+Verificado empíricamente (Jul 2026) contra la API:
+- `?campos=localidad` → HTTP 400 Bad Request
+- `POST` con `campos` en el cuerpo → 400
+- `?campos=completo` → solo agrega `fuente` a las entidades, no localidad
+- Georef **v2.1** (`/api/v2.1/ubicacion`) → renombra `municipio` → `gobierno_local`,
+  pero **tampoco** devuelve `localidad`
+
+La columna `localidad` de la DB queda entonces siempre NULL con esta opción.
+
 **Ventajas:**
 - Sin API key, sin registro, sin rate limit observable
-- Devuelve: provincia + departamento + municipio + localidad exactos
-- Datos oficiales (misma fuente que el INDEC)
+- Devuelve: provincia + departamento + municipio exactos (oficiales IGN/INDEC)
 - ~7.5 segundos para 5000 coordenadas (50 requests batch de 100)
 - Solo usa `urllib` (no requiere `pip install`)
 
 **Desventajas:**
 - Requiere internet
 - Depende de un servicio público externo
+- **No provee localidad** en georreferencia inversa (para eso, ver "Cómo obtener
+  localidad" más abajo)
 
 **Métricas reales medidas (desde el entorno del proyecto):**
 
@@ -122,6 +141,52 @@ con 145.000+ límites reales de 210+ países.
 
 ---
 
+## Organización territorial de Argentina (contexto necesario)
+
+Para interpretar correctamente lo que devuelve Georef hay que entender cómo se
+divide el territorio argentino. Fuente: [Wikipedia — Organización territorial
+de Argentina](https://es.wikipedia.org/wiki/Organizaci%C3%B3n_territorial_de_Argentina).
+
+| Nivel | Entidad | Detalle |
+|:-----:|---------|---------|
+| **1** | 23 **provincias** + CABA | Jurisdicciones de primer orden |
+| **2** | **departamentos** (22 provincias), **partidos** (Buenos Aires, 135), **comunas** (CABA, 15) | División catastral/estadística. **Sí se usan en Argentina** (ej: "departamento Marcos Juárez"). No tienen gobierno propio |
+| **3** | **municipios** (1.218) + comunas rurales, comisiones de fomento, etc. | Gobierno local (intendente + concejo deliberante). **Dentro de los departamentos hay localidades** que pueden tener municipio propio o no |
+| — | **localidades** | Poblados dentro de un departamento. Un municipio puede contener varias localidades; en pueblos chicos municipio ≈ localidad |
+
+**Consecuencia práctica para la DB:**
+
+- `provincia` = "Córdoba" ✅
+- `departamento` = "Marcos Juárez" ✅ (división real de segundo nivel)
+- `municipio` = "Inriville" ✅ (el gobierno local del pueblo)
+- `localidad` = NULL con Georef `/ubicacion` (no lo provee)
+
+La confusión habitual (y de la que hay que cuidarse en el proyecto) es creer
+que "localidad" y "municipio" son intercambiables, o que el "departamento" es
+un municipio. No lo son: **provincia → departamento → localidad**, y el
+municipio es el gobierno local (que en pueblos coincide con la localidad).
+
+---
+
+## Cómo obtener `localidad` si se necesita
+
+La API Georef `/ubicacion` no la da, pero la localidad está disponible por
+otras vías dentro del mismo ecosistema Georef:
+
+| Vía | Cómo | Precisión |
+|-----|------|-----------|
+| **Dataset offline de localidades** | Descargar `localidades.csv` o GeoJSON de [datos.gob.ar — dataset Georef](https://datos.gob.ar/dataset/ign-georef). Point-in-polygon con shapely, o nearest-neighbor con nombre | Exacta (INDEC, 4.028 localidades censales) |
+| **Dataset de asentamientos (BAHRA)** | 14.466 asentamientos del INDEC, cubre zonas rurales | Exacta (mejor cobertura rural) |
+| **Georef `/api/localidades`** | Busca localidades por **nombre/provincia/departamento**, NO por punto. No sirve para georreferencia inversa directa | — |
+| **Nominatim / OSM** | Reverse geocoding con campo `localidad`/`village`/`town`/`city` | Buena, pero rate limit 1 req/s (inviable para 5000 coords) |
+
+**Recomendación:** si la instalación necesita mostrar "localidad" exacta,
+la vía oficial es el dataset offline (opción B de este doc) o un post-proceso
+con el CSV de localidades INDEC. Para la mayoría de los usos, `municipio`
+(Georef) es suficiente y es lo que el proyecto tiene hoy.
+
+---
+
 ## Diagrama de decisión
 
 ```
@@ -134,8 +199,8 @@ con 145.000+ límites reales de 210+ países.
     ┌──────────────────┐             ┌──────────────────────────┐
     │  A: Georef API   │             │  ¿Solo Argentina o       │
     │  batch (~7.5s)   │             │  potencialmente global?  │
-    │  provincia+local │             └────────────┬─────────────┘
-    │  datos oficiales │                          │
+    │  prov+depto+muni │             └────────────┬─────────────┘
+    │  (sin localidad) │                          │
     └──────────────────┘              ┌───────────┴───────────┐
                                       ▼                       ▼
                             ┌──────────────────┐   ┌──────────────────────┐
@@ -154,8 +219,8 @@ con 145.000+ límites reales de 210+ países.
 |---------|:------------:|:--------------------:|
 | Provincia | ✅ Exacta (fuente IGN) | ✅ ADM1 (Geoboundaries) |
 | Departamento | ✅ Exacto | ⚠️ ADM2 cuando existe |
-| Localidad | ✅ Exacta (INDEC, 14k+ asentamientos) | ⚠️ ADM3 o ADM2 |
-| Zonas rurales | ✅ Sí (cubre asentamientos BAHRA) | ⚠️ Puede no cubrir |
+| Localidad | ⚠️ **No vía API `/ubicacion`** (solo con dataset offline) | ⚠️ ADM3 o ADM2 |
+| Zonas rurales | ✅ Sí (cubre asentamientos BAHRA offline) | ⚠️ Puede no cubrir |
 | Fronteras entre provincias | ✅ Correctas (polígonos IGN) | ✅ Boundary-aware |
 | Actualización de datos | ✅ Oficial (continua) | ⚠️ Según releases de Geoboundaries |
 
@@ -179,7 +244,9 @@ Extender la tabla `media` con columnas para almacenar el resultado de la
 geocodificación:
 - `provincia`
 - `departamento`
-- `localidad`
+- `municipio`
+- `localidad` (⚠️ queda NULL con Georef `/ubicacion`; ver "Cómo obtener
+  localidad" para fuentes alternativas)
 - `geocode_source` (origen: `georef_api`, `georef_offline`, `gazetteer`)
 - `geocode_date` (timestamp de la consulta)
 
@@ -190,7 +257,9 @@ Esto evita tener que volver a consultar coordenadas ya resueltas.
 ## Recursos
 
 - [API Georef Argentina — documentación](https://datosgobar.github.io/georef-api/)
-- [Georef — datasets descargables](https://datos.gob.ar/dataset/ign-georef)
+- [API Georef — OpenAPI / endpoints](https://datosgobar.github.io/georef-ar-api/open-api)
+- [Georef — datasets descargables (localidades, asentamientos)](https://datos.gob.ar/dataset/ign-georef)
+- [Organización territorial de Argentina — Wikipedia](https://es.wikipedia.org/wiki/Organizaci%C3%B3n_territorial_de_Argentina)
 - [python-gazetteer — PyPI](https://pypi.org/project/python-gazetteer/)
 - [python-gazetteer — GitHub](https://github.com/SOORAJTS2001/gazetteer)
 - [Geoboundaries](https://www.geoboundaries.org/)

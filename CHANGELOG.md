@@ -7,7 +7,45 @@ Las versiones corresponden a entregas funcionales, no a releases semánticas.
 
 ---
 
-## [Entrega 10] — 2026-07-31
+## [Entrega 14] — 2026-08-01
+
+### Añadido
+- **Pipeline IA EN→ES** (`improve_db.py`, `image_analysis.py`, `traducir_metadata.py`): los modelos de visión multilingües (minicpm-v4.6) responden mejor en inglés. El pipeline de keywords/descripciones es ahora **2 fases**:
+  1. **Fase A (visión)**: minicpm genera EN → se guarda en `ia_keywords_en` / `ia_description_en`.
+  2. **Fase B (traducción)**: qwen2.5:3b traduce a ES sobre la DB (sin re-procesar imágenes) → `ia_keywords` / `ia_description` (**ES definitivo, lo que consume la interfaz**).
+  El EN queda persistido para re-traducir sin re-correr visión (`--mode update`). Al regenerar el EN SIEMPRE se invalida el ES viejo (incluido skip).
+- **Paso `combinado`** en `improve_db.py`: keywords + descripción en UNA llamada de visión (JSON) + 1 de traducción (JSON). Recomendado para la pasada masiva (~10s visión + ~9s traducción por imagen).
+- **`traducir_metadata.py`**: script independiente reutilizable para traducir EN→ES sobre la DB (glosario de cicloturismo, prompts anti-portugués, modo JSON combinado). CLI con `--paso`, `--mode`, `--dry-run`, `--limit`, `--modelo`.
+- **`_reparar_json`** en `image_analysis.py`: reparación robusta de JSON truncado que devuelven los modelos (recorte de basura, cierre de brackets, array de keywords cerrado con `}` en vez de `]`).
+- **Auto-inicio de Ollama** (`ollama_client.py`): `asegurar_ollama()`, `ollama_responde()`, `iniciar_ollama()`. Todos los scripts que requieren Ollama verifican primero si el servidor responde y, si no, lo arrancan con `ollama serve` en background (`CREATE_NO_WINDOW` en Windows, sin bloquear la terminal). Cubre `OllamaVision`, `OllamaEmbedding` (en constructor) y los scripts que usan ollama directo: `traducir_metadata.py`, `improve_db.py`, `refinar_keywords.py`, `image_analysis.py --list-models`, `analyze_video.py`, `tag_images.py`, `generate_embeddings.py`. `flujos.py _verificar_ollama()` usa la función central y avisa "✅ Ollama iniciado automáticamente".
+- **Términos EN en SINONIMOS** (`refinar_keywords.py`): red de seguridad para keywords que queden en inglés tras la traducción (`tree`→árbol, `repair`→reparación, `bike`→bicicleta, etc.). Stopwords EN agregadas.
+
+### Cambiado
+- **`MODELO_VISION_DEFAULT` → `minicpm-v4.6:latest`** en `image_analysis.py`: ganador de la comparativa de modelos. Grilla fija ~340 tokens (la resolución NO infla el contexto), keywords conceptuales + descripciones largas, ~13-19s por imagen a 800px.
+- **Prompts de visión en inglés y mínimos**: `PROMPT_KEYWORDS` = "Give me exactly 5 keywords for this image, comma-separated.", `PROMPT_DESCRIBIR` = "Give me a long description of this image.", `PROMPT_COMBINADO` = JSON mínimo. Validado: los prompts complejos en español degradaban la calidad de minicpm (keywords genéricas, descripciones vacías).
+- **Género fotográfico pendiente**: `_validar_genero()` desactivado en el flujo de keywords (minicpm no fuerza la lista controlada). Las keywords son libres; `refinar_keywords.py` fuerza "otras" si no hay género.
+- **`flujos.py` TUI Mejorar DB**: reestructurado a 2 hojas paginadas (IA y color / Inferencia y enriquecimiento) con navegación `n) Siguiente >>` / `p) << Anterior`.
+
+### Corregido
+- **Bug en fase B**: `_crear_cliente_texto()` ahora llama `asegurar_ollama()` y lanza `RuntimeError` si no hay servidor (antes fallaba con error oscuro del cliente).
+- **`_reparar_json`** aplicado en `_parsear_combinado` (antes solo se intentaba `json.loads` directo).
+
+---
+
+## [Entrega 13] — 2026-08-01
+
+### Cambiado
+- **Proxy a 800px** (`scripts/ai_media/proxy.py`): `MAX_LADO_PX` pasó de 1600 a 800. Medido con `qwen2.5vl:3b`: ~4x menos tokens de visión (1085 vs 2500 por imagen), ~2.5x más rápido por imagen, y menos presión sobre el umbral de degradación acumulativa (swap). La calidad de tags/descripciones se mantiene para este modelo.
+- **`num_ctx=4096` fijado en `ollama_client.py`** (`NUM_CTX_DEFAULT`): sin `num_ctx`, Ollama reserva el contexto máximo del modelo (128000) → 8.2 GB RAM, saturando la memoria y disparando el swapping en máquinas sin GPU. 4096 cubre los ~2718 tokens de una imagen 1600px + prompt, con margen para datos extra en el prompt (estilo de descripción, keywords obligatorias), usando ~2.9 GB.
+- Documentación y docstrings actualizados (`AGENTS.md`, `README.md`, `__init__.py`, `image_analysis.py`, `proxy.py`) para reflejar el nuevo tamaño de proxy.
+
+### Pendiente (próxima sesión)
+- **Investigar el umbral de degradación acumulativa**: el problema parece ser la acumulación de píxeles analizados (imágenes chicas → más imágenes antes del problema; grandes → menos). Estrategia propuesta: procesar en tandas de ~20 imágenes y sacar el modelo de la memoria entre tandas (esperando que se vacíe el swap). No se descarta throttling térmico del CPU como causa raíz.
+- **Probar reinicio completo de `ollama.exe`** (nunca se hizo; todas las pruebas fueron sobre la misma sesión del proceso) para ver si restaura la velocidad inicial de ~4-5s/imagen.
+
+---
+
+## [Entrega 12] — 2026-07-31
 
 ### Añadido
 - **Refinamiento de keywords IA** (`scripts/ai_media/refinar_keywords.py`): 3 capas para limpiar y unificar `media_metadata.ia_keywords`:
@@ -24,6 +62,37 @@ Las versiones corresponden a entregas funcionales, no a releases semánticas.
 
 ### Corregido
 - **Modelo de sinónimos descartado**: `nextfire/paraphrase-multilingual-minilm` confundía no-sinónimos (`bici~perro` 0.771). Borrado de Ollama; se eligió `paraphrase-multilingual:latest` (`bici~perro` 0.146).
+
+---
+
+## [Entrega 11] — 2026-07-28
+
+### Añadido
+- **`--destino` / `-d`** en `import_telegram.py`: copia automáticamente los archivos multimedia a una carpeta canónica (`{destino}/telegram/`) durante la importación, en vez de dejarlos atados al export temporal de Telegram. Resuelve colisiones de nombre con sufijo `_1`, `_2`.
+- **Recuperación de media pendiente** en re-import: al re-ejecutar con `--mode skip`, los mensajes existentes se saltan pero se ejecuta una etapa de recuperación que busca `telegram_media` con `media_id=NULL` (archivos no disponibles en corridas previas) e intenta ingerirlos. Se puede ejecutar N veces.
+- **Integración TUI**: pregunta por `--destino` en Ingesta → 4. Importar chat de Telegram.
+- **SIDECAR_EXTS** como constante compartida en `mover_media.py`.
+
+### Corregido
+- **Sidecars en mover_media.py**: `ejecutar_movimiento()` y `ejecutar_copia()` buscaban sidecars en el directorio de destino en vez del directorio de origen (no movían/copiaban los sidecars). Ambos corregidos.
+- **Límite en `_resolver_colision`**: loop infinito potencial con `while True` reemplazado por `for n in range(1, MAX_INTENTOS+1)` con fallback timestamp.
+- **`reparar_json`**: reemplazada heurística frágil (`endswith("]")`/`endswith("}")`) por conteo de brackets.
+- **`import shutil`/`datetime` inline**: movidos al tope del archivo (antipatrón eliminado).
+- **`detectar_message_type`**: condición siempre True simplificada a `return "text"`.
+
+## [Entrega 10] — 2026-07-28
+
+### Añadido
+- **Importación de Telegram** (`scripts/import_telegram.py`): nuevo script que importa exports de Telegram a la base de datos. Lee `result.json`, repara JSON truncado automáticamente, registra chats en `telegram_chats`, mensajes en `telegram_messages`, y multimedia en `telegram_media`.
+- **Migración v4** (`db/migrate.py`): tres nuevas tablas (`telegram_chats`, `telegram_messages`, `telegram_media`) + columna `telegram_message_id` en `media`.
+- **Integración flujos.py**: TUI (Ingesta → 4. Importar chat de Telegram), CLI (`python flujos.py import-telegram` / `tg`).
+- **Vinculación bidireccional**: `telegram_media.media_id` → `media.id` y `media.telegram_message_id` → `telegram_messages.id`. Los multimedia de Telegram se ingieren en `media` table opcionalmente (`--no-ingest` para solo metadata).
+- **Manejo de service messages**: se marcan con `es_sistema=1` para filtrado posterior.
+
+### Cambiado
+- `db/schema.sql`: agregadas tablas `telegram_chats`, `telegram_messages`, `telegram_media` y columna `telegram_message_id` en `media`.
+- `AGENTS.md`: documentación completa de las nuevas tablas, script, CLI y mapa de datos.
+- `flujos.py`: AYUDA actualizada con `import-telegram` y `mover`.
 
 ---
 
@@ -172,38 +241,6 @@ Las versiones corresponden a entregas funcionales, no a releases semánticas.
 - **Backup/Restore DB**: backup manual, restore desde backup, reset (backup + schema limpio).
 
 ---
-
----
-
-## [Entrega 11] — 2026-07-28
-
-### Añadido
-- **`--destino` / `-d`** en `import_telegram.py`: copia automáticamente los archivos multimedia a una carpeta canónica (`{destino}/telegram/`) durante la importación, en vez de dejarlos atados al export temporal de Telegram. Resuelve colisiones de nombre con sufijo `_1`, `_2`.
-- **Recuperación de media pendiente** en re-import: al re-ejecutar con `--mode skip`, los mensajes existentes se saltan pero se ejecuta una etapa de recuperación que busca `telegram_media` con `media_id=NULL` (archivos no disponibles en corridas previas) e intenta ingerirlos. Se puede ejecutar N veces.
-- **Integración TUI**: pregunta por `--destino` en Ingesta → 4. Importar chat de Telegram.
-- **SIDECAR_EXTS** como constante compartida en `mover_media.py`.
-
-### Corregido
-- **Sidecars en mover_media.py**: `ejecutar_movimiento()` y `ejecutar_copia()` buscaban sidecars en el directorio de destino en vez del directorio de origen (no movían/copiaban los sidecars). Ambos corregidos.
-- **Límite en `_resolver_colision`**: loop infinito potencial con `while True` reemplazado por `for n in range(1, MAX_INTENTOS+1)` con fallback timestamp.
-- **`reparar_json`**: reemplazada heurística frágil (`endswith("]")`/`endswith("}")`) por conteo de brackets.
-- **`import shutil`/`datetime` inline**: movidos al tope del archivo (antipatrón eliminado).
-- **`detectar_message_type`**: condición siempre True simplificada a `return "text"`.
-
-## [Entrega 10] — 2026-07-28
-
-### Añadido
-- **Importación de Telegram** (`scripts/import_telegram.py`): nuevo script que importa exports de Telegram a la base de datos. Lee `result.json`, repara JSON truncado automáticamente, registra chats en `telegram_chats`, mensajes en `telegram_messages`, y multimedia en `telegram_media`.
-- **Migración v4** (`db/migrate.py`): tres nuevas tablas (`telegram_chats`, `telegram_messages`, `telegram_media`) + columna `telegram_message_id` en `media`.
-- **Integración flujos.py**: TUI (Ingesta → 4. Importar chat de Telegram), CLI (`python flujos.py import-telegram` / `tg`).
-- **Vinculación bidireccional**: `telegram_media.media_id` → `media.id` y `media.telegram_message_id` → `telegram_messages.id`. Los multimedia de Telegram se ingieren en `media` table opcionalmente (`--no-ingest` para solo metadata).
-- **Manejo de service messages**: se marcan con `es_sistema=1` para filtrado posterior.
-
-### Cambiado
-- `db/schema.sql`: agregadas tablas `telegram_chats`, `telegram_messages`, `telegram_media` y columna `telegram_message_id` en `media`.
-- `AGENTS.md`: documentación completa de las nuevas tablas, script, CLI y mapa de datos.
-- `flujos.py`: AYUDA actualizada con `import-telegram` y `mover`.
-
 
 ## [Fundación] — 2026-06-28
 

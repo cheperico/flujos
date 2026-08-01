@@ -203,7 +203,7 @@ Todas las operaciones que modifican la DB preguntan el modo
 | `clustering.py` | Agrupamiento por tags o embeddings |
 | `generate_embeddings.py` | Embeddings vectoriales (nomic-embed-text) |
 | `refinar_keywords.py` | Refina y unifica keywords IA (léxico + sinónimos + embeddings) |
-| `proxy.py` | Redimensiona imágenes a ~2MP para IA |
+| `proxy.py` | Redimensiona imágenes a ~800px para IA |
 
 ---
 

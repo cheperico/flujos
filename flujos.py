@@ -813,16 +813,31 @@ def opcion_undo_ingest(db_path: str | None = None):
 
 
 def _verificar_ollama(modelos: list[str] | None = None) -> bool:
-    """Verifica que Ollama esté corriendo y (opcional) que los modelos estén disponibles.
-    
+    """Verifica que Ollama esté corriendo, iniciándolo si hace falta.
+
+    Si Ollama no responde, intenta arrancarlo automáticamente con
+    `ollama serve` en segundo plano (vía `scripts.ai_media.ollama_client`).
+
     Args:
         modelos: lista de nombres de modelo a verificar (ej: ["qwen2.5vl:7b"])
-    
+
     Returns:
         True si Ollama está disponible (y los modelos si se pidieron), False si no.
     """
-    import urllib.request
     import json
+    import urllib.request
+
+    from scripts.ai_media.ollama_client import asegurar_ollama, ollama_responde
+
+    estaba_corriendo = ollama_responde()
+    if not asegurar_ollama():
+        print("  ⚠️  Ollama NO está corriendo y no se pudo iniciarlo.")
+        print("     Los pasos de IA (keywords, descripciones, transcripcion)")
+        print("     requieren Ollama con los modelos necesarios.")
+        print("     Verificá que el binario esté en PATH o ejecutá: ollama serve\n")
+        return False
+    if not estaba_corriendo:
+        print("  ✅ Ollama iniciado automáticamente (ollama serve).\n")
 
     try:
         req = urllib.request.Request("http://localhost:11434/api/tags",
@@ -830,10 +845,7 @@ def _verificar_ollama(modelos: list[str] | None = None) -> bool:
         with urllib.request.urlopen(req, timeout=3) as resp:
             data = json.loads(resp.read().decode())
     except Exception:
-        print("  ⚠️  Ollama NO está corriendo.")
-        print("     Los pasos de IA (keywords, descripciones, transcripcion)")
-        print("     requieren Ollama con los modelos necesarios.")
-        print("     Ejecutá: ollama serve  (o abrí Ollama Desktop)\n")
+        print("  ⚠️  Ollama no respondió al listar modelos.")
         return False
 
     if modelos:
@@ -918,45 +930,40 @@ def _preguntar_modo(db_path: str | None = None):
 
 
 def opcion_improve_db():
-    """Menu para ejecutar pasos de mejora sobre la DB (3 hojas paginadas y balanceadas).
-    Regla de navegacion: 1-7 opciones por hoja, 8 = << Anterior,
-    9 = Siguiente >>, 0 = Volver al menu superior.
-    Distribucion: Hoja 1 (IA y color 1/2, 6 opc), Hoja 2 (IA y color 2/2 +
-    inferencia basica, 5 opc), Hoja 3 (ubicacion y tiempo + busqueda, 5 opc)."""
+    """Menu para ejecutar pasos de mejora sobre la DB (hojas paginadas).
+    Regla de navegacion: hasta 9 opciones por hoja (1-9); cuando se superan,
+    se crea una hoja nueva. n = Siguiente >>, p = << Anterior, 0 = Volver.
+    Distribucion: Hoja 1 (IA y color, 9 opc), Hoja 2 (inferencia y
+    enriquecimiento, 7 opc)."""
     db_path = leer_db()
-    hoja = 1  # 1: IA y color (1/2), 2: IA y color (2/2)+inferencia, 3: ubicacion/tiempo+busqueda
+    hoja = 1  # 1: IA y color, 2: inferencia y enriquecimiento
     while True:
         limpiar_pantalla()
         print("=== MEJORAR BASE DE DATOS ===\n")
 
         if hoja == 1:
-            print("  -- Pasos de IA y color (1/2) --\n")
+            print("  -- Pasos de IA y color --\n")
             print("  1) Todos los pasos (skip)")
             print("  2) Elegir pasos manualmente")
             print("  3) Colores dominantes")
             print("  4) Keywords con IA")
             print("  5) Descripcion con IA")
             print("  6) Keywords + Descripcion (pasada unica, mas lenta)")
-            print("  9) Siguiente >>")
+            print("  7) Refinar keywords (normalizar + sinonimos)")
+            print("  8) Transcripcion (audios/videos)")
+            print("  9) Keypoints de transcripciones")
+            print("  n) Siguiente >>")
             print("  0) Volver\n")
-        elif hoja == 2:
-            print("  -- IA y color (2/2) + inferencia basica --\n")
-            print("  1) Refinar keywords (normalizar + sinonimos)")
-            print("  2) Transcripcion (audios/videos)")
-            print("  3) Keypoints de transcripciones")
-            print("  4) Inferir timestamps")
-            print("  5) Inferir GPS")
-            print("  8) << Anterior")
-            print("  9) Siguiente >>")
-            print("  0) Volver\n")
-        else:  # hoja == 3
-            print("  -- Ubicacion y tiempo + busqueda semantica --\n")
-            print("  1) Localizacion (provincia, municipio, localidad)")
-            print("  2) Condiciones climaticas")
-            print("  3) Dia de la semana")
-            print("  4) Posicion del sol (astronomia)")
-            print("  5) Embeddings")
-            print("  8) << Anterior")
+        else:
+            print("  -- Pasos de inferencia y enriquecimiento --\n")
+            print("  1) Inferir timestamps")
+            print("  2) Inferir GPS")
+            print("  3) Localizacion (provincia, municipio, localidad)")
+            print("  4) Condiciones climaticas")
+            print("  5) Dia de la semana")
+            print("  6) Posicion del sol (astronomia)")
+            print("  7) Embeddings")
+            print("  p) << Anterior")
             print("  0) Volver\n")
 
         opc = input("  Opcion: ").strip()
@@ -1012,19 +1019,10 @@ def opcion_improve_db():
                     continue
                 _ejecutar_improve_db(pasos="keywords,descriptions", modo=modo)
                 pausa()
-            elif opc == "9":
-                hoja = 2
-            elif opc == "0":
-                break
-            else:
-                print("  Opcion invalida.")
-                pausa()
-
-        elif hoja == 2:
-            if opc == "1":
+            elif opc == "7":
                 opcion_refinar_keywords(db_path)
                 pausa()
-            elif opc == "2":
+            elif opc == "8":
                 modo = _preguntar_modo(db_path)
                 if modo is None:
                     print("  Cancelado.")
@@ -1032,7 +1030,7 @@ def opcion_improve_db():
                     continue
                 _ejecutar_improve_db(pasos="transcribe", modo=modo)
                 pausa()
-            elif opc == "3":
+            elif opc == "9":
                 modo = _preguntar_modo(db_path)
                 if modo is None:
                     print("  Cancelado.")
@@ -1040,7 +1038,16 @@ def opcion_improve_db():
                     continue
                 _ejecutar_improve_db(pasos="keypoints", modo=modo)
                 pausa()
-            elif opc == "4":
+            elif opc.lower() in ("n", "next"):
+                hoja = 2
+            elif opc == "0":
+                break
+            else:
+                print("  Opcion invalida.")
+                pausa()
+
+        else:  # hoja == 2
+            if opc == "1":
                 modo = _preguntar_modo(db_path)
                 if modo is None:
                     print("  Cancelado.")
@@ -1048,7 +1055,7 @@ def opcion_improve_db():
                     continue
                 _ejecutar_improve_db(pasos="timestamps", modo=modo)
                 pausa()
-            elif opc == "5":
+            elif opc == "2":
                 modo = _preguntar_modo(db_path)
                 if modo is None:
                     print("  Cancelado.")
@@ -1056,29 +1063,18 @@ def opcion_improve_db():
                     continue
                 _ejecutar_improve_db(pasos="gps", modo=modo)
                 pausa()
-            elif opc == "8":
-                hoja = 1
-            elif opc == "9":
-                hoja = 3
-            elif opc == "0":
-                break
-            else:
-                print("  Opcion invalida.")
-                pausa()
-
-        else:  # hoja == 3
-            if opc == "1":
-                opcion_geocode()
-            elif opc == "2":
-                opcion_weather()
             elif opc == "3":
-                opcion_dia_semana()
+                opcion_geocode()
             elif opc == "4":
-                opcion_astronomia()
+                opcion_weather()
             elif opc == "5":
+                opcion_dia_semana()
+            elif opc == "6":
+                opcion_astronomia()
+            elif opc == "7":
                 opcion_embeddings()
-            elif opc == "8":
-                hoja = 2
+            elif opc.lower() in ("p", "prev"):
+                hoja = 1
             elif opc == "0":
                 break
             else:

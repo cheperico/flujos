@@ -61,7 +61,7 @@ con SQLite como índice central y TouchDesigner como motor de reproducción.
 ├── scripts/                         # Scripts Python del pipeline
 │   ├── __init__.py
 │   ├── ingest.py                    # Ingesta de medios (1375 lines)
-│   ├── improve_db.py                # Post-procesamiento (8 pasos, 903 lines)
+│   ├── improve_db.py                # Post-procesamiento (9 pasos, ~1350 lines)
 │   ├── query.py                     # Consultas a DB
 │   ├── relocate.py                  # Relocalizar rutas
 │   ├── geocode.py                   # Geocodificación inversa (Georef API)
@@ -89,7 +89,7 @@ con SQLite como índice central y TouchDesigner como motor de reproducción.
 │       ├── batch_selector.py        # Selección de mejor imagen de tanda
 │       ├── clustering.py            # Agrupamiento por tags/embeddings
 │       ├── generate_embeddings.py   # Embeddings vectoriales (nomic-embed-text)
-│               └── proxy.py                 # Proxy: redimensiona imágenes a ~2MP para IA
+│               └── proxy.py                 # Proxy: redimensiona imágenes a ~800px para IA
 │
 ├── td/                              # Scripts vinculados desde TouchDesigner
 │   ├── osc_callbacks.dat            # Callbacks OSC In DAT (recibe msgs de Python)
@@ -350,8 +350,10 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 | | | Colores dominantes (3 slots: hex, nombre CSS, categoría básica) | `media` | color_{1,2,3}_hex, color_{1,2,3}_name_css, color_{1,2,3}_name_basic |
 | | | Control de ingesta (fecha, batch) | `media` | ingested_at, ingest_batch_id |
 | **COLORES** | `improve_db.py --step colors` | Reprocesa colores dominantes (modos skip/update/replace) | `media` | color_{1,2,3}_hex, color_{1,2,3}_name_css, color_{1,2,3}_name_basic, updated_at |
-| **KEYWORDS** | `improve_db.py --step keywords` | Palabras clave IA (5-7, incluye género fotográfico) | `media_metadata` | key=`ia_keywords`, value=JSON array |
-| **DESCRIPTION** | `improve_db.py --step descriptions` | Descripción breve generada por IA | `media_metadata` | key=`ia_description`, value=texto |
+| **KEYWORDS** | `improve_db.py --step keywords` | Palabras clave IA (visión EN → traducción ES, 2 fases) | `media_metadata` | key=`ia_keywords` (ES definitivo), value=texto coma-separado; key=`ia_keywords_en` (intermedio EN) |
+| **DESCRIPTION** | `improve_db.py --step descriptions` | Descripción IA (visión EN → traducción ES, 2 fases) | `media_metadata` | key=`ia_description` (ES definitivo); key=`ia_description_en` (intermedio EN) |
+| **COMBINADO** | `improve_db.py --step combinado` | Keywords + descripción en UNA llamada de visión (EN) + 1 de traducción (ES) | `media_metadata` | keys `ia_keywords_en`/`ia_description_en` + `ia_keywords`/`ia_description` (ES) |
+| **TRANSLATE** | `traducir_metadata.py` | Traducción EN→ES independiente sobre la DB (re-ejecutable sin re-correr visión) | `media_metadata` | `ia_keywords`/`ia_description` desde `ia_keywords_en`/`ia_description_en` |
 | **TRANSCRIBE** | `improve_db.py --step transcribe` | Transcripción completa de audio/video | `media_metadata` | key=`transcript`, value=texto |
 | **KEYPOINTS** | `improve_db.py --step keypoints` | Segmentos individuales de transcripción con timestamp | `media_keypoints` | media_id, timestamp_offset_secs, timestamp_absolute, key=`transcript_segment`, value=texto, source |
 | **TIMESTAMPS** | `improve_db.py --step timestamps` | Timestamps inferidos desde EXIF/ExifTool | `media` | timestamp_original, timestamp_utc, timezone_note, updated_at |
@@ -535,14 +537,15 @@ El menú TUI organiza las opciones por **temática**, no por complejidad o crono
   - `--recursive` escanea subcarpetas (default: solo raíz). Carpetas `excluir/` y ocultas siempre se excluyen.
   - Color extraction removido de ingest (ver `improve_db.py --step colors`).
 
-#### `improve_db.py` (903 lines)
-- **Propósito**: Pipeline de 8 pasos post-ingesta con skip/update/replace.
-- **Args CLI**: `--steps` (default: todos), `--mode` (skip|update|replace), `--db`, `--list`
-- **Pasos**: `colors`, `keywords`, `descriptions`, `transcribe`, `keypoints`, `timestamps`, `gps`, `video_metadata`
-- **DB que modifica**: `media` (UPDATE colores, timestamps, GPS), `media_metadata` (INSERT keywords, descriptions, transcripts), `media_keypoints`
+#### `improve_db.py` (~1350 lines)
+- **Propósito**: Pipeline de 9 pasos post-ingesta con skip/update/replace.
+- **Args CLI**: `--steps` (default: todos), `--mode` (skip|update|replace), `--db`, `--list`, `--mostrar`, `--workers` (default 1)
+- **Pasos**: `colors`, `keywords`, `descriptions`, `combinado`, `transcribe`, `keypoints`, `timestamps`, `gps`, `video_metadata`
+- **DB que modifica**: `media` (UPDATE colores, timestamps, GPS), `media_metadata` (INSERT keywords, descriptions, transcripts, claves `*_en`), `media_keypoints`
 - **Modos**: skip (solo pendientes), update (actualiza todos), replace (limpia y regenera)
-- **Dependencias**: color_utils, ai_media/image_analysis, ai_media/transcribe_media
-- **Notas**: Usa `ThreadPoolExecutor(max_workers=2)` para llamadas Ollama en paralelo.
+- **Dependencias**: color_utils, ai_media/image_analysis, ai_media/transcribe_media, ai_media/traducir_metadata
+- **FLUJO IA (keywords/descriptions/combinado)**: 2 fases por paso. **Fase A (visión)**: minicpm genera EN y lo guarda en `ia_keywords_en`/`ia_description_en`. **Fase B (traducción)**: qwen2.5:3b traduce a ES sobre la DB (sin re-procesar imágenes) y escribe `ia_keywords`/`ia_description` (ES definitivo, lo que consume la interfaz). Al regenerar el EN SIEMPRE se invalida el ES viejo (incluido skip) para que la fase B lo retraduzca. El EN queda persistido para re-traducir sin re-correr visión.
+- **Notas**: `--workers` default 1 (requests concurrentes a Ollama). `--workers 2+` NO recomendado: Ollama serializa la inferencia, compiten por memoria y pueden desestabilizar el modelo (síntoma: `@@@@@` y tags vacíos; medido 25x más lento). El paso `combinado` hace keywords+descripción en UNA llamada de visión + 1 de traducción (recomendado para la pasada masiva).
 
 #### `query.py`
 - **Propósito**: Consultas a DB desde CLI.
@@ -698,10 +701,10 @@ El menú TUI organiza las opciones por **temática**, no por complejidad o crono
 - **Integración**: TUI (Mantenimiento DB → opción 9), CLI (`python flujos.py mover --new-root X --mode mover`)
 
 ### Scripts de IA (`scripts/ai_media/`)
-| `ollama_client.py` | Cliente Ollama compartido. Clase `OllamaVisionClient(modelo, timeout)`. Métodos: `analizar_imagen()`, `analizar_imagenes()`, `generar_embedding()`. | ollama (Python) |
+| `ollama_client.py` | Cliente Ollama compartido. Clases `OllamaVision(modelo, timeout, num_ctx)`, `OllamaEmbedding(modelo)`. Métodos: `analizar_imagen()`, `analizar_imagenes()`, `embed()`. **Auto-inicio**: `asegurar_ollama()` (verifica puerto 11434 y lanza `ollama serve` en background si no responde), `ollama_responde()`, `iniciar_ollama()`. Todas las clases llaman `asegurar_ollama()` en su constructor. | ollama (Python) |
 | `transcribe.py` | Transcripción vía faster-whisper (independiente, sin DB). Formatos: SRT, TXT, JSON. | faster-whisper |
 | `transcribe_media.py` | Transcripción desde DB (lee de `media`, escribe en `media_metadata`). | faster-whisper |
-| `image_analysis.py` | Keywords + descripción de imágenes vía Ollama (17 géneros). Usado por improve_db.py. | ollama_client |
+| `image_analysis.py` | Keywords + descripción de imágenes vía Ollama. **Prompts EN mínimos** (`MODELO_VISION_DEFAULT=minicpm-v4.6:latest`); género fotográfico pendiente de investigar. Usado por improve_db.py. | ollama_client |
 | `video_analysis.py` | Análisis de videos (keyframes + descripción). | ollama_client |
 | `analyze_video.py` | Scene-change detection + análisis visual de video. | ollama_client |
 | `tag_images.py` | Taggear imágenes (modo DB o sidecar). | ollama_client |
@@ -709,7 +712,8 @@ El menú TUI organiza las opciones por **temática**, no por complejidad o crono
 | `clustering.py` | Agrupa imágenes por tags o embeddings compartidos. | — |
 | `generate_embeddings.py` | Genera embeddings vectoriales vía nomic-embed-text. | ollama_client |
 | `refinar_keywords.py` | Refina y unifica keywords de IA (3 capas: léxica, diccionario de sinónimos, semántica con embeddings). Sobrescribe `media_metadata.ia_keywords`. | ollama_client |
-| `proxy.py` | Redimensiona imágenes a ~2MP para procesamiento IA más rápido. | Pillow |
+| `traducir_metadata.py` | Traduce metadata EN → ES sobre la DB (keywords/descripciones) con glosario de cicloturismo y modo JSON combinado. Guarda `ia_keywords`/`ia_description` (ES) desde `ia_keywords_en`/`ia_description_en`. | ollama (texto) |
+| `proxy.py` | Redimensiona imágenes a ~800px para procesamiento IA más rápido. | Pillow |
 
 ### Scripts TouchDesigner (`td/`)
 
@@ -905,6 +909,8 @@ elif mode == "skip":
 - **mover_media.py (Jul 2026)**: script para mover/copiar archivos de medios a nueva ubicación y actualizar DB automáticamente. Soporta sidecars (.AAE, .json, .xml, .XMP) moviéndolos desde el directorio fuente. Integrado en TUI (Mantenimiento DB → 9) y CLI (`python flujos.py mover`).
 - **moondream no apto para keywords (Jul 2026)**: se detectó que `moondream:latest` regurgita el prompt y devuelve keywords basura (géneros solos, textos del prompt). Se cambió `MODELO_VISION_DEFAULT` a `qwen2.5vl:3b` en `image_analysis.py` y el default de `OllamaVision` en `ollama_client.py` (timeout 120→180s). Los prompts `PROMPT_KEYWORDS`/`PROMPT_COMBINADO` se simplificaron a "exactamente 5 keywords, género primero" y `_validar_genero()` ahora busca el género en cualquier posición.
 - **refinar_keywords.py (Jul 2026)**: script de 3 capas para limpiar/unificar `ia_keywords`. Evalúa sinónimos con `paraphrase-multilingual:latest` (coseno ≥ 0.87; `bicicleta~bici` 0.993, `bici~perro` 0.146; falsos positivos de palabras truncadas `monta~obra` 0.844 quedan fuera). Se descartó `nextfire/paraphrase-multilingual-minilm` por confundir no-sinónimos. Integrado en TUI (Mejorar DB → Parte 1 → 9).
+- **Pipeline IA EN→ES (Ago 2026)**: los modelos de visión multilingües (minicpm-v4.6) responden mejor en inglés. El pipeline de keywords/descripciones ahora es 2 fases: **A (visión)** genera EN y lo guarda en `ia_keywords_en`/`ia_description_en`; **B (traducción)** con qwen2.5:3b traduce a ES y escribe `ia_keywords`/`ia_description` (lo que consume la interfaz, SIEMPRE español). El EN queda persistido para re-traducir sin re-correr visión. `improve_db.py` implementa esto en `run_keywords`/`run_descriptions` + nuevo paso `combinado` (keywords+descripción en 1 llamada de visión + 1 de traducción, recomendado para pasadas masivas). `traducir_metadata.py` es el script independiente reutilizable. El género fotográfico quedó **pendiente de investigar** (los prompts son libres, sin validación; refinar_keywords fuerza "otras"). `refinar_keywords.py` ganó términos EN en SINONIMOS como red de seguridad.
+- **Auto-inicio de Ollama (Ago 2026)**: todos los scripts que requieren Ollama ahora verifican primero si el servidor responde (`socket` a `OLLAMA_HOST:OLLAMA_PORT`, default `127.0.0.1:11434`) y si no, lo arrancan automáticamente con `ollama serve` en background (sin bloquear la terminal, `CREATE_NO_WINDOW` en Windows). Funciones centrales en `ollama_client.py`: `ollama_responde()`, `iniciar_ollama()`, `asegurar_ollama()`. `OllamaVision` y `OllamaEmbedding` llaman `asegurar_ollama()` en su constructor, por lo que todo script que las use queda cubierto. Scripts que usan `ollama` directo (traducir_metadata, improve_db, refinar_keywords, image_analysis --list-models, analyze_video, tag_images, generate_embeddings) llaman `asegurar_ollama()` antes de cada uso. `flujos.py _verificar_ollama()` usa la función central y avisa "✅ Ollama iniciado automáticamente" cuando lo arranca.
 
 ---
 

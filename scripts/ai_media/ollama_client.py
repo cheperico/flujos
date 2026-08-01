@@ -23,6 +23,11 @@ Uso básico:
 """
 
 import logging
+import os
+import shutil
+import socket
+import subprocess
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -48,16 +53,141 @@ MODELOS_TEXTO = [
     "llama3.2:3b-instruct-q4_K_M",
 ]
 
+# Contexto (num_ctx) por defecto para modelos de visión.
+# Ollama sin num_ctx carga el máximo del modelo (128000) → 8.2 GB RAM,
+# saturando la memoria y disparando el swapping en máquinas sin GPU.
+# 4096 cubre los ~2718 tokens de una imagen 1600px + prompt, y deja margen
+# para datos extra (estilo de descripción, keywords obligatorias).
+# Memoria del modelo: ~2.9 GB.
+NUM_CTX_DEFAULT = 4096
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Verificación e inicio automático del servidor Ollama
+# ═══════════════════════════════════════════════════════════════════════
+
+# Host/puerto por defecto del servidor Ollama (configurable vía entorno)
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "127.0.0.1")
+OLLAMA_PORT = int(os.environ.get("OLLAMA_PORT", "11434"))
+
+
+def ollama_responde(timeout: float = 2.0) -> bool:
+    """Verifica si el servidor Ollama responde en el host/puerto configurado.
+
+    Args:
+        timeout: Segundos máximo para el intento de conexión.
+
+    Returns:
+        True si hay un proceso escuchando en el puerto de Ollama.
+    """
+    try:
+        with socket.create_connection((OLLAMA_HOST, OLLAMA_PORT), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def _buscar_binario_ollama() -> str | None:
+    """Localiza el binario de Ollama (PATH primero, luego rutas típicas de Windows)."""
+    binario = shutil.which("ollama")
+    if binario:
+        return binario
+    candidatos = [
+        os.path.expandvars(r"%LOCALAPPDATA%\Programs\Ollama\ollama.exe"),
+        r"C:\Program Files\Ollama\ollama.exe",
+    ]
+    for c in candidatos:
+        if os.path.isfile(c):
+            return c
+    return None
+
+
+def iniciar_ollama() -> bool:
+    """Lanza `ollama serve` en segundo plano sin bloquear la terminal.
+
+    Returns:
+        True si se encontró el binario y se lanzó el proceso.
+    """
+    binario = _buscar_binario_ollama()
+    if not binario:
+        logger.error(
+            "No se encontró el binario de Ollama en PATH. "
+            "Instalalo o agregalo al PATH manualmente."
+        )
+        return False
+    try:
+        flags = {}
+        if os.name == "nt":
+            flags["creationflags"] = subprocess.CREATE_NO_WINDOW
+        subprocess.Popen(
+            [binario, "serve"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            **flags,
+        )
+        return True
+    except Exception as e:
+        logger.error("No se pudo iniciar `ollama serve`: %s", e)
+        return False
+
+
+def asegurar_ollama(espera_max: float = 30.0, auto_iniciar: bool = True) -> bool:
+    """Asegura que el servidor Ollama esté corriendo, iniciándolo si hace falta.
+
+    Verifica si el puerto de Ollama responde; si no y `auto_iniciar` es True,
+    lanza `ollama serve` en segundo plano y espera hasta `espera_max` segundos
+    a que levante.
+
+    Args:
+        espera_max: Segundos máximo de espera tras lanzar el servidor.
+        auto_iniciar: Si False, solo verifica sin intentar iniciar.
+
+    Returns:
+        True si Ollama quedó disponible, False si no.
+    """
+    if ollama_responde():
+        return True
+
+    if not auto_iniciar:
+        logger.warning("Ollama no está corriendo (auto-inicio desactivado).")
+        return False
+
+    logger.info("Ollama no responde. Iniciando `ollama serve`...")
+    if not iniciar_ollama():
+        return False
+
+    t0 = time.monotonic()
+    while time.monotonic() - t0 < espera_max:
+        if ollama_responde(timeout=0.5):
+            logger.info("Ollama iniciado correctamente.")
+            return True
+        time.sleep(0.5)
+
+    logger.error("Ollama no respondió tras %.0f s de espera.", espera_max)
+    return False
+
 
 class OllamaVision:
     """Cliente para analizar imágenes usando modelos de visión de Ollama."""
 
-    def __init__(self, modelo: str = "qwen2.5vl:3b", timeout: int = 180):
+    def __init__(self, modelo: str = "qwen2.5vl:3b", timeout: int = 180,
+                 num_ctx: int = NUM_CTX_DEFAULT):
         """
         Args:
             modelo: Nombre del modelo de visión a usar.
             timeout: Timeout en segundos para la consulta.
+            num_ctx: Ventana de contexto (num_ctx) para la inferencia.
+                Evita que Ollama reserve el contexto máximo del modelo
+                (128000 → 8.2 GB RAM). 4096 cubre imagen 1600px + prompt
+                con margen, usando ~2.9 GB.
         """
+        # Asegurar que el servidor Ollama esté corriendo antes de consultarlo
+        if not asegurar_ollama():
+            logger.error(
+                "Ollama no está disponible. Verificá que el servidor esté "
+                "corriendo (ollama serve) o que el binario esté en PATH."
+            )
         if modelo not in self._listar_modelos_disponibles():
             logger.warning(
                 "Modelo '%s' no encontrado entre los disponibles. "
@@ -65,6 +195,7 @@ class OllamaVision:
             )
         self.modelo = modelo
         self.timeout = timeout
+        self.num_ctx = num_ctx
 
     @staticmethod
     def _listar_modelos_disponibles() -> list[str]:
@@ -112,7 +243,9 @@ class OllamaVision:
             with open(ruta, "rb") as f:
                 imagen_bytes = f.read()
 
-            response = ollama.chat(
+            # Usar Client con timeout (la función global ollama.chat() no acepta timeout)
+            cliente = ollama.Client(timeout=self.timeout)
+            response = cliente.chat(
                 model=self.modelo,
                 messages=[
                     {
@@ -121,7 +254,7 @@ class OllamaVision:
                         "images": [imagen_bytes],
                     }
                 ],
-                options={"temperature": temperatura},
+                options={"temperature": temperatura, "num_ctx": self.num_ctx},
             )
             # Compatibilidad: ollama >=0.3 devuelve ChatResponse (objeto),
             # versiones anteriores devuelven dict
@@ -181,6 +314,12 @@ class OllamaEmbedding:
     """
 
     def __init__(self, modelo: str = "nomic-embed-text", timeout: int = 60):
+        # Asegurar que el servidor Ollama esté corriendo antes de usarlo
+        if not asegurar_ollama():
+            logger.error(
+                "Ollama no está disponible. Verificá que el servidor esté "
+                "corriendo (ollama serve) o que el binario esté en PATH."
+            )
         self.modelo = modelo
         self.timeout = timeout
 

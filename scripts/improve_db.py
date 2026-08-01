@@ -11,6 +11,11 @@ Uso:
     python scripts/improve_db.py --mode replace           # Borrar y regenerar
     python scripts/improve_db.py --db ruta/a/flujos.db    # DB personalizada
     python scripts/improve_db.py --steps keywords --mostrar  # Mostrar en vivo cada keyword
+    python scripts/improve_db.py --steps keywords --workers 1  # 1 request a la vez (default, estable)
+
+    ⚠️ --workers 2+: NO recomendado. Ollama serializa la inferencia; 2 requests
+    concurrentes compiten por memoria y pueden desestabilizar el modelo
+    (síntoma: @@@@@ y tags vacíos, reportado en otra máquina). Medido: 25x más lento.
 
 Modos:
     skip    (default) Saltar medios que ya tienen el dato procesado
@@ -19,12 +24,23 @@ Modos:
 
 Pasos:
     colors        Extraer colores dominantes de imágenes
-    keywords      Etiquetar imágenes con IA (Ollama)
-    descriptions  Describir imágenes con IA (Ollama)
+    keywords      Etiquetar imágenes con IA (visión EN + traducción ES)
+    descriptions  Describir imágenes con IA (visión EN + traducción ES)
+    combinado     Keywords + descripción en UNA llamada de visión (EN) + 1 de traducción (ES)
     transcribe    Transcribir audios/videos (faster-whisper)
     keypoints     Poblar media_keypoints desde transcripciones
     timestamps    Inferir timestamps faltantes por clúster + orden
     gps           Inferir GPS desde medios cercanos en el tiempo
+
+FLUJO IA (keywords/descriptions/combinado):
+    Los modelos de visión (minicpm) responden mejor en inglés, así que el
+    pipeline interno genera EN y lo guarda en claves temporales:
+        ia_keywords_en / ia_description_en
+    Luego traduce a español con un modelo de texto (qwen2.5:3b) y guarda en:
+        ia_keywords    / ia_description
+    La INTERFAZ (lo que el usuario consume) es SIEMPRE español. El EN queda
+    en DB para poder re-traducir sin re-correr visión (--mode update).
+    Traducción reutilizable: scripts/ai_media/traducir_metadata.py
 """
 
 import argparse
@@ -47,6 +63,17 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 log = logging.getLogger("improve_db")
+
+# ── Claves en media_metadata (pipeline IA EN → ES) ───────────────────────────
+# La IA de visión genera en inglés (mejor calidad con minicpm) y se guarda en
+# claves *_en; luego se traduce a español con un modelo de texto y se guarda
+# en las claves definitivas (ia_keywords / ia_description) que consume el resto
+# del proyecto. El EN queda persistido para poder re-traducir sin re-correr
+# visión.
+CLAVE_KW_EN = "ia_keywords_en"
+CLAVE_DESC_EN = "ia_description_en"
+CLAVE_KW_ES = "ia_keywords"
+CLAVE_DESC_ES = "ia_description"
 
 
 # ==============================================================================
@@ -85,6 +112,20 @@ def check_descriptions(conn) -> dict:
           AND NOT EXISTS (
               SELECT 1 FROM media_metadata mm
               WHERE mm.media_id = m.id AND mm.key = 'ia_description'
+          )
+    """).fetchone()[0]
+    return {"total": total, "pendientes": pendientes, "hecho": total - pendientes}
+
+
+def check_combinado(conn) -> dict:
+    """Cuenta imágenes sin keywords Y descripción combinadas (ia_keywords ES)."""
+    total = conn.execute("SELECT COUNT(*) FROM media WHERE type='image'").fetchone()[0]
+    pendientes = conn.execute("""
+        SELECT COUNT(*) FROM media m
+        WHERE m.type='image'
+          AND NOT EXISTS (
+              SELECT 1 FROM media_metadata mm
+              WHERE mm.media_id = m.id AND mm.key = 'ia_keywords'
           )
     """).fetchone()[0]
     return {"total": total, "pendientes": pendientes, "hecho": total - pendientes}
@@ -212,41 +253,65 @@ def run_colors(conn, db_path, mode, stats):
     stats["colors_err"] = errors
 
 
-def run_keywords(conn, db_path, mode, stats):
-    """Etiqueta imágenes con IA (Ollama)."""
-    log.info("Paso: keywords — Etiquetando imágenes con IA")
+def _crear_cliente_texto():
+    """Crea el cliente Ollama para la fase de traducción."""
+    from scripts.ai_media.ollama_client import asegurar_ollama
+    if not asegurar_ollama():
+        raise RuntimeError(
+            "Ollama no está disponible. Verificá que el servidor esté "
+            "corriendo (ollama serve) o que el binario esté en PATH."
+        )
+    import ollama
+    return ollama.Client(timeout=300)
 
-    # Determinar imágenes a procesar
+
+def _procesar_vision(conn, mode, stats, nombre, fn_vision, clave_en, clave_es,
+                     mostrar_label, es_lista):
+    """
+    Fase A de keywords/descriptions: genera el dato EN con visión y lo guarda.
+
+    Args:
+        conn: conexión a la DB.
+        mode: skip|update|replace.
+        stats: dict de estadísticas.
+        nombre: nombre del paso ("keywords" | "descriptions").
+        fn_vision: función que recibe (fpath, modelo) y devuelve el dato EN
+                   (list[str] si es_lista, str si no).
+        clave_en: clave media_metadata donde se guarda el EN.
+        clave_es: clave ES (se limpia en replace/update junto con el EN).
+        mostrar_label: etiqueta para --mostrar.
+        es_lista: True si fn_vision devuelve lista (keywords), False si str.
+    """
+    log.info("  [Fase A] Visión (EN) → %s", clave_en)
+
+    from scripts.ai_media.image_analysis import MODELO_VISION_DEFAULT
+
+    helper = ModoHelper(mode)
+
+    # replace: limpiar BOTH claves (EN y ES) — la fase B retraducirá todo
     if mode == "replace":
-        query = "SELECT id, filepath_absoluto FROM media WHERE type='image'"
-    elif mode == "update":
-        query = "SELECT id, filepath_absoluto FROM media WHERE type='image'"
-    else:  # skip
-        query = """
+        conn.execute(
+            "DELETE FROM media_metadata WHERE key IN (?, ?)",
+            (clave_en, clave_es),
+        )
+        conn.commit()
+
+    if mode == "skip":
+        query = f"""
             SELECT m.id, m.filepath_absoluto FROM media m
             WHERE m.type='image'
               AND NOT EXISTS (
                   SELECT 1 FROM media_metadata mm
-                  WHERE mm.media_id = m.id AND mm.key = 'ia_keywords'
+                  WHERE mm.media_id = m.id AND mm.key = '{clave_en}'
               )
         """
+    else:  # update / replace
+        query = "SELECT id, filepath_absoluto FROM media WHERE type='image'"
 
     rows = conn.execute(query).fetchall()
     if not rows:
-        log.info("  No hay imágenes pendientes.")
+        log.info("  No hay imágenes pendientes (visión).")
         return
-
-    try:
-        from scripts.ai_media.image_analysis import extraer_keywords, MODELO_VISION_DEFAULT
-    except ImportError:
-        try:
-            sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-            from scripts.ai_media.image_analysis import extraer_keywords, MODELO_VISION_DEFAULT
-        except ImportError as e:
-            log.error("  No se pudo importar extraer_keywords: %s", e)
-            log.error("  Asegurate de que scripts/ai_media/image_analysis.py existe.")
-            stats["errors"] += 1
-            return
 
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -254,8 +319,8 @@ def run_keywords(conn, db_path, mode, stats):
         if not os.path.isfile(fpath):
             return "warning", fpath
         try:
-            keywords = extraer_keywords(fpath, modelo=MODELO_VISION_DEFAULT)
-            return "ok", (mid, keywords)
+            dato = fn_vision(fpath, modelo=MODELO_VISION_DEFAULT)
+            return "ok", (mid, dato)
         except Exception as e:
             return "error", (fpath, e)
 
@@ -263,23 +328,24 @@ def run_keywords(conn, db_path, mode, stats):
     errors = 0
     warnings = 0
     batch = []
-    with ThreadPoolExecutor(max_workers=2) as pool:
+    n_workers = max(1, CONTEXTO.get("workers", 1))
+    with ThreadPoolExecutor(max_workers=n_workers) as pool:
         futures = {pool.submit(_process_one, mid, fpath): (mid, fpath)
                    for mid, fpath in rows}
         for f in tqdm(as_completed(futures), total=len(futures),
-                      desc="  Keywords", unit="img", ncols=80):
+                      desc=f"  {mostrar_label} (EN)", unit="img", ncols=80):
             result, data = f.result()
             if result == "warning":
                 log.warning("  Archivo no encontrado: %s", data)
                 warnings += 1
             elif result == "ok":
-                mid, keywords = data
-                if CONTEXTO["mostrar"] and keywords:
-                    kw_str = ", ".join(keywords) if isinstance(keywords, list) else str(keywords)
-                    tqdm.write(f"    [media {mid}] {kw_str}")
-                if keywords:
-                    batch.append((mid, keywords if isinstance(keywords, str)
-                                  else ", ".join(keywords)))
+                mid, dato = data
+                valor = (", ".join(dato) if es_lista and isinstance(dato, list)
+                         else (str(dato) if dato else ""))
+                if CONTEXTO["mostrar"] and valor:
+                    tqdm.write(f"    [media {mid}] {valor}")
+                if valor:
+                    batch.append((mid, valor))
                 ok += 1
             else:
                 fpath, exc = data
@@ -287,111 +353,300 @@ def run_keywords(conn, db_path, mode, stats):
                 errors += 1
 
     if batch:
-        # En replace/update: limpiar SOLO los que se regeneraron (atómicamente con el insert)
-        if mode in ("replace", "update"):
-            ids_ok = [str(mid) for mid, _ in batch]
-            conn.execute(
-                f"DELETE FROM media_metadata WHERE key = 'ia_keywords' AND media_id IN ({','.join('?' * len(ids_ok))})",
-                [int(mid) for mid in ids_ok],
-            )
+        # SIEMPRE al regenerar el EN, invalidar el ES viejo (la fase B lo retraduce).
+        # Incluye skip: si una imagen tiene ES viejo pero se regeneró su EN,
+        # el ES queda obsoleto y debe traducirse de nuevo.
+        ids_ok = [str(mid) for mid, _ in batch]
+        conn.execute(
+            f"DELETE FROM media_metadata WHERE key = ? AND media_id IN ({','.join('?' * len(ids_ok))})",
+            [clave_es] + [int(mid) for mid in ids_ok],
+        )
         conn.executemany(
             "INSERT OR REPLACE INTO media_metadata (media_id, key, value) "
-            "VALUES (?, 'ia_keywords', ?)", batch)
+            f"VALUES (?, '{clave_en}', ?)", batch)
         conn.commit()
 
     stats["warnings"] += warnings
-    log.info("  ✅ Keywords generadas: %d  |  Errores: %d", ok, errors)
-    stats["keywords_ok"] = ok
-    stats["keywords_err"] = errors
+    log.info("  ✅ Visión %s: %d  |  Errores: %d", nombre, ok, errors)
+    stats[f"{nombre}_ok"] = ok
+    stats[f"{nombre}_err"] = errors
+
+
+def _traducir_metadata(conn, mode, stats, nombre, clave_en, clave_es, paso,
+                       modelo_traduccion="qwen2.5:3b"):
+    """
+    Fase B de keywords/descriptions: traduce EN → ES sobre la DB.
+
+    Lee registros con clave_en y traduce con un modelo de texto, guardando
+    el resultado en clave_es.
+
+    Args:
+        conn: conexión a la DB.
+        mode: skip|update|replace.
+        stats: dict de estadísticas.
+        nombre: nombre del paso ("keywords" | "descriptions").
+        clave_en: clave con el texto EN.
+        clave_es: clave donde se escribe el ES.
+        paso: "keywords" | "descriptions" | "ambos" para traducir_llamada.
+        modelo_traduccion: modelo de texto (default qwen2.5:3b).
+    """
+    log.info("  [Fase B] Traducción (%s → %s)", clave_en, clave_es)
+
+    from scripts.ai_media.traducir_metadata import traducir_llamada, leer_valor_db
+
+    if mode == "skip":
+        query = f"""
+            SELECT m.id,
+                   (SELECT value FROM media_metadata mm WHERE mm.media_id = m.id AND mm.key = '{clave_en}') AS v_en
+            FROM media m
+            WHERE EXISTS (SELECT 1 FROM media_metadata mm
+                          WHERE mm.media_id = m.id AND mm.key = '{clave_en}')
+              AND NOT EXISTS (SELECT 1 FROM media_metadata mm
+                              WHERE mm.media_id = m.id AND mm.key = '{clave_es}')
+            ORDER BY m.id
+        """
+    else:  # update / replace: retraduce todos los que tienen EN
+        query = f"""
+            SELECT m.id,
+                   (SELECT value FROM media_metadata mm WHERE mm.media_id = m.id AND mm.key = '{clave_en}') AS v_en
+            FROM media m
+            WHERE EXISTS (SELECT 1 FROM media_metadata mm
+                          WHERE mm.media_id = m.id AND mm.key = '{clave_en}')
+            ORDER BY m.id
+        """
+
+    rows = conn.execute(query).fetchall()
+    if not rows:
+        log.info("  No hay registros para traducir.")
+        return
+
+    cliente = _crear_cliente_texto()
+    ok = 0
+    errors = 0
+
+    for mid, v_en in tqdm(rows, desc=f"  Traduciendo {mostrar_label_nombre(paso)}",
+                          unit="img", ncols=80):
+        try:
+            if paso == "keywords":
+                kw_en = leer_valor_db(v_en)
+                kw_es, _, _ = traducir_llamada(cliente, kw_en, "", paso, modelo_traduccion)
+                if kw_es:
+                    conn.execute(
+                        "INSERT OR REPLACE INTO media_metadata (media_id, key, value) VALUES (?, ?, ?)",
+                        (mid, clave_es, ", ".join(kw_es)))
+                    ok += 1
+                else:
+                    log.warning("  ⚠ Sin traducción para media %s", mid)
+                    errors += 1
+            elif paso == "descriptions":
+                _, desc_es, _ = traducir_llamada(cliente, [], v_en or "", paso, modelo_traduccion)
+                if desc_es:
+                    conn.execute(
+                        "INSERT OR REPLACE INTO media_metadata (media_id, key, value) VALUES (?, ?, ?)",
+                        (mid, clave_es, desc_es))
+                    ok += 1
+                else:
+                    log.warning("  ⚠ Sin traducción para media %s", mid)
+                    errors += 1
+            else:  # ambos: lee las dos claves EN y escribe las dos ES
+                fila_kw = conn.execute(
+                    "SELECT value FROM media_metadata WHERE media_id=? AND key=?",
+                    (mid, CLAVE_KW_EN)).fetchone()
+                fila_desc = conn.execute(
+                    "SELECT value FROM media_metadata WHERE media_id=? AND key=?",
+                    (mid, CLAVE_DESC_EN)).fetchone()
+                kw_en = leer_valor_db(fila_kw[0] if fila_kw else None)
+                desc_en = (fila_desc[0] if fila_desc else "") or ""
+                kw_es, desc_es, _ = traducir_llamada(
+                    cliente, kw_en, desc_en, "ambos", modelo_traduccion)
+                cambios = 0
+                if kw_es:
+                    conn.execute(
+                        "INSERT OR REPLACE INTO media_metadata (media_id, key, value) VALUES (?, ?, ?)",
+                        (mid, CLAVE_KW_ES, ", ".join(kw_es)))
+                    cambios += 1
+                if desc_es:
+                    conn.execute(
+                        "INSERT OR REPLACE INTO media_metadata (media_id, key, value) VALUES (?, ?, ?)",
+                        (mid, CLAVE_DESC_ES, desc_es))
+                    cambios += 1
+                if cambios:
+                    ok += 1
+                else:
+                    log.warning("  ⚠ Sin traducción para media %s", mid)
+                    errors += 1
+        except Exception as e:
+            log.warning("  ⚠ Error traduciendo media %s: %s", mid, e)
+            errors += 1
+
+    conn.commit()
+    log.info("  ✅ Traducción %s: %d  |  Errores: %d", nombre, ok, errors)
+    stats[f"traduccion_{nombre}_ok"] = ok
+    stats[f"traduccion_{nombre}_err"] = errors
+
+
+def mostrar_label_nombre(paso):
+    """Etiqueta corta para la barra de progreso de traducción."""
+    return {"keywords": "Keywords", "descriptions": "Descripciones",
+            "ambos": "Keywords+Desc"}.get(paso, paso)
+
+
+def run_keywords(conn, db_path, mode, stats):
+    """Etiqueta imágenes con IA: visión (EN) + traducción (ES)."""
+    log.info("Paso: keywords — Etiquetando imágenes con IA (EN → ES)")
+
+    from scripts.ai_media.image_analysis import extraer_keywords
+
+    # Fase A: visión EN → ia_keywords_en
+    _procesar_vision(
+        conn, mode, stats,
+        nombre="keywords",
+        fn_vision=extraer_keywords,
+        clave_en=CLAVE_KW_EN,
+        clave_es=CLAVE_KW_ES,
+        mostrar_label="Keywords",
+        es_lista=True,
+    )
+    # Fase B: traducción → ia_keywords (ES)
+    _traducir_metadata(
+        conn, mode, stats,
+        nombre="keywords",
+        clave_en=CLAVE_KW_EN,
+        clave_es=CLAVE_KW_ES,
+        paso="keywords",
+    )
 
 
 def run_descriptions(conn, db_path, mode, stats):
-    """Describe imágenes con IA (Ollama)."""
-    log.info("Paso: descriptions — Describiendo imágenes con IA")
+    """Describe imágenes con IA: visión (EN) + traducción (ES)."""
+    log.info("Paso: descriptions — Describiendo imágenes con IA (EN → ES)")
 
+    from scripts.ai_media.image_analysis import describir_imagen
+
+    # Fase A: visión EN → ia_description_en
+    _procesar_vision(
+        conn, mode, stats,
+        nombre="descriptions",
+        fn_vision=describir_imagen,
+        clave_en=CLAVE_DESC_EN,
+        clave_es=CLAVE_DESC_ES,
+        mostrar_label="Descripciones",
+        es_lista=False,
+    )
+    # Fase B: traducción → ia_description (ES)
+    _traducir_metadata(
+        conn, mode, stats,
+        nombre="descriptions",
+        clave_en=CLAVE_DESC_EN,
+        clave_es=CLAVE_DESC_ES,
+        paso="descriptions",
+    )
+
+
+def run_combinado(conn, db_path, mode, stats):
+    """Keywords + descripción en UNA llamada de visión (EN) + 1 de traducción (ES)."""
+    log.info("Paso: combinado — Keywords + descripción (1 visión + 1 traducción por imagen)")
+
+    from scripts.ai_media.image_analysis import analizar_imagen_completo
+
+    helper = ModoHelper(mode)
     if mode == "replace":
-        query = "SELECT id, filepath_absoluto FROM media WHERE type='image'"
-    elif mode == "update":
-        query = "SELECT id, filepath_absoluto FROM media WHERE type='image'"
-    else:
-        query = """
+        conn.execute(
+            "DELETE FROM media_metadata WHERE key IN (?, ?, ?, ?)",
+            (CLAVE_KW_EN, CLAVE_DESC_EN, CLAVE_KW_ES, CLAVE_DESC_ES),
+        )
+        conn.commit()
+
+    if mode == "skip":
+        query = f"""
             SELECT m.id, m.filepath_absoluto FROM media m
             WHERE m.type='image'
               AND NOT EXISTS (
                   SELECT 1 FROM media_metadata mm
-                  WHERE mm.media_id = m.id AND mm.key = 'ia_description'
+                  WHERE mm.media_id = m.id AND mm.key IN ('{CLAVE_KW_EN}', '{CLAVE_DESC_EN}')
               )
         """
+    else:
+        query = "SELECT id, filepath_absoluto FROM media WHERE type='image'"
 
     rows = conn.execute(query).fetchall()
     if not rows:
-        log.info("  No hay imágenes pendientes.")
+        log.info("  No hay imágenes pendientes (visión combinada).")
         return
 
-    try:
-        from scripts.ai_media.image_analysis import describir_imagen, MODELO_VISION_DEFAULT
-    except ImportError:
-        try:
-            sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-            from scripts.ai_media.image_analysis import describir_imagen, MODELO_VISION_DEFAULT
-        except ImportError as e:
-            log.error("  No se pudo importar describir_imagen: %s", e)
-            stats["errors"] += 1
-            return
-
+    from scripts.ai_media.image_analysis import MODELO_VISION_DEFAULT
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     def _process_one(mid, fpath):
         if not os.path.isfile(fpath):
             return "warning", fpath
         try:
-            desc = describir_imagen(fpath, modelo=MODELO_VISION_DEFAULT)
-            return "ok", (mid, desc)
+            res = analizar_imagen_completo(fpath, modelo=MODELO_VISION_DEFAULT)
+            return "ok", (mid, res)
         except Exception as e:
             return "error", (fpath, e)
 
     ok = 0
     errors = 0
     warnings = 0
-    batch = []
-    with ThreadPoolExecutor(max_workers=2) as pool:
+    batch_kw = []
+    batch_desc = []
+    n_workers = max(1, CONTEXTO.get("workers", 1))
+    with ThreadPoolExecutor(max_workers=n_workers) as pool:
         futures = {pool.submit(_process_one, mid, fpath): (mid, fpath)
                    for mid, fpath in rows}
         for f in tqdm(as_completed(futures), total=len(futures),
-                      desc="  Descripciones", unit="img", ncols=80):
+                      desc="  Combinado (EN)", unit="img", ncols=80):
             result, data = f.result()
             if result == "warning":
                 log.warning("  Archivo no encontrado: %s", data)
                 warnings += 1
             elif result == "ok":
-                mid, desc = data
-                if CONTEXTO["mostrar"] and desc:
-                    tqdm.write(f"    [media {mid}] {desc}")
+                mid, res = data
+                kw = res.get("keywords", [])
+                desc = res.get("description", "")
+                if CONTEXTO["mostrar"]:
+                    tqdm.write(f"    [media {mid}] kw={kw} | desc={desc[:80]}...")
+                if kw:
+                    batch_kw.append((mid, ", ".join(kw)))
                 if desc:
-                    batch.append((mid, desc if isinstance(desc, str) else str(desc)))
+                    batch_desc.append((mid, desc))
                 ok += 1
             else:
                 fpath, exc = data
                 log.warning("  ⚠ Error en imagen %s: %s", fpath, exc)
                 errors += 1
 
-    if batch:
-        # En replace/update: limpiar SOLO los que se regeneraron (atómicamente con el insert)
-        if mode in ("replace", "update"):
-            ids_ok = [str(mid) for mid, _ in batch]
-            conn.execute(
-                f"DELETE FROM media_metadata WHERE key = 'ia_description' AND media_id IN ({','.join('?' * len(ids_ok))})",
-                [int(mid) for mid in ids_ok],
-            )
-        conn.executemany(
-            "INSERT OR REPLACE INTO media_metadata (media_id, key, value) "
-            "VALUES (?, 'ia_description', ?)", batch)
+    if batch_kw or batch_desc:
+        # SIEMPRE al regenerar el EN, invalidar los ES viejos (la fase B los retraduce)
+        ids_ok = set(mid for mid, _ in batch_kw + batch_desc)
+        conn.execute(
+            f"DELETE FROM media_metadata WHERE key IN (?, ?) AND media_id IN ({','.join('?' * len(ids_ok))})",
+            [CLAVE_KW_ES, CLAVE_DESC_ES] + list(ids_ok),
+        )
+        if batch_kw:
+            conn.executemany(
+                "INSERT OR REPLACE INTO media_metadata (media_id, key, value) "
+                f"VALUES (?, '{CLAVE_KW_EN}', ?)", batch_kw)
+        if batch_desc:
+            conn.executemany(
+                "INSERT OR REPLACE INTO media_metadata (media_id, key, value) "
+                f"VALUES (?, '{CLAVE_DESC_EN}', ?)", batch_desc)
         conn.commit()
 
     stats["warnings"] += warnings
-    log.info("  ✅ Descripciones generadas: %d  |  Errores: %d", ok, errors)
-    stats["descriptions_ok"] = ok
-    stats["descriptions_err"] = errors
+    log.info("  ✅ Visión combinada: %d  |  Errores: %d", ok, errors)
+    stats["combinado_ok"] = ok
+    stats["combinado_err"] = errors
+
+    # Fase B: traducción de ambos
+    _traducir_metadata(
+        conn, mode, stats,
+        nombre="combinado",
+        clave_en=CLAVE_KW_EN,
+        clave_es=CLAVE_KW_ES,
+        paso="ambos",
+    )
 
 
 def run_transcribe(conn, db_path, mode, stats):
@@ -882,6 +1137,12 @@ REGISTRY = {
         "check": check_descriptions,
         "run": run_descriptions,
     },
+    "combinado": {
+        "description": "Keywords + descripción en UNA llamada (1 visión + 1 traducción)",
+        "dependencies": [],
+        "check": check_combinado,
+        "run": run_combinado,
+    },
     "transcribe": {
         "description": "Transcribir audios/videos con faster-whisper",
         "dependencies": [],
@@ -914,11 +1175,11 @@ REGISTRY = {
     },
 }
 
-DEP_ORDER = ["colors", "keywords", "descriptions", "transcribe", "keypoints",
+DEP_ORDER = ["colors", "keywords", "descriptions", "combinado", "transcribe", "keypoints",
              "timestamps", "gps", "video_metadata"]
 
 # Contexto global compartido con las funciones run_* (evita cambiar la firma de todas)
-CONTEXTO: dict = {"mostrar": False}
+CONTEXTO: dict = {"mostrar": False, "workers": 1}
 
 
 def listar_pasos():
@@ -992,6 +1253,12 @@ Ejemplos:
         action="store_true",
         help="Mostrar en vivo keywords/descripciones imagen por imagen (solo pasos keywords/descriptions)",
     )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Cantidad de requests concurrentes a Ollama (default: 1 — ¡2+ puede colgar/desestabilizar el modelo!)",
+    )
 
     args = parser.parse_args(argv)
 
@@ -1021,6 +1288,11 @@ Ejemplos:
     log.info("Pasos a ejecutar: %s", ", ".join(pasos))
     log.info("Modo: %s", args.mode)
     CONTEXTO["mostrar"] = args.mostrar
+    if args.workers < 1:
+        log.error("--workers debe ser >= 1")
+        sys.exit(1)
+    CONTEXTO["workers"] = args.workers
+    log.info("Workers: %d (requests concurrentes a Ollama)", args.workers)
 
     conn = abrir(db_path)
 

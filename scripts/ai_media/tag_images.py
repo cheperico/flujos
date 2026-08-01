@@ -598,6 +598,10 @@ def procesar_desde_carpeta(
 
 def listar_modelos():
     """Muestra los modelos instalados en Ollama."""
+    from scripts.ai_media.ollama_client import asegurar_ollama
+    if not asegurar_ollama():
+        print("  ⚠️  Ollama no está disponible. No se pueden listar modelos.")
+        return
     try:
         import ollama
         response = ollama.list()
