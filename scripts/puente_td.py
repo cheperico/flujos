@@ -15,6 +15,7 @@ Uso básico:
 """
 
 import argparse
+import json
 import logging
 import sqlite3
 import time
@@ -212,6 +213,27 @@ KEYWORDS_A_IGNORAR = [
 ]
 
 
+def _partes_keywords(texto: str) -> list[str]:
+    """
+    Divide el valor de ia_keywords en partes (keywords individuales).
+    Soporta los dos formatos que históricamente se guardaron en la DB:
+      - Texto plano separado por comas:  "paisaje, montaña"
+      - JSON array:                       '["paisaje", "montaña"]'
+    Devuelve partes en minúsculas y sin quotes.
+    """
+    texto = texto.strip()
+    if not texto:
+        return []
+    if texto.startswith("["):
+        try:
+            datos = json.loads(texto)
+            if isinstance(datos, list):
+                return [str(p).strip().lower().strip("'\"") for p in datos]
+        except (json.JSONDecodeError, TypeError):
+            pass
+    return [p.strip().lower().strip("'\"") for p in texto.split(",") if p.strip()]
+
+
 def contar_keywords(db_path: str) -> Counter:
     """Cuenta frecuencia de keywords en la DB (columna ia_keywords)."""
     conn = abrir(db_path)
@@ -223,7 +245,7 @@ def contar_keywords(db_path: str) -> Counter:
     contador = Counter()
     for r in rows:
         texto = str(r[0])
-        partes = [p.strip().lower().strip("'\"") for p in texto.split(",")]
+        partes = _partes_keywords(texto)
         for p in partes:
             p = p.strip()
             if len(p) <= 2:

@@ -29,6 +29,14 @@ Las versiones corresponden a entregas funcionales, no a releases semánticas.
 ### Corregido
 - **Bug en fase B**: `_crear_cliente_texto()` ahora llama `asegurar_ollama()` y lanza `RuntimeError` si no hay servidor (antes fallaba con error oscuro del cliente).
 - **`_reparar_json`** aplicado en `_parsear_combinado` (antes solo se intentaba `json.loads` directo).
+- **6 bugs de robustez en `image_analysis.py` / `tag_images.py` / `puente_td.py`** (revisión de código):
+  - `_validar_genero` ya no pierde la primera keyword descriptiva: `keywords[0] = "otras"` (sobrescribía) → `keywords.insert(0, "otras")`.
+  - `_parsear_keywords` ahora maneja JSON objeto `{"keywords": [...]}` (qwen2.5vl responde así a veces), no solo listas planas.
+  - `_reparar_json` limpia trailing commas (`["playa", "mar",]` → `["playa", "mar"]`) antes de intentar parsear.
+  - `_es_genero` y la 2da pasada de match reconocen flexión de género (`nocturno` ↔ `nocturna`, `urbana` ↔ `urbano`).
+  - Nuevo helper `_descripcion_utilizable`: filtra JSON crudo, texto < 5 chars y restos del prompt regurgitado en los fallbacks de `analizar_imagen_completo`/`_batch` (antes el fallback guardaba la respuesta cruda como descripción).
+  - `tag_images.py` escribe `ia_keywords` en **texto plano** (`, ".join`) en vez de `json.dumps`, unificando el formato con `improve_db.py`/`traducir_metadata.py`. `puente_td.py` gana `_partes_keywords()` que soporta ambos formatos (texto y JSON array) para no romper con datos históricos.
+  - `tag_images.py` renombra `file_hash` → `fingerprint` en los sidecars `.tags.json` (el MD5 rápido no es el SHA-256 de la DB; el nuevo helper `_fingerprint_valido` soporta ambos nombres para compatibilidad con sidecars viejos).
 
 ---
 

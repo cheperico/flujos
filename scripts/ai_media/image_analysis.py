@@ -140,6 +140,16 @@ def _validar_genero(keywords: list[str]) -> list[str]:
     if not keywords:
         return keywords
 
+    def _variantes_genero(palabra: str) -> set[str]:
+        """Genera variantes de flexión de género: nocturno ↔ nocturna, urbana ↔ urbano."""
+        p = palabra.strip().lower()
+        variantes = {p}
+        if p.endswith("o") and len(p) > 3:
+            variantes.add(p[:-1] + "a")
+        elif p.endswith("a") and len(p) > 3:
+            variantes.add(p[:-1] + "o")
+        return variantes
+
     def _es_genero(palabra: str) -> bool:
         p = palabra.strip().lower()
         if "(" in p:
@@ -147,6 +157,9 @@ def _validar_genero(keywords: list[str]) -> list[str]:
         for valido in GENEROS_FOTOGRAFICOS:
             v = valido.lower()
             if p == v:
+                return True
+            # Flexión de género: "nocturno" debe matchear "nocturna"
+            if v in _variantes_genero(p):
                 return True
             # Búsqueda aproximada: contener o ser contenido (evita falsos
             # positivos con palabras cortas como "de" o "es")
@@ -170,10 +183,13 @@ def _validar_genero(keywords: list[str]) -> list[str]:
                 genero_final = valido
                 break
         else:
-            # 2da pasada: match aproximado
+            # 2da pasada: match aproximado (con flexión de género)
             for valido in GENEROS_FOTOGRAFICOS:
                 v = valido.lower()
-                if len(genero_raw) >= 4 and (genero_raw in v or v in genero_raw):
+                if len(genero_raw) >= 4 and (
+                    genero_raw in v or v in genero_raw
+                    or v in _variantes_genero(genero_raw)
+                ):
                     genero_final = valido
                     break
         # Promover: quitar el género de su posición y ponerlo primero
@@ -183,12 +199,13 @@ def _validar_genero(keywords: list[str]) -> list[str]:
         else:
             keywords[0] = genero_final
     else:
-        # No se encontró género → reemplazar la primera por "otras"
+        # No se encontró género → insertar "otras" al INICIO sin perder la
+        # primera keyword descriptiva (antes sobrescribía keywords[0]).
         logger.warning(
-            "  -> Género no encontrado en keywords: %s, reemplazado por 'otras'",
+            "  -> Género no encontrado en keywords: %s, insertado 'otras' al inicio",
             keywords[:3]
         )
-        keywords[0] = "otras"
+        keywords.insert(0, "otras")
 
     # Recortar a 7 keywords (el prompt pide 5-7, qwen tiende a dar 10+)
     if len(keywords) > 7:
@@ -367,9 +384,10 @@ def analizar_imagen_completo(
         )
         # Fallback: tratar de parsear keywords y descripción por separado
         keywords = _parsear_keywords(respuesta)
+        keywords = _validar_genero(keywords)
         return {
             "keywords": keywords,
-            "description": respuesta.strip(),
+            "description": _descripcion_utilizable(respuesta),
         }
 
     # NOTA (Ago 2026): género pendiente — sin validación en keywords EN.
@@ -432,7 +450,7 @@ def analizar_imagen_completo_batch(
                 resultados.append({
                     "ruta": ruta_orig,
                     "keywords": keywords,
-                    "description": item["respuesta"].strip(),
+                    "description": _descripcion_utilizable(item["respuesta"]),
                     "error": None,
                 })
             else:
@@ -445,6 +463,60 @@ def analizar_imagen_completo_batch(
                 })
 
     return resultados
+
+
+def _descripcion_utilizable(respuesta: str) -> str:
+    """
+    Extrae una descripción utilizable de una respuesta cruda del modelo.
+
+    Cuando el parseo JSON combinado falla, el fallback guardaba la respuesta
+    completa (incluido el JSON roto con 'keywords' y 'description'). Este helper
+    filtra:
+      - JSON crudo / código: si hay 'keywords' y 'description' como claves
+      - Texto muy corto o basura (< 5 chars)
+      - Restos del prompt regurgitado por el modelo
+
+    Devuelve "" si no hay nada utilizable (mejor vacío que contaminar la DB).
+    """
+    texto = respuesta.strip()
+    if not texto:
+        return ""
+
+    # JSON crudo: detectar claves de prompt combinado
+    bajo = texto.lower()
+    if ("keywords" in bajo and "description" in bajo) or texto.startswith(("{", "[")):
+        # Intentar sacar SOLO el campo description si es JSON parseable
+        datos = _reparar_json(texto)
+        if datos and isinstance(datos.get("description"), str):
+            desc = datos["description"].strip()
+            if len(desc) >= 5:
+                return desc
+        return ""
+
+    # Texto muy corto (basura tipo "!!!" o "abc")
+    if len(texto) < 5:
+        return ""
+
+    # Restos del prompt: frases típicas del ejemplo que el modelo regurgita
+    MARCAS_PROMPT = (
+        "un perro...", "dos personas...", "un paisaje...", "una foto presenta",
+        "la imagen se ve", "en esta imagen se ve", "la foto presenta",
+        "el género fotográfico", "elige una",
+    )
+    marcas_encontradas = [m for m in MARCAS_PROMPT if m in bajo]
+    if marcas_encontradas:
+        # Si hay VARIAS marcas, es la lista de ejemplos del prompt regurgitada
+        # (basura completa). Si hay UNA sola, recortarla y conservar el resto.
+        if len(marcas_encontradas) > 1:
+            return ""
+        marca = marcas_encontradas[0]
+        idx = bajo.find(marca)
+        resto = texto[idx + len(marca):].strip(" ,.:;'\"").strip()
+        if len(resto) >= 5:
+            return resto
+        return ""
+
+    return texto
 
 
 def _reparar_json(texto: str) -> Optional[dict]:
@@ -471,6 +543,10 @@ def _reparar_json(texto: str) -> Optional[dict]:
     fin = texto.rfind("}")
     if ini != -1 and fin != -1 and fin > ini:
         texto = texto[ini:fin + 1]
+
+    # Limpiar trailing commas: ["playa", "mar",] → ["playa", "mar"]
+    # (los LLM dejan comas sobrantes antes de cerrar ] o })
+    texto = re.sub(r",\s*([}\]])", r"\1", texto)
 
     intentos = [texto, texto.replace("'", '"')]
     # Probar primero parseos directos
@@ -608,6 +684,20 @@ def _parsear_keywords(respuesta: str) -> list[str]:
     texto = re.sub(r"^```(?:json|python)?\s*\n?", "", texto)
     texto = re.sub(r"\n?```\s*$", "", texto)
     texto = texto.strip()
+
+    # Detectar si viene como JSON objeto: {"keywords": ["a", "b"]}
+    # (qwen2.5vl a veces responde así aunque el prompt pida lista plana)
+    if texto.startswith("{") and texto.endswith("}"):
+        try:
+            datos = json.loads(texto)
+            if isinstance(datos, dict) and "keywords" in datos:
+                kw = datos["keywords"]
+                if isinstance(kw, list):
+                    return [str(k) for k in kw]
+                if isinstance(kw, str):
+                    return _parsear_keywords(kw)
+        except (json.JSONDecodeError, TypeError):
+            pass
 
     # Detectar si viene como lista JSON (con comillas dobles o simples)
     if texto.startswith("[") and texto.endswith("]"):

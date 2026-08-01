@@ -84,6 +84,9 @@ def _hash_rapido(ruta: str) -> str:
     """
     Fingerprint rápido tipo ingest: tamaño + fecha modificación.
     Para detectar cambios en la imagen y decidir si un sidecar es válido.
+    NO es el SHA-256 de media.file_hash (esa es la huella del contenido
+    completo calculada en la ingesta); este es solo un marcador local
+    de "¿cambió el archivo?".
     """
     import hashlib
     stat = Path(ruta).stat()
@@ -91,6 +94,18 @@ def _hash_rapido(ruta: str) -> str:
     h.update(str(stat.st_size).encode())
     h.update(str(stat.st_mtime).encode())
     return h.hexdigest()[:12]
+
+
+def _fingerprint_valido(sidecar_data: dict, ruta_imagen: str) -> bool:
+    """
+    Compara el fingerprint del sidecar contra la imagen actual.
+    Soporta el campo nuevo 'fingerprint' y el viejo 'file_hash'
+    (renombrado en Ago 2026 para no confundirlo con el SHA-256 de la DB).
+    """
+    fingerprint = sidecar_data.get("fingerprint") or sidecar_data.get("file_hash")
+    if not fingerprint:
+        return False
+    return fingerprint == _hash_rapido(ruta_imagen)
 
 
 def _es_imagen(ruta: str) -> bool:
@@ -127,7 +142,7 @@ def _sidecar_existe_valido(ruta_imagen: str) -> Optional[dict[str, Any]]:
             data = json.load(f)
 
         hash_actual = _hash_rapido(ruta_imagen)
-        if data.get("file_hash") == hash_actual:
+        if _fingerprint_valido(data, ruta_imagen):
             return {
                 "tags": data.get("tags", []),
                 "descripcion": data.get("descripcion", ""),
@@ -142,7 +157,7 @@ def _escribir_sidecar(ruta_imagen: str, resultado: dict[str, Any], modelo: str):
     """Escribe el sidecar .tags.json junto a la imagen."""
     sidecar = _ruta_sidecar(ruta_imagen)
     data = {
-        "file_hash": _hash_rapido(ruta_imagen),
+        "fingerprint": _hash_rapido(ruta_imagen),
         "tags": resultado["tags"],
         "descripcion": resultado["descripcion"],
         "modelo": modelo,
@@ -291,7 +306,7 @@ def guardar_en_db(conn: sqlite3.Connection, media_id: int, resultado: dict[str, 
                     "INSERT OR REPLACE INTO media_metadata (media_id, key, value) "
                     "VALUES (?, ?, ?)",
                     (media_id, KEY_AI_TAGS,
-                     json.dumps(resultado["tags"], ensure_ascii=False)),
+                     ", ".join(str(t) for t in resultado["tags"])),
                 )
 
         if modo in (MODE_COMBINADO, MODE_DESCRIPCION):
