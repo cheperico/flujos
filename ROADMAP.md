@@ -34,7 +34,7 @@ Etapa 5: INSTALACIÓN          →  TouchDesigner + motor de deriva
 | Guardar raíz de ingesta en config | Alta | ✅ |
 | Undo-ingest por batch_id | Alta | ✅ |
 | `end_time` para consultas por rango temporal | Alta | ✅ |
-| GPS sign bug (lat/lon positivo en Argentina) | **Corregido** | ✅ Fixeado en ingest.py (`_es_sur_oeste()`, `_parse_gps_position()`) |
+| GPS sign bug (lat/lon positivo en Argentina) | **Corregido** | ✅ Fixeado en ingest.py (`_es_sur_oeste()`, `_parse_gps_position()`) y verificado en los registros con GPS (signo negativo correcto) |
 | Keywords IPTC en JSON (hoy string Python) | Media | ❌ |
 | Content hash de video optimizado | Baja | ❌ |
 
@@ -51,7 +51,11 @@ Etapa 5: INSTALACIÓN          →  TouchDesigner + motor de deriva
 | Keypoints (segmentos de transcripción) | Alta | ✅ | `improve-db --steps keypoints --mode` |
 | **Inferencia de GPS** desde medios cercanos | Alta | ✅ | `improve-db --steps gps --mode` |
 | **Inferencia de timestamps faltantes** | Alta | ✅ | `improve-db --steps timestamps --mode` |
-| Pipeline unificado de 7 pasos con skip/update/replace | Alta | ✅ | `improve_db.py` + flujos.py TUI |
+| Pipeline unificado (9 pasos) con skip/update/replace | Alta | ✅ | `improve_db.py` + flujos.py TUI |
+| Etiquetado combinado (keywords + descripción en 1 llamada de visión) | Media | ✅ | `improve-db --steps combinado --mode` |
+| Pipeline IA EN → ES (visión genera EN, traducción ES con qwen2.5:3b) | Alta | ✅ | `improve_db.py` + `traducir_metadata.py` |
+| Refinar/unificar keywords (sinónimos, embeddings) | Media | ✅ | `refinar_keywords.py` |
+| Audio tagging (sonidos ambientales, sherpa-onnx local) | Media | ✅ | `audio_tagging.py` |
 | Verificación de Ollama antes de pasos IA | Alta | ✅ | `_verificar_ollama()` en flujos.py |
 | Threading en llamadas Ollama (2 workers) | Media | ✅ | `ThreadPoolExecutor` en improve_db.py |
 | Inferencia de autor desde medios cercanos | Baja | ❌ | — |
@@ -68,6 +72,8 @@ Etapa 5: INSTALACIÓN          →  TouchDesigner + motor de deriva
 | **Clima histórico** (temperatura, humedad, lluvia, nubes) | Alta | ✅ | `fetch_weather.py --mode` (Open-Meteo ERA5-Land) |
 | **Día de la semana** en español | Alta | ✅ | `dia_semana.py --mode` |
 | **Gradientes de ruta** (distancia Haversine, elevación, pendiente) | Alta | ✅ | `gradiente.py --mode` (Python puro, sin numpy) |
+| **Posición del sol / twilight** (NOAA) | Alta | ✅ | `astronomia.py --mode` (sin dependencias externas) |
+| Keywords del sentido de transcripciones | Media | ✅ | `keywords_transcripciones.py` |
 | Embeddings vectoriales (búsqueda semántica) | Media | ⏳ | `generate_embeddings.py` + `clustering.py` |
 
 ---
@@ -93,13 +99,13 @@ Etapa 5: INSTALACIÓN          →  TouchDesigner + motor de deriva
 | `reset-db` — backup + borrar datos y reiniciar | Media | ✅ |
 | `backup-db` / `restore-db` — copias de seguridad | Media | ✅ |
 | `backfill-end-time` — poblar end_time en registros existentes | Alta | ✅ |
-| `improve-db` — comando unificado de mejora (7 pasos, 3 modos) | Alta | ✅ |
+| `improve-db` — comando unificado de mejora (9 pasos, 3 modos) | Alta | ✅ |
 | Todos los scripts con `--mode skip/update/replace` unificado | Alta | ✅ |
 | `_preguntar_modo()` en TUI para todas las operaciones DB | Alta | ✅ |
 | `_verificar_ollama()` antes de pasos IA en TUI | Alta | ✅ |
 | **Mapa de datos centralizado** (qué escribe cada script y dónde) | Media | ✅ Documentado en AGENTS.md |
-| Soporte para tracks GPS (GPX) | Baja | ❌ |
-| Corrección de signo GPS en registros existentes (144 positivos) | Alta | ⏳ Pendiente: script de fix + re-geocode |
+| Soporte para tracks GPS (GPX) | Baja | ✅ `ingest_gpx.py` + tablas `tracks`/`waypoints` |
+| Desktop Telegram (chats, mensajes, multimedia) | Media | ✅ `import_telegram.py` |
 
 ---
 

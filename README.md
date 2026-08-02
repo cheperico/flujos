@@ -95,6 +95,8 @@ python flujos.py --help         # Ayuda general
 | `restore-db` / `restore` | Restaurar DB desde un backup |
 | `reset-db` / `reset` | Resetear la DB (con backup previo) |
 | `export-csv [--table] [--output]` | Exportar tablas de la DB a CSV |
+| `import-telegram` / `tg` | Importar export de Telegram a la DB |
+| `mover --new-root X --mode mover` | Mover/copiar medios y actualizar rutas en DB |
 
 Cada subcomando acepta `--help` para ver sus opciones específicas.
 
@@ -178,10 +180,13 @@ Todas las operaciones que modifican la DB preguntan el modo
 | `flujos.py` | Entry point unificado con subcomandos y TUI | — |
 | `scripts/ingest.py` | Escanea, extrae metadatos e ingiere en DB | Ingesta |
 | `scripts/ingest_gpx.py` | Ingesta de tracks GPS (GPX): waypoints, registro, backfill de altitud | Ingesta |
-| `scripts/improve_db.py` | 9 pasos post-ingesta (colors, keywords, descriptions, combinado, transcribe, keypoints, timestamps, gps, video_metadata) | Mejora |
+| `scripts/import_telegram.py` | Importa exports de Telegram a la DB (chats, mensajes, multimedia vinculado y opcionalmente en `media`) | Ingesta |
+| `scripts/improve_db.py` | 9 pasos post-`ingest` (colors, keywords, descriptions, combinado, transcribe, keypoints, timestamps, gps, video_metadata) | Mejora |
 | `scripts/query.py` | Consultas a la DB | Consulta |
 | `scripts/exportar_csv.py` | Exporta tablas de la DB a CSV | Consulta |
 | `scripts/relocate.py` | Actualiza rutas absolutas cuando los archivos se mudan | Gestión |
+| `scripts/mover_media.py` | Mueve/copia medios a nueva ubicación y actualiza rutas en DB | Gestión |
+| `scripts/consolidar_medios.py` | Consolida medios de múltiples raíces absolutas en una estructura unificada (copiar/mover + actualizar DB + `ingest_root`) | Gestión |
 | `scripts/color_utils.py` | Extracción y naming de colores (usado por ingest y improve-db) | Ingesta / Mejora |
 | `scripts/geocode.py` | Geocodificación inversa vía Georef API Argentina | Enriquecimiento |
 | `scripts/gradiente.py` | Cálculo de distancia Haversine, elevación y pendiente | Enriquecimiento |
@@ -213,9 +218,12 @@ Todas las operaciones que modifican la DB preguntan el modo
 | `clustering.py` | Agrupamiento por tags o embeddings |
 | `generate_embeddings.py` | Embeddings vectoriales (nomic-embed-text) |
 | `refinar_keywords.py` | Refina y unifica keywords IA (léxico + sinónimos + embeddings) |
+| `traducir_metadata.py` | Traduce metadata de IA EN → ES sobre la DB (keywords/descripciones) |
 | `keywords_transcripciones.py` | Keywords del sentido de transcripciones (qwen2.5:3b) → `ia_keywords_transcripcion` |
 | `audio_tagging.py` | Sonidos ambientales (sherpa-onnx CED-mini, local) → `ia_keywords_sonido` |
 | `proxy.py` | Redimensiona imágenes a ~800px para IA |
+| `loop_engine.py` | Motor de loop: núcleo puro (arcos horarios N→N−1, cruce de medianoche, posición de medios `t_loop`) |
+| `loop_db.py` | Motor de loop integrado con DB (filtros + chiches consolidados + spec JSON) → ver `docs/motor_loop.md` |
 
 ---
 
@@ -588,6 +596,9 @@ pip install torch --index-url https://download.pytorch.org/whl/cu121
 | `docs/geocodificacion_reversa.md` | Estrategias de geocodificación |
 | `docs/limpieza_tandas_resultados.md` | Comparativa de estrategias de limpieza |
 | `docs/semantica_color.md` | Capa semántica del color: significados, Kuleshov effect, cross-modal retrieval |
+| `docs/calculo_astronomico.md` | Cálculo astronómico de posición de sol y luna |
+| `docs/visualizaciones.md` | Decisiones de diseño de la visualización web3 |
+| `docs/diseno_instalacion.md` | Diseño de la instalación: flujo DB → elecciones → loop |
 | `docs/ideas_externas.md` | Ideas de terceros para la instalación |
 
 ---
@@ -615,10 +626,13 @@ pip install torch --index-url https://download.pytorch.org/whl/cu121
 │   ├── __init__.py
 │   ├── ingest.py              # Ingesta de medios
 │   ├── ingest_gpx.py          # Ingesta de tracks GPS (GPX)
-│   ├── improve_db.py          # Post-procesamiento (8 pasos)
+│   ├── import_telegram.py     # Importar export de Telegram
+│   ├── improve_db.py          # Post-procesamiento (9 pasos)
 │   ├── query.py               # Consultas a DB
 │   ├── exportar_csv.py        # Exportar DB a CSV
 │   ├── relocate.py            # Relocalizar medios
+│   ├── mover_media.py         # Mover/copiar medios + actualizar DB
+│   ├── consolidar_medios.py   # Consolidar medios de múltiples raíces
 │   ├── geocode.py             # Geocodificación inversa
 │   ├── gradiente.py           # Gradientes de ruta
 │   ├── fetch_weather.py       # Clima histórico
@@ -643,9 +657,15 @@ pip install torch --index-url https://download.pytorch.org/whl/cu121
 │       ├── tag_images.py
 │       ├── transcribe.py
 │       ├── transcribe_media.py
+│       ├── traducir_metadata.py
 │       ├── batch_selector.py
 │       ├── clustering.py
 │       ├── generate_embeddings.py
+│       ├── refinar_keywords.py
+│       ├── keywords_transcripciones.py
+│       ├── audio_tagging.py
+│       ├── loop_engine.py          # Motor de loop: núcleo puro
+│       ├── loop_db.py              # Motor de loop: integración con DB
 │       └── proxy.py
 │
 ├── td/                        # Scripts TouchDesigner

@@ -745,6 +745,14 @@ El menú TUI organiza las opciones por **temática**, no por complejidad o crono
 | `audio_tagging.py` | Sonidos ambientales en audio/video con **sherpa-onnx CED-mini** (527 clases AudioSet, 100% local en CPU, sin Ollama). ffmpeg extrae WAV 16 kHz mono en memoria, ventanas de 10 s, agrega probs por etiqueta, top-k. Guarda `ia_keywords_sonido` (ES con glosario EN→ES) e `ia_sonido_raw` (JSON [{name, prob}]). Modelo en `models/audio/sherpa-onnx-ced-mini-audio-tagging-2024-04-19/`. | sherpa-onnx + ffmpeg |
 | `proxy.py` | Redimensiona imágenes a ~800px para procesamiento IA más rápido. | Pillow |
 
+### Scripts del motor de loop (`scripts/ai_media/`)
+
+| Archivo | Rol |
+|---------|-----|
+| `loop_engine.py` | **Núcleo puro** (sin DB ni render): matemática de arcos horarios (N horas → N−1 segmentos), cruce de medianoche, posición de un medio (`t_loop`) y armado de la spec JSON. Funciones: `calcular_segmentos()`, `hora_en_fraccion()`, `posicionar_hora()/posicionar_medio()`, `armar_spec()`. |
+| `loop_db.py` | Integración con la DB (solo lectura): filtra `media`+`media_metadata` por municipios/colores/tags/días/clima (AND), ordena por geo (`cumul_distance_m`) o elección, calcula la hora desde `timestamp_utc` (normaliza `Z`/`+00:00`), consolida chiches por (texto, hora en punto), y vuelca la spec. CLI: `--horas 7 16 13 18 --loop-secs 300 --salida spec.json`. Detalle en `docs/motor_loop.md`. |
+| `test_motor_loop.py` | Tests del núcleo (`loop_engine`). 47 asserts: segmentos, cruce nocturno, fracción, posición, descarte fuera de arco, todas las horas. Corre con `python scripts/ai_media/test_motor_loop.py`. |
+
 ### Scripts TouchDesigner (`td/`)
 
 | Archivo | Se vincula en | Parámetros |
@@ -894,8 +902,10 @@ elif mode == "skip":
 | `docs/geocodificacion_reversa.md` | Estrategias de geocodificación: Georef API batch, Georef offline, python-gazetteer. |
 | `docs/limpieza_tandas_resultados.md` | Comparativa de 4 estrategias de limpieza de tandas (temporal, pHash, tags, embeddings). Embeddings fue la favorita. |
 | `docs/semantica_color.md` | Capa semántica del color: significados emocionales/culturales, Kuleshov effect, cross-modal retrieval. |
+| `docs/calculo_astronomico.md` | Cálculo astronómico de posición del sol y la luna (fuente de `astronomia.py`). |
 | `docs/visualizaciones.md` | Decisiones de diseño de la visualización web3 (bloques, colocación, chips, Fluir). |
-| `docs/diseno_instalacion.md` | **Diseño de la instalación**: flujo completo DB → elecciones → filtros → loop de 5 min. Grupos de metadatos (7), modalidad de horas/ubicaciones, posicionamiento de medios, chiches. Próximo paso: motor de loop en Python. |
+| `docs/diseno_instalacion.md` | **Diseño de la instalación**: flujo completo DB → elecciones → filtros → loop de 5 min. Grupos de metadatos (7), modalidad de horas/ubicaciones, posicionamiento de medios, chiches. Implementado en el motor de loop (`docs/motor_loop.md`). |
+| `docs/motor_loop.md` | **Motor de loop**: especificación del cerebro Python puro (arcos horarios N→N−1, posicionamiento de medios, chiches, spec JSON agnóstica del renderizador web/TD). Implementado en `loop_engine.py` + `loop_db.py`. |
 | `docs/ideas_externas.md` | 22 ideas externas recopiladas para la instalación. |
 
 ## Archivos raíz

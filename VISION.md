@@ -87,19 +87,9 @@ intermedios.
 | **ExifTool** | Extracción de metadatos EXIF/IPTC |
 | **TouchDesigner** | Motor de la instalación (composición, audio, video) |
 
-## Lo que ya está (Julio 2026)
+## Estado del proyecto
 
-- ✔ Ingestión rápida con fingerprint (tamaño + fecha)
-- ✔ 2.441 medios indexados de la carpeta `Ingesta_1`
-- ✔ Schema con 30 columnas en `media` + `media_metadata` clave-valor
-- ✔ Extracción de GPS, autor, colores dominantes, timestamps
-- ✔ Script de consultas (`query.py`)
-- ✔ Filtrado de residuos macOS (`._`)
-
-## Lo que sigue
-
-- Keywords en formato JSON
-- Geolocalización por inferencia temporal
-- Post-procesamiento de colores
-- Scripts de exportación para TouchDesigner (JSON, OSC)
-- La lógica de deriva en el motor de la instalación
+El pipeline de ingestión, enriquecimiento y consulta está **completo y operativo**
+(ver `README.md` y `AGENTS.md` para el detalle actual: schema, scripts, comandos).
+Queda como trabajo futuro el **motor de la instalación** (la lógica de deriva) en
+TouchDesigner, cuyo diseño conceptual se documenta en `docs/diseno_instalacion.md`.
