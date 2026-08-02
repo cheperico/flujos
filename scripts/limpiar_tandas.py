@@ -595,7 +595,7 @@ def imprimir_reporte(reporte: dict):
     elif reporte['criterio_agrupacion'] == 'phash':
         print(f"  Umbral phash:   {reporte.get('umbral_hamming', 5)}")
     elif reporte['criterio_agrupacion'] == 'embeddings':
-        print(f"  Umbral similitud: ≥ 0.7 (cosine)")
+        print(f"  Umbral similitud: >= 0.7 (cosine)")
     print(f"  Modelo:         {reporte['modelo']}  (selección)")
     if reporte.get("modelo_clustering"):
         print(f"  Clustering:     {reporte['modelo_clustering']}  (agrupación)")

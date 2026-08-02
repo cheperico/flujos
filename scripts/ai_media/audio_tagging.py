@@ -24,9 +24,9 @@ Uso:
     python scripts/ai_media/audio_tagging.py --mode update    # re-procesa todos
     python scripts/ai_media/audio_tagging.py --mode replace   # limpia y regenera
     python scripts/ai_media/audio_tagging.py --dry-run        # previsualiza sin escribir
-    python scripts/ai_media/audio_tagging.py --limit 5        # solo 5 registros
     python scripts/ai_media/audio_tagging.py --top-k 5        # 5 etiquetas por media
     python scripts/ai_media/audio_tagging.py --modelo <onnx>  # otro modelo onnx
+    python scripts/ai_media/audio_tagging.py --no-descargar   # no auto-descargar el modelo
 
 Modos:
     skip    → audios/videos con archivo existente que aún NO tienen
@@ -34,10 +34,14 @@ Modos:
     update  → re-procesa TODOS los audios/videos con archivo existente
     replace → limpia ia_keywords_sonido/ia_sonido_raw existentes y regenera
 
+Descarga automática del modelo:
+    Si no existe model.int8.onnx en models/audio/, el script lo descarga solo
+    desde GitHub Releases (asset oficial del proyecto sherpa-onnx) y lo extrae.
+    Se puede deshabilitar con --no-descargar (útil en entornos sin internet).
+
 Requisitos (ver AGENTS.md, sección "Dependencias / requisitos"):
     pip install onnxruntime sherpa-onnx
-    Modelo CED-mini descargado en models/audio/ (ver docstring de la constante
-    RUTA_MODELO_DEFAULT).
+    (El modelo se descarga solo; no hace falta descargarlo a mano.)
 """
 
 import argparse
@@ -50,7 +54,11 @@ import sqlite3
 import struct
 import subprocess
 import sys
+import tarfile
 import time
+import urllib.error
+import urllib.request
+import urllib.request
 import wave
 
 log = logging.getLogger(__name__)
@@ -77,6 +85,149 @@ MAX_VENTANAS = 30            # máx ventanas procesadas (cubre 300 s de audio)
 
 # Umbral de probabilidad mínima para incluir una etiqueta en el resultado
 UMBRAL_PROB = 0.05
+
+# ── Descarga del modelo (si no existe) ───────────────────────────────────────
+# El modelo CED-mini se descarga automáticamente desde GitHub Releases y se
+# extrae en models/audio/. Solo ocurre si falta model.int8.onnx.
+URL_MODELO = (
+    "https://github.com/k2-fsa/sherpa-onnx/releases/download/"
+    "audio-tagging-models/sherpa-onnx-ced-mini-audio-tagging-2024-04-19.tar.bz2"
+)
+
+
+def _descargar_modelo(destino_dir: str) -> None:
+    """
+    Descarga y extrae el modelo CED-mini desde GitHub Releases.
+
+    El asset es un .tar.bz2 que contiene model.int8.onnx, model.onnx,
+    class_labels_indices.csv y test_wavs/. Se descarga a un archivo temporal,
+    se extrae a una carpeta temporal y los archivos necesarios (model.int8.onnx
+    y class_labels_indices.csv) se copian a `destino_dir`, sea cual sea la
+    estructura de directorios que traiga el tar (puede venir anidado).
+
+    Args:
+        destino_dir: Carpeta donde dejar los archivos (RUTA_MODELO_DEFAULT).
+
+    Raises:
+        RuntimeError: si la descarga o la extracción fallan.
+    """
+    import tempfile
+
+    os.makedirs(destino_dir, exist_ok=True)
+    tmp_tar = None
+    tmp_ext = os.path.join(tempfile.gettempdir(), "flujos_cedmini_extract")
+    shutil.rmtree(tmp_ext, ignore_errors=True)
+    os.makedirs(tmp_ext, exist_ok=True)
+    try:
+        log.info("  Descargando modelo CED-mini (~45 MB) desde GitHub Releases...")
+        req = urllib.request.Request(URL_MODELO, headers={"User-Agent": "flujos"})
+        with urllib.request.urlopen(req, timeout=300) as resp, \
+                tempfile.NamedTemporaryFile(suffix=".tar.bz2", delete=False) as tmp:
+            tmp_tar = tmp.name
+            tam_total = resp.headers.get("Content-Length")
+            tam_total = int(tam_total) if tam_total else None
+            descargado = 0
+            while True:
+                bloque = resp.read(256 * 1024)
+                if not bloque:
+                    break
+                tmp.write(bloque)
+                descargado += len(bloque)
+                if tam_total:
+                    log.info("  Descarga: %d%% (%d MB / %d MB)",
+                             descargado * 100 // tam_total,
+                             descargado // (1024 * 1024),
+                             tam_total // (1024 * 1024))
+        log.info("  Descarga completa (%d MB). Extrayendo...",
+                 descargado // (1024 * 1024))
+
+        with tarfile.open(tmp_tar, "r:bz2") as tar:
+            # filter="data" protege contra escritura fuera de la carpeta
+            tar.extractall(tmp_ext, filter="data")
+
+        # Buscar los archivos necesarios en cualquier profundidad dentro del tar
+        onnx_src = _buscar_en(tmp_ext, "model.int8.onnx")
+        csv_src = _buscar_en(tmp_ext, "class_labels_indices.csv")
+        if not onnx_src or not csv_src:
+            raise RuntimeError(
+                "El modelo se descargó pero no se encontraron model.int8.onnx "
+                "ni class_labels_indices.csv en el contenido descargado.")
+
+        shutil.copy2(onnx_src, os.path.join(destino_dir, "model.int8.onnx"))
+        shutil.copy2(csv_src, os.path.join(destino_dir, "class_labels_indices.csv"))
+        # Copiar también model.onnx si existe (más preciso, ~40 MB) de forma opcional
+        onnx_fp32 = _buscar_en(tmp_ext, "model.onnx")
+        if onnx_fp32:
+            shutil.copy2(onnx_fp32, os.path.join(destino_dir, "model.onnx"))
+    except (urllib.error.URLError, OSError, tarfile.TarError, EOFError) as e:
+        raise RuntimeError(f"Fallo la descarga/extracción del modelo: {e}")
+    finally:
+        shutil.rmtree(tmp_ext, ignore_errors=True)
+        if tmp_tar and os.path.isfile(tmp_tar):
+            try:
+                os.unlink(tmp_tar)
+            except OSError:
+                pass
+
+    # Validar que quedaron los archivos necesarios
+    if not (os.path.isfile(os.path.join(destino_dir, "model.int8.onnx"))
+            and os.path.isfile(os.path.join(destino_dir, "class_labels_indices.csv"))):
+        raise RuntimeError("El modelo no quedó correctamente instalado en "
+                           f"{destino_dir}.")
+    log.info("  ✅ Modelo CED-mini listo en: %s", destino_dir)
+
+
+def _buscar_en(raiz: str, nombre: str) -> str | None:
+    """Devuelve la ruta de la primera coincidencia de `nombre` bajo `raiz`."""
+    for dir_actual, _subdirs, archivos in os.walk(raiz):
+        if nombre in archivos:
+            return os.path.join(dir_actual, nombre)
+    return None
+
+
+def _resolver_modelo(onnx_path: str, labels_path: str,
+                     no_descargar: bool = False) -> tuple[str, str]:
+    """
+    Resuelve la ruta del modelo, descargándolo automáticamente si falta.
+
+    Si el usuario pasó un --modelo explícito que existe, se respeta. Si no
+    existe (o no se pasó), se usa el por defecto y se descarga cuando hace falta
+    (a menos que `no_descargar` esté activo).
+
+    Args:
+        onnx_path: Ruta al .onnx (default o uno dado con --modelo).
+        labels_path: Ruta al CSV de etiquetas.
+        no_descargar: Si es True, no descarga el modelo y lanza RuntimeError
+                      si falta.
+
+    Returns:
+        (onnx_path resuelto, labels_path resuelto).
+
+    Raises:
+        RuntimeError: si falta el modelo y no se puede/no se debe descargar.
+    """
+    # --modelo explícito que existe → respetar tal cual
+    if onnx_path != ONNX_DEFAULT:
+        if os.path.isfile(onnx_path):
+            return onnx_path, labels_path
+        # --modelo explícito inexistente → advertir y volver al default
+        if not no_descargar:
+            log.warning("  El modelo --modelo no existe: %s. Usando el por defecto.", onnx_path)
+        onnx_path = ONNX_DEFAULT
+        labels_path = LABELS_DEFAULT
+
+    # Falta el modelo por defecto → descargar (o fallar si --no-descargar)
+    if not os.path.isfile(ONNX_DEFAULT) or not os.path.isfile(LABELS_DEFAULT):
+        if no_descargar:
+            raise RuntimeError(
+                f"No existe el modelo en {RUTA_MODELO_DEFAULT} y --no-descargar está activo. "
+                f"Descargalo manualmente o quitá --no-descargar.")
+        log.info("  No existe el modelo CED-mini. Descargándolo automáticamente...")
+        _descargar_modelo(RUTA_MODELO_DEFAULT)
+        if not os.path.isfile(ONNX_DEFAULT):
+            raise RuntimeError("La descarga del modelo no produjo model.int8.onnx.")
+
+    return onnx_path, labels_path
 
 # ── Glosario EN → ES ─────────────────────────────────────────────────────────
 # Traducción de las etiquetas de AudioSet que pueden aparecer en el viaje.
@@ -576,6 +727,8 @@ def main(argv: list[str] | None = None) -> None:
                         help=f"Hilos de CPU para el modelo (default: {NUM_THREADS_DEFAULT})")
     parser.add_argument("--limit", type=int, default=None,
                         help="Limitar a N registros (para pruebas)")
+    parser.add_argument("--no-descargar", action="store_true",
+                        help="No descargar el modelo automáticamente si falta (falla con error)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Previsualizar sin escribir")
     parser.add_argument("--verbose", action="store_true", help="Log detallado")
@@ -612,15 +765,11 @@ def main(argv: list[str] | None = None) -> None:
     # ── Cargar modelo sherpa-onnx ──
     onnx_path = args.modelo or ONNX_DEFAULT
     labels_path = args.labels or LABELS_DEFAULT
-    if not os.path.isfile(onnx_path):
-        log.error("No existe el modelo ONNX: %s", onnx_path)
-        log.error("Descargalo desde https://github.com/k2-fsa/sherpa-onnx/releases "
-                  "(asset: sherpa-onnx-ced-mini-audio-tagging-2024-04-19.tar.bz2) y "
-                  "extraelo en models/audio/, o usá --modelo.")
-        conn.close()
-        sys.exit(1)
-    if not os.path.isfile(labels_path):
-        log.error("No existe el CSV de etiquetas: %s", labels_path)
+    try:
+        onnx_path, labels_path = _resolver_modelo(
+            onnx_path, labels_path, no_descargar=args.no_descargar)
+    except RuntimeError as e:
+        log.error("  %s", e)
         conn.close()
         sys.exit(1)
 
