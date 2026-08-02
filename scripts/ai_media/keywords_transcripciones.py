@@ -50,21 +50,26 @@ CLAVE_SALIDA = "ia_keywords_transcripcion"     # clave de salida (keywords)
 MODELO_TEXTO_DEFAULT = "qwen2.5:3b"
 
 # ── Umbrales ─────────────────────────────────────────────────────────────────
-MIN_TEXTO_LEN = 15            # menos caracteres → no hay contenido útil
+MIN_TEXTO_LEN = 40            # menos caracteres → no hay contenido útil
 MAX_TEXTO_CHARS = 6000        # truncar el texto que se envía al modelo
+MAX_KEYWORDS = 8              # recortar a 8 keywords como máximo
 TIMEOUT_SEG = 120             # timeout de la llamada a Ollama
 
 # ── Prompt de extracción ─────────────────────────────────────────────────────
 PROMPT_KEYWORDS_TRANSCRIPCION = (
-    "Extraé las palabras clave más relevantes de esta transcripción de audio/video.\n"
+    "Leé esta transcripción de audio/video y entendé el SENTIDO GENERAL de lo que "
+    "se está diciendo (de qué trata realmente, el contexto, la situación).\n"
     "Reglas:\n"
     "1. Devolvé SOLO entre 5 y 8 keywords, en ESPAÑOL, separadas por comas.\n"
-    "2. Las keywords deben ser SUSTANTIVOS o conceptos breves (no oraciones).\n"
+    "2. Las keywords deben capturar el SIGNIFICADO, no solo palabras literales: "
+    "temas centrales, conceptos, lugares, actividades, personas, clima, emociones, "
+    "objetos, transporte, comida, sensaciones. Si se habla de 'la subida al cerro "
+    "fue dura, las piernas no daban más', sirve 'esfuerzo' o 'cansancio' aunque no "
+    "sean palabras textuales.\n"
     "3. Filtrá el ruido del habla: muletillas ('mmm', 'este', 'eh', 'bueno', "
-    "'digamos', repeticiones), fragmentos sin contenido y nombres propios sueltos.\n"
-    "4. Preferí temas centrales de la conversación: lugares, personas, objetos, "
-    "actividades, clima, emociones, comida, transporte, etc.\n"
-    '5. Respondé SOLO con la lista de keywords, sin texto adicional.\n\n'
+    "'digamos', repeticiones), fragmentos sin contenido y nombres propios sueltos "
+    "sin contexto.\n"
+    '4. Respondé SOLO con la lista de keywords, sin texto adicional ni explicaciones.\n\n'
     "Transcripción:\n"
 )
 
@@ -226,7 +231,7 @@ def extraer_keywords_transcripcion(
         options={"num_ctx": 4096, "temperature": 0.2},
     ).message.content.strip()
 
-    return _parsear_keywords(respuesta)
+    return _parsear_keywords(respuesta)[:MAX_KEYWORDS]
 
 
 # ── Queries según modo ───────────────────────────────────────────────────────
