@@ -18,9 +18,23 @@ con SQLite como índice central y TouchDesigner como motor de reproducción.
 | ExifTool       | 13.59      | `exiftool` (EXIF/IPTC/XMP)                     |
 | Ollama         | 0.31.2     | `ollama` (servicio bg, modelos visión/texto)   |
 | faster-whisper | 1.2.1      | `faster_whisper` (transcripción audio/video)   |
+| onnxruntime    | 1.27.0     | `onnxruntime` (runtime ONNX para audio tagging)|
+| sherpa-onnx    | 1.13.4     | `sherpa_onnx` (audio tagging CED-mini, local)  |
 | Pillow         | —          | Procesamiento de imágenes (color, thumbnails)  |
 | webcolors      | —          | Nombres de color CSS → español                 |
 | SQLite         | —          | Base de datos embebida (`db/flujos.db`)        |
+
+> **Instalación de onnxruntime + sherpa-onnx** (requisitos nuevos para `audio_tagging.py`):
+> ```
+> pip install onnxruntime sherpa-onnx
+> ```
+> El modelo CED-mini (527 clases AudioSet, int8, ~100 MB) se descarga manualmente y se
+> extrae en `models/audio/sherpa-onnx-ced-mini-audio-tagging-2024-04-19/`:
+> ```
+> https://github.com/k2-fsa/sherpa-onnx/releases/download/audio-tagging-models/sherpa-onnx-ced-mini-audio-tagging-2024-04-19.tar.bz2
+> ```
+> (el asset contiene `model.int8.onnx`, `model.onnx`, `class_labels_indices.csv` y `test_wavs/`).
+> Es 100% local en CPU (RTF ~0.014): un audio de 10 s se clasifica en ~0.2 s.
 
 ### Modelos Ollama instalados
 
@@ -364,6 +378,8 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 | **DÍA SEMANA** | `dia_semana.py` | Día de la semana en español | `media_metadata` | key=`dia_semana`, value=lunes\|martes\|...\|domingo |
 | **GRADIENTES** | `gradiente.py` | Distancia Haversine, cambio elevación, pendiente % y acumulados | `media` | distance_from_prev_m, elevation_gain_m, gradient_pct, cumul_distance_m, cumul_elevation_gain_m |
 | **ASTRONOMÍA** | `astronomia.py` | Posición del sol (NOAA), clasificación twilight, amanecer/atardecer/cenit, tiempos relativos | `media` | sun_elevation, sun_azimuth, sun_distance_au, twilight_period, sunrise_ts, sunset_ts, solar_noon_ts, secs_since_sunrise, secs_to_sunset, secs_since_noon, astronomy_source |
+| **KEYWORDS TRANSCRIPCIÓN** | `ai_media/keywords_transcripciones.py` | Keywords del SENTIDO de la transcripción (Ollama texto, qwen2.5:3b) | `media_metadata` | key=`ia_keywords_transcripcion`, value=keywords ES separadas por coma (fuente: whisper_segments) |
+| **AUDIO TAGGING** | `ai_media/audio_tagging.py` | Sonidos ambientales en audio/video (sherpa-onnx CED-mini, 527 clases AudioSet, local) | `media_metadata` | key=`ia_keywords_sonido` (ES, texto coma-separado); key=`ia_sonido_raw` (JSON [{name, prob}]) |
 | **BACKFILL** | `flujos.py` backfill-end-time | Precalcula end_time = timestamp_utc + duration_secs | `media` | end_time, updated_at |
 | **RELOCATE** | `relocate.py` | Actualiza rutas cuando los archivos se mudan de carpeta | `media` | filepath_absoluto, filepath_relativo, carpeta, sidecar_xml |
 | **GPX** | `ingest_gpx.py` | Ingesta de archivo GPX: waypoints, registro de track y backfill de altitud | `tracks` | name, filepath_absoluto, filepath_relativo, source_url, start_time, end_time, total_points |
@@ -418,16 +434,22 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
   └─ Hoja 2: Inferencia y enriquecimiento (agrupado por temática)
      ├─ 1. Inferir timestamps           → improve_db --steps timestamps
      ├─ 2. Inferir GPS                  → improve_db --steps gps
-     ├─ 3. Localización (geocode)       → scripts/geocode.py (con modo)
-     ├─ 4. Condiciones climáticas       → scripts/fetch_weather.py (con modo)
-     ├─ 5. Día de la semana             → scripts/dia_semana.py (con modo)
-     ├─ 6. Posición del sol (astronomía) → scripts/astronomia.py (con modo)
-     ├─ 7. Embeddings
+     ├─ 3. Calcular gradientes de ruta  → scripts/gradiente.py (con modo)
+     ├─ 4. Localización (geocode)       → scripts/geocode.py (con modo)
+     ├─ 5. Condiciones climáticas       → scripts/fetch_weather.py (con modo)
+     ├─ 6. Día de la semana             → scripts/dia_semana.py (con modo)
+     ├─ 7. Posición del sol (astronomía) → scripts/astronomia.py (con modo)
+     ├─ 8. Embeddings
      │   ├─ 1. Generar embeddings (solo pendientes)
      │   ├─ 2. Previsualizar (dry-run)
      │   └─ 0. Volver
-     ├─ 8. Gradientes de ruta            → scripts/gradiente.py (con modo)
+     ├─ 9. Keywords desde transcripciones → scripts/ai_media/keywords_transcripciones.py
+     ├─ n. Siguiente >> → Hoja 3
      ├─ p. << Anterior → Hoja 1
+     └─ 0. Volver
+  └─ Hoja 3: Audio/video IA
+     ├─ 1. Audio tagging (sonidos ambientales) → scripts/ai_media/audio_tagging.py
+     ├─ p. << Anterior → Hoja 2
      └─ 0. Volver
 
 4. Consultar base de datos
@@ -469,9 +491,9 @@ El menú TUI organiza las opciones por **temática**, no por complejidad o crono
 | **Ingesta** (traer datos al proyecto) | 2. Ingesta | Ingesta de medios, GPX, Telegram, deshacer |
 | **IA y Color** (contenido semántico) | 3. Mejorar DB — Hoja 1 | Colores, keywords, descripciones, refinar keywords, transcripción, keypoints |
 | **Inferencia básica** (timestamps/GPS) | 3. Mejorar DB — Hoja 2 (1-2) | Inferir timestamps, inferir GPS |
-| **Ubicación y tiempo** (contexto geo-temporal) | 3. Mejorar DB — Hoja 2 (3-6) | Localización, clima, día de la semana, astronomía |
-| **Búsqueda semántica** | 3. Mejorar DB — Hoja 2 (7) | Embeddings |
-| **Esfuerzo físico** | 3. Mejorar DB — Hoja 2 (8) | Gradientes de ruta |
+| **Esfuerzo físico** (GPS) | 3. Mejorar DB — Hoja 2 (3) | Gradientes de ruta |
+| **Ubicación y tiempo** (contexto geo-temporal) | 3. Mejorar DB — Hoja 2 (4-7) | Localización, clima, día de la semana, astronomía |
+| **Búsqueda semántica** | 3. Mejorar DB — Hoja 2 (8) | Embeddings |
 | **Mantenimiento** (operaciones técnicas) | 5. Mantenimiento DB | Relocalizar, astronomía, backfill, backup, restore, reset, export |
 
 > **Regla de agrupación**: siempre que se agregue una opción nueva al TUI, debe insertarse cerca de opciones temáticamente relacionadas, no al final de la lista.
@@ -714,6 +736,8 @@ El menú TUI organiza las opciones por **temática**, no por complejidad o crono
 | `generate_embeddings.py` | Genera embeddings vectoriales vía nomic-embed-text. | ollama_client |
 | `refinar_keywords.py` | Refina y unifica keywords de IA (3 capas: léxica, diccionario de sinónimos, semántica con embeddings). Sobrescribe `media_metadata.ia_keywords`. | ollama_client |
 | `traducir_metadata.py` | Traduce metadata EN → ES sobre la DB (keywords/descripciones) con glosario de cicloturismo y modo JSON combinado. Guarda `ia_keywords`/`ia_description` (ES) desde `ia_keywords_en`/`ia_description_en`. | ollama (texto) |
+| `keywords_transcripciones.py` | Keywords del SENTIDO de las transcripciones (Ollama texto qwen2.5:3b). Lee `whisper_segments`, combina por inicio, guarda `ia_keywords_transcripcion` (ES). Umbrales: MIN_TEXTO_LEN=40, MAX_KEYWORDS=8. | ollama (texto) |
+| `audio_tagging.py` | Sonidos ambientales en audio/video con **sherpa-onnx CED-mini** (527 clases AudioSet, 100% local en CPU, sin Ollama). ffmpeg extrae WAV 16 kHz mono en memoria, ventanas de 10 s, agrega probs por etiqueta, top-k. Guarda `ia_keywords_sonido` (ES con glosario EN→ES) e `ia_sonido_raw` (JSON [{name, prob}]). Modelo en `models/audio/sherpa-onnx-ced-mini-audio-tagging-2024-04-19/`. | sherpa-onnx + ffmpeg |
 | `proxy.py` | Redimensiona imágenes a ~800px para procesamiento IA más rápido. | Pillow |
 
 ### Scripts TouchDesigner (`td/`)
@@ -913,6 +937,9 @@ elif mode == "skip":
 - **Pipeline IA EN→ES (Ago 2026)**: los modelos de visión multilingües (minicpm-v4.6) responden mejor en inglés. El pipeline de keywords/descripciones ahora es 2 fases: **A (visión)** genera EN y lo guarda en `ia_keywords_en`/`ia_description_en`; **B (traducción)** con qwen2.5:3b traduce a ES y escribe `ia_keywords`/`ia_description` (lo que consume la interfaz, SIEMPRE español). El EN queda persistido para re-traducir sin re-correr visión. `improve_db.py` implementa esto en `run_keywords`/`run_descriptions` + nuevo paso `combinado` (keywords+descripción en 1 llamada de visión + 1 de traducción, recomendado para pasadas masivas). `traducir_metadata.py` es el script independiente reutilizable. El género fotográfico quedó **pendiente de investigar** (los prompts son libres, sin validación; refinar_keywords fuerza "otras"). `refinar_keywords.py` ganó términos EN en SINONIMOS como red de seguridad.
 - **Auto-inicio de Ollama (Ago 2026)**: todos los scripts que requieren Ollama ahora verifican primero si el servidor responde (`socket` a `OLLAMA_HOST:OLLAMA_PORT`, default `127.0.0.1:11434`) y si no, lo arrancan automáticamente con `ollama serve` en background (sin bloquear la terminal, `CREATE_NO_WINDOW` en Windows). Funciones centrales en `ollama_client.py`: `ollama_responde()`, `iniciar_ollama()`, `asegurar_ollama()`. `OllamaVision` y `OllamaEmbedding` llaman `asegurar_ollama()` en su constructor, por lo que todo script que las use queda cubierto. Scripts que usan `ollama` directo (traducir_metadata, improve_db, refinar_keywords, image_analysis --list-models, analyze_video, tag_images, generate_embeddings) llaman `asegurar_ollama()` antes de cada uso. `flujos.py _verificar_ollama()` usa la función central y avisa "✅ Ollama iniciado automáticamente" cuando lo arranca.
 - **Fixes robustez IA (Ago 2026)**: revisión de código de `image_analysis.py`/`tag_images.py`/`puente_td.py` tras 7 bugs reportados. Fixes: (1) `_validar_genero` inserta `"otras"` al inicio en vez de sobrescribir la primera keyword; (2) `_parsear_keywords` acepta JSON objeto `{"keywords": [...]}`; (3) `_reparar_json` limpia trailing commas; (4) `_es_genero` reconoce flexión o/a (`nocturno`↔`nocturna`); (5) helper `_descripcion_utilizable` filtra JSON crudo/texto corto/prompt regurgitado en fallbacks (con heurística de "una marca de prompt = recortar, varias = basura"); (6) `tag_images.py` escribe `ia_keywords` en texto plano (antes `json.dumps`), unificando con improve_db/traducir_metadata — `puente_td.py` gana `_partes_keywords()` tolerante a ambos formatos; (7) sidecars `.tags.json` renombran `file_hash`→`fingerprint` (el MD5 rápido no es el SHA-256 de la DB), con `_fingerprint_valido()` que soporta ambos nombres. Verificado con 21 tests unitarios sin tocar DB. `refinar_keywords.py`/`traducir_metadata.py` ya leían ambos formatos, sin cambios.
+- **keywords_transcripciones.py (Ago 2026)**: nuevo script para extraer keywords del SENTIDO de las transcripciones (`whisper_segments`) con Ollama texto (`qwen2.5:3b`). Prompt semántico (conceptos implícitos, no solo palabras literales), filtro de muletillas, parseo de JSON/texto/numerado. Guarda `ia_keywords_transcripcion` (ES, coma-separado). Umbrales: MIN_TEXTO_LEN=40 (menos chars → skip), MAX_KEYWORDS=8. Probado: media 227 (entrevista agua hidráulica) → `agua, laguna, bomba, inundación, salinidad, canal, riego, proyección`.
+- **audio_tagging.py (Ago 2026)**: nuevo script de reconocimiento de sonidos ambientales con **sherpa-onnx CED-mini** (527 clases AudioSet, int8, 100% local CPU, sin Ollama). Requiere `pip install onnxruntime sherpa-onnx` y el modelo descargado en `models/audio/sherpa-onnx-ced-mini-audio-tagging-2024-04-19/` (asset oficial del release audio-tagging-models). ffmpeg extrae WAV 16 kHz mono en memoria, se divide en ventanas de 10 s, se agregan probs por etiqueta y se queda con top-k. Guarda `ia_keywords_sonido` (ES con glosario EN→ES de ~250 términos, incluye descomposición por comas de etiquetas compuestas) e `ia_sonido_raw` (JSON [{name, prob}]). API sherpa_onnx 1.13: `AudioTaggingConfig(model=AudioTaggingModelConfig(ced=onnx, num_threads=N), labels=csv, top_k=N)`, `stream = tagging.create_stream()`, `stream.accept_waveform(rate, samples_float)`, `tagging.compute(stream)` → eventos con `.name`, `.prob`, `.index`. **ATENCIÓN**: no usar `compute(tuple, rate)` directo (API vieja) ni `stream.input_finished()` (no existe en OfflineStream). Procesado 270 audios/videos en ~78 s (0.29 s/media); 24 sin pista de audio (ffmpeg falla, se loguea como "sin audio").
+- **TUI Hoja 3 (Ago 2026)**: el menú Mejorar DB ganó una tercera hoja "Audio/video IA" con Audio tagging (sonidos). La Hoja 2 pasó de 8 a 9 opciones (nueva opción 9: Keywords desde transcripciones). Coherente con la regla de paginación: la hoja temática (IA/audio) se llena y las nuevas van a la hoja siguiente.
 
 ---
 

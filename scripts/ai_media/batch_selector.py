@@ -35,6 +35,7 @@ from typing import Optional
 
 from scripts.ai_media.ollama_client import OllamaVision
 from scripts.ai_media.image_analysis import extraer_keywords, describir_imagen, MODELO_VISION_DEFAULT
+from scripts.ai_media.proxy import obtener_proxy
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,7 @@ def seleccionar_mejor_imagen(
     modelo: str = MODELO_VISION_DEFAULT,
     tema: Optional[str] = None,
     temperatura: float = 0.2,
+    usar_proxy: bool = True,
 ) -> dict:
     """
     Selecciona la mejor imagen de una tanda según el criterio indicado.
@@ -63,9 +65,13 @@ def seleccionar_mejor_imagen(
             - "tema": elige la que mejor coincide con el tema indicado
             - "diversidad": elige la más representativa
             - "descripcion": la con mejor descripción general
+            - "nitidez": la más nítida (varianza Laplaciano, SIN IA, instantáneo)
         modelo: Modelo de visión.
         tema: Requerido si criterio="tema". Descripción del tema deseado.
         temperatura: Control de creatividad.
+        usar_proxy: Si True, redimensiona a 800px antes de enviar a la IA
+                    (solo aplica a criterios que usan visión: calidad, tema,
+                    diversidad, descripcion).
 
     Returns:
         Dict con:
@@ -96,15 +102,17 @@ def seleccionar_mejor_imagen(
         }
 
     if criterio == "calidad":
-        return _seleccionar_por_calidad(rutas_imagenes, modelo, temperatura)
+        return _seleccionar_por_calidad(rutas_imagenes, modelo, temperatura, usar_proxy)
     elif criterio == "tema":
         if not tema:
             raise ValueError("El criterio 'tema' requiere el parámetro 'tema'")
-        return _seleccionar_por_tema(rutas_imagenes, tema, modelo, temperatura)
+        return _seleccionar_por_tema(rutas_imagenes, tema, modelo, temperatura, usar_proxy)
     elif criterio == "diversidad":
-        return _seleccionar_por_diversidad(rutas_imagenes, modelo, temperatura)
+        return _seleccionar_por_diversidad(rutas_imagenes, modelo, temperatura, usar_proxy)
     elif criterio == "descripcion":
-        return _seleccionar_por_descripcion(rutas_imagenes, modelo, temperatura)
+        return _seleccionar_por_descripcion(rutas_imagenes, modelo, temperatura, usar_proxy)
+    elif criterio == "nitidez":
+        return _seleccionar_por_nitidez(rutas_imagenes)
     else:
         raise ValueError(f"Criterio desconocido: {criterio}")
 
@@ -113,6 +121,7 @@ def _seleccionar_por_calidad(
     rutas: list[str],
     modelo: str,
     temperatura: float,
+    usar_proxy: bool = True,
 ) -> dict:
     """Selecciona por calidad visual evaluada por el modelo."""
     cliente = OllamaVision(modelo=modelo)
@@ -120,8 +129,9 @@ def _seleccionar_por_calidad(
 
     for ruta in rutas:
         try:
+            ruta_ia = obtener_proxy(ruta, usar_proxy=usar_proxy)
             respuesta = cliente.analizar_imagen(
-                ruta,
+                ruta_ia,
                 prompt=PROMPT_EVALUAR_CALIDAD,
                 temperatura=temperatura,
             )
@@ -158,6 +168,7 @@ def _seleccionar_por_tema(
     tema: str,
     modelo: str,
     temperatura: float,
+    usar_proxy: bool = True,
 ) -> dict:
     """Selecciona la imagen que mejor coincide con un tema."""
     cliente = OllamaVision(modelo=modelo)
@@ -172,8 +183,9 @@ def _seleccionar_por_tema(
 
     for ruta in rutas:
         try:
+            ruta_ia = obtener_proxy(ruta, usar_proxy=usar_proxy)
             respuesta = cliente.analizar_imagen(
-                ruta, prompt=prompt_tema, temperatura=temperatura,
+                ruta_ia, prompt=prompt_tema, temperatura=temperatura,
             )
             puntaje = _extraer_puntaje(respuesta)
             evaluaciones.append({
@@ -202,6 +214,7 @@ def _seleccionar_por_diversidad(
     rutas: list[str],
     modelo: str,
     temperatura: float,
+    usar_proxy: bool = True,
 ) -> dict:
     """
     Selecciona la imagen más representativa del conjunto.
@@ -210,7 +223,9 @@ def _seleccionar_por_diversidad(
     # Para conjuntos pequeños, analizamos una por una y comparamos
     from scripts.ai_media.image_analysis import extraer_keywords_batch
 
-    resultados = extraer_keywords_batch(rutas, modelo=modelo, temperatura=temperatura)
+    resultados = extraer_keywords_batch(
+        rutas, modelo=modelo, temperatura=temperatura, usar_proxy=usar_proxy,
+    )
 
     # La imagen con más keywords suele ser la más descriptiva/representativa
     mejor_ruta = None
@@ -241,6 +256,7 @@ def _seleccionar_por_descripcion(
     rutas: list[str],
     modelo: str,
     temperatura: float,
+    usar_proxy: bool = True,
 ) -> dict:
     """Selecciona la imagen con la descripción más rica/detallada."""
     from scripts.ai_media.image_analysis import describir_imagen
@@ -248,7 +264,9 @@ def _seleccionar_por_descripcion(
     evaluaciones = []
     for ruta in rutas:
         try:
-            desc = describir_imagen(ruta, modelo=modelo, temperatura=temperatura)
+            desc = describir_imagen(
+                ruta, modelo=modelo, temperatura=temperatura, usar_proxy=usar_proxy,
+            )
             # La longitud de la descripción como proxy de riqueza
             puntaje = min(len(desc) / 10, 10)
             evaluaciones.append({
@@ -269,6 +287,65 @@ def _seleccionar_por_descripcion(
         "ruta": mejor["ruta"],
         "puntaje": round(mejor["puntaje"], 1),
         "razon": f"Descripción más rica: {mejor['explicacion'][:100]}...",
+        "evaluaciones": evaluaciones,
+    }
+
+
+def _seleccionar_por_nitidez(rutas: list[str]) -> dict:
+    """
+    Selecciona la imagen más nítida usando la varianza del Laplaciano.
+
+    Método clásico de enfoque (focus measure): se convoluciona la imagen en
+    escala de grises con un kernel Laplaciano 3x3 y se calcula la varianza
+    del resultado. A mayor varianza, más detalles de alto contraste
+    (más nítida la imagen).
+
+    Es 100% computacional (Pillow, sin IA): instantáneo incluso con decenas
+    de imágenes. Ideal para tandas donde las fotos son casi idénticas y el
+    defecto típico es desenfoque o movimiento.
+
+    Args:
+        rutas: Lista de rutas a imágenes.
+
+    Returns:
+        Dict con la imagen de mayor nitidez.
+    """
+    from PIL import Image, ImageFilter, ImageStat
+
+    kernel_laplaciano = ImageFilter.Kernel(
+        size=(3, 3),
+        kernel=[0, 1, 0, 1, -4, 1, 0, 1, 0],
+        scale=1,
+        offset=0,
+    )
+
+    evaluaciones = []
+    for ruta in rutas:
+        try:
+            with Image.open(ruta) as img:
+                if img.mode != "L":
+                    img = img.convert("L")
+                laplaciano = img.filter(kernel_laplaciano)
+                var = float(ImageStat.Stat(laplaciano).var[0])
+            evaluaciones.append({
+                "ruta": ruta,
+                "puntaje": round(var, 2),
+                "explicacion": f"Nitidez (varianza Laplaciano): {var:.1f}",
+            })
+            logger.info("Nitidez de %s: %.1f", Path(ruta).name, var)
+        except Exception as e:
+            logger.warning("Error calculando nitidez de %s: %s", ruta, e)
+            evaluaciones.append({
+                "ruta": ruta, "puntaje": 0, "explicacion": f"Error: {e}",
+            })
+
+    evaluaciones.sort(key=lambda x: x["puntaje"], reverse=True)
+    mejor = evaluaciones[0]
+
+    return {
+        "ruta": mejor["ruta"],
+        "puntaje": mejor["puntaje"],
+        "razon": f"Mayor nitidez (varianza Laplaciano {mejor['puntaje']:.1f})",
         "evaluaciones": evaluaciones,
     }
 
@@ -298,6 +375,7 @@ def seleccionar_mejores_n(
     criterio: str = "calidad",
     modelo: str = MODELO_VISION_DEFAULT,
     tema: Optional[str] = None,
+    usar_proxy: bool = True,
 ) -> list[dict]:
     """
     Selecciona las N mejores imágenes de una tanda.
@@ -308,12 +386,13 @@ def seleccionar_mejores_n(
         criterio: Estrategia de selección.
         modelo: Modelo de visión.
         tema: Requerido si criterio="tema". Tema a buscar.
+        usar_proxy: Si True, redimensiona a 800px antes de enviar a la IA.
 
     Returns:
         Lista de dicts ordenados por puntaje descendente.
     """
     resultado = seleccionar_mejor_imagen(
-        rutas_imagenes, criterio=criterio, modelo=modelo, tema=tema,
+        rutas_imagenes, criterio=criterio, modelo=modelo, tema=tema, usar_proxy=usar_proxy,
     )
     evaluaciones = resultado.get("evaluaciones", [])
     evaluaciones.sort(key=lambda x: x.get("puntaje", 0), reverse=True)
@@ -334,11 +413,13 @@ if __name__ == "__main__":
     )
     parser.add_argument("imagenes", nargs="+", help="Rutas a las imágenes")
     parser.add_argument("--criterio", default="calidad",
-                        choices=["calidad", "tema", "diversidad", "descripcion"],
-                        help="Criterio de selección")
+                        choices=["calidad", "tema", "diversidad", "descripcion", "nitidez"],
+                        help="Criterio de selección (nitidez es computacional, sin IA)")
     parser.add_argument("--tema", help="Tema deseado (requerido si criterio=tema)")
     parser.add_argument("--modelo", default=MODELO_VISION_DEFAULT,
                         help=f"Modelo de visión (default: {MODELO_VISION_DEFAULT})")
+    parser.add_argument("--no-proxy", action="store_true",
+                        help="No usar proxies redimensionados (más lento)")
     parser.add_argument("--n", type=int, default=1,
                         help="Número de mejores imágenes a mostrar (default: 1)")
     parser.add_argument("--json", help="Exportar resultados a JSON")
@@ -348,12 +429,15 @@ if __name__ == "__main__":
     if args.criterio == "tema" and not args.tema:
         parser.error("--criterio tema requiere --tema")
 
+    usar_proxy = not args.no_proxy
+
     if args.n == 1:
         resultado = seleccionar_mejor_imagen(
             args.imagenes,
             criterio=args.criterio,
             modelo=args.modelo,
             tema=args.tema,
+            usar_proxy=usar_proxy,
         )
         print(f"\nMejor imagen ({args.criterio}):")
         print(f"  Ruta: {resultado['ruta']}")
@@ -370,6 +454,7 @@ if __name__ == "__main__":
             n=args.n,
             criterio=args.criterio,
             modelo=args.modelo,
+            usar_proxy=usar_proxy,
         )
         print(f"\nTop {args.n} imágenes ({args.criterio}):")
         for i, item in enumerate(mejores, 1):

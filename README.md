@@ -49,7 +49,9 @@ Medios crudos
 │    ├─ fetch_weather.py      │  Clima histórico (Open-Meteo)
 │    ├─ geocode.py            │  Provincia/municipio/localidad (Georef)
 │    ├─ gradiente.py          │  Distancia, elevación, pendiente GPS
-│    └─ astronomia.py         │  Posición del sol, clasificación twilight
+│    ├─ astronomia.py         │  Posición del sol, clasificación twilight
+│    ├─ keywords_transcripciones.py │  Keywords del sentido de lo dicho (Ollama texto)
+│    └─ audio_tagging.py      │  Sonidos ambientales (sherpa-onnx CED-mini)
 └─────────────────────────────┘
      │
      ▼
@@ -80,7 +82,7 @@ python flujos.py --help         # Ayuda general
 | Comando | Qué hace |
 |---------|----------|
 | `ingest --root CARPETA [--types TIPOS] [--recursive] [--allow-no-timestamp] [--dry-run]` | Ingerir medios desde una carpeta. `--types` filtra por tipo (image,video,audio,text). `--allow-no-timestamp` ingiere archivos sin timestamp. |
-| `improve-db [--mode] [--steps]` | Post-procesamiento (8 pasos: colors, keywords, descriptions, transcribe, keypoints, timestamps, gps, video_metadata) |
+| `improve-db [--mode] [--steps]` | Post-procesamiento (9 pasos: colors, keywords, descriptions, combinado, transcribe, keypoints, timestamps, gps, video_metadata) |
 | `geocode [--mode]` | Geocodificación inversa (GPS → provincia/municipio/localidad) |
 | `gradient [--mode]` | Calcular gradientes de ruta entre puntos GPS |
 | `query [--distinct --where --search --count --limit]` | Consultar la base de datos |
@@ -112,7 +114,7 @@ Al ejecutar `python flujos.py` sin argumentos se ingresa al menú TUI:
   └─ 3. Deshacer ingesta
 
 3. Mejorar base de datos
-  ├─ Parte 1: IA y color
+  ├─ Hoja 1: IA y color
   │  ├─ 1. Todos los pasos (skip)
   │  ├─ 2. Elegir pasos manualmente
   │  ├─ 3. Colores dominantes
@@ -122,21 +124,27 @@ Al ejecutar `python flujos.py` sin argumentos se ingresa al menú TUI:
   │  ├─ 7. Refinar keywords (normaliza + sinónimos)
   │  ├─ 8. Transcripción
   │  ├─ 9. Keypoints
-  │  ├─ n. Siguiente >> → Parte 2
+  │  ├─ n. Siguiente >> → Hoja 2
   │  └─ 0. Volver
-  └─ Parte 2: Inferencia y enriquecimiento
-     ├─ 1. Inferir timestamps
-     ├─ 2. Inferir GPS
-     ├─ 3. Localización (geocode)
-     ├─ 4. Condiciones climáticas
-     ├─ 5. Día de la semana
-     ├─ 6. Posición del sol (astronomía)
-     ├─ 7. Embeddings
-     │   ├─ 1. Generar embeddings
-     │   ├─ 2. Previsualizar (dry-run)
-     │   └─ 0. Volver
-     ├─ 8. Calcular gradientes de ruta
-     ├─ p. << Anterior → Parte 1
+  ├─ Hoja 2: Inferencia y enriquecimiento
+  │  ├─ 1. Inferir timestamps
+  │  ├─ 2. Inferir GPS
+  │  ├─ 3. Calcular gradientes de ruta
+  │  ├─ 4. Localización (geocode)
+  │  ├─ 5. Condiciones climáticas
+  │  ├─ 6. Día de la semana
+  │  ├─ 7. Posición del sol (astronomía)
+  │  ├─ 8. Embeddings
+  │  │   ├─ 1. Generar embeddings
+  │  │   ├─ 2. Previsualizar (dry-run)
+  │  │   └─ 0. Volver
+  │  ├─ 9. Keywords desde transcripciones
+  │  ├─ n. Siguiente >> → Hoja 3
+  │  ├─ p. << Anterior → Hoja 1
+  │  └─ 0. Volver
+  └─ Hoja 3: Audio/video IA
+     ├─ 1. Audio tagging (sonidos ambientales)
+     ├─ p. << Anterior → Hoja 2
      └─ 0. Volver
 
 4. Consultar base de datos
@@ -170,7 +178,7 @@ Todas las operaciones que modifican la DB preguntan el modo
 | `flujos.py` | Entry point unificado con subcomandos y TUI | — |
 | `scripts/ingest.py` | Escanea, extrae metadatos e ingiere en DB | Ingesta |
 | `scripts/ingest_gpx.py` | Ingesta de tracks GPS (GPX): waypoints, registro, backfill de altitud | Ingesta |
-| `scripts/improve_db.py` | 8 pasos post-ingesta (colors, keywords, descriptions, transcribe, keypoints, timestamps, gps, video_metadata) | Mejora |
+| `scripts/improve_db.py` | 9 pasos post-ingesta (colors, keywords, descriptions, combinado, transcribe, keypoints, timestamps, gps, video_metadata) | Mejora |
 | `scripts/query.py` | Consultas a la DB | Consulta |
 | `scripts/exportar_csv.py` | Exporta tablas de la DB a CSV | Consulta |
 | `scripts/relocate.py` | Actualiza rutas absolutas cuando los archivos se mudan | Gestión |
@@ -205,6 +213,8 @@ Todas las operaciones que modifican la DB preguntan el modo
 | `clustering.py` | Agrupamiento por tags o embeddings |
 | `generate_embeddings.py` | Embeddings vectoriales (nomic-embed-text) |
 | `refinar_keywords.py` | Refina y unifica keywords IA (léxico + sinónimos + embeddings) |
+| `keywords_transcripciones.py` | Keywords del sentido de transcripciones (qwen2.5:3b) → `ia_keywords_transcripcion` |
+| `audio_tagging.py` | Sonidos ambientales (sherpa-onnx CED-mini, local) → `ia_keywords_sonido` |
 | `proxy.py` | Redimensiona imágenes a ~800px para IA |
 
 ---

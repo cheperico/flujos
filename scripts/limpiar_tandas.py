@@ -34,7 +34,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from scripts.ai_media.image_analysis import extraer_keywords, MODELO_VISION_DEFAULT
 from scripts.ai_media.batch_selector import seleccionar_mejor_imagen
 from scripts.ai_media.proxy import obtener_proxy, limpiar_todos_los_proxies, NOMBRE_CARPETA_PROXIES
-from scripts.ai_media.clustering import agrupar_por_tags, agrupar_por_embeddings
+from scripts.ai_media.clustering import (
+    agrupar_por_tags,
+    agrupar_por_embeddings,
+    MODELO_CLUSTERING_DEFAULT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -312,6 +316,8 @@ def limpiar_tandas(
     umbral_tiempo_segundos: int = 30,
     criterio: str = "calidad",
     modelo: str = MODELO_VISION_DEFAULT,
+    modelo_clustering: str = MODELO_CLUSTERING_DEFAULT,
+    modelo_embed: str = "nomic-embed-text",
     usar_proxy: bool = True,
     usar_similitud: bool = True,
     criterio_agrupacion: str = "embeddings",
@@ -333,9 +339,18 @@ def limpiar_tandas(
         umbral_hamming: Umbral de similitud visual (0-64, solo para phash).
         umbral_tiempo_segundos: Umbral en segundos para sub-agrupamiento
                                 temporal (solo para criterio="tiempo").
-        criterio: Criterio de selección (calidad, tema, diversidad, descripcion).
-        modelo: Modelo de visión de Ollama.
-        usar_proxy: Si True, usa proxies redimensionados.
+        criterio: Criterio de selección (calidad, tema, diversidad, descripcion, nitidez).
+                   "nitidez" usa varianza Laplaciano (Pillow, sin IA, instantáneo).
+        modelo: Modelo de visión para la SELECCIÓN de la mejor imagen
+                (default: minicpm-v4.6:latest).
+        modelo_clustering: Modelo de visión para la AGRUPACIÓN (embeddings/tags).
+                           Default: moondream:latest — mucho más rápido (~0.8s/img)
+                           y suficiente para la tarea de agrupar. La descripción
+                           NO se reutiliza en la DB.
+        modelo_embed: Modelo de embeddings para el criterio de agrupación
+                      "embeddings" (default: nomic-embed-text).
+        usar_proxy: Si True, usa proxies redimensionados (800px) en las llamadas
+                    de visión de clustering y selección. 2.5x más rápido.
         usar_similitud: Si True, sub-agrupa (con el criterio indicado).
         criterio_agrupacion: Método de agrupamiento interno:
             - "embeddings": embeddings de descripciones (default, recomendado)
@@ -384,7 +399,9 @@ def limpiar_tandas(
                 sub = sub_agrupar_por_similitud(grupo, umbral_hamming)
 
             elif criterio_agrupacion == "tags":
-                sub = agrupar_por_tags(grupo, modelo_vision=modelo)
+                sub = agrupar_por_tags(
+                    grupo, modelo_vision=modelo_clustering, usar_proxy=usar_proxy,
+                )
 
             elif criterio_agrupacion == "embeddings":
                 # Pre-filtro: phash descarta duplicados pixel-casi-idénticos
@@ -398,7 +415,12 @@ def limpiar_tandas(
                     descartadas_phash.extend(sg[1:])
                 # Embeddings sobre el grupo ya reducido (sin duplicados obvios)
                 if len(imagenes_reducidas) > 1:
-                    sub = agrupar_por_embeddings(imagenes_reducidas, modelo_vision=modelo)
+                    sub = agrupar_por_embeddings(
+                        imagenes_reducidas,
+                        modelo_vision=modelo_clustering,
+                        modelo_embed=modelo_embed,
+                        usar_proxy=usar_proxy,
+                    )
                 else:
                     sub = [imagenes_reducidas]
 
@@ -444,6 +466,7 @@ def limpiar_tandas(
                 criterio=criterio,
                 modelo=modelo,
                 temperatura=0.2,
+                usar_proxy=usar_proxy,
             )
             ruta_mejor = mejor["ruta"]
             seleccionadas.append(ruta_mejor)
@@ -490,6 +513,8 @@ def limpiar_tandas(
         "criterio": criterio,
         "criterio_agrupacion": ("ninguno" if not usar_similitud else criterio_agrupacion),
         "modelo": modelo,
+        "modelo_clustering": modelo_clustering,
+        "modelo_embed": modelo_embed,
     }
 
     logger.info(
@@ -571,7 +596,11 @@ def imprimir_reporte(reporte: dict):
         print(f"  Umbral phash:   {reporte.get('umbral_hamming', 5)}")
     elif reporte['criterio_agrupacion'] == 'embeddings':
         print(f"  Umbral similitud: ≥ 0.7 (cosine)")
-    print(f"  Modelo:         {reporte['modelo']}")
+    print(f"  Modelo:         {reporte['modelo']}  (selección)")
+    if reporte.get("modelo_clustering"):
+        print(f"  Clustering:     {reporte['modelo_clustering']}  (agrupación)")
+    if reporte.get("modelo_embed"):
+        print(f"  Modelo embed:   {reporte['modelo_embed']}")
     print(sep)
 
     if reporte["descartadas"] and not reporte["dry_run"]:
@@ -615,10 +644,18 @@ def main(argv: list[str] | None = None) -> None:
                         help="Umbral de similitud visual 0-64. Menor = más similar (default: 5, "
                              "solo para --criterio-agrupacion=phash)")
     parser.add_argument("--criterio", default="calidad",
-                        choices=["calidad", "tema", "diversidad", "descripcion"],
-                        help="Criterio de selección (default: calidad)")
+                        choices=["calidad", "tema", "diversidad", "descripcion", "nitidez"],
+                        help="Criterio de selección (default: calidad). "
+                             "nitidez = varianza Laplaciano, SIN IA (instantáneo)")
     parser.add_argument("--modelo", default=MODELO_VISION_DEFAULT,
-                        help=f"Modelo de visión (default: {MODELO_VISION_DEFAULT})")
+                        help=f"Modelo de visión para SELECCIONAR la mejor imagen "
+                             f"(default: {MODELO_VISION_DEFAULT})")
+    parser.add_argument("--modelo-clustering", default=MODELO_CLUSTERING_DEFAULT,
+                        help=f"Modelo de visión para AGRUPAR (embeddings/tags) "
+                             f"(default: {MODELO_CLUSTERING_DEFAULT}, rápido)")
+    parser.add_argument("--modelo-embed", default="nomic-embed-text",
+                        help="Modelo de embeddings para --criterio-agrupacion=embeddings "
+                             "(default: nomic-embed-text)")
     parser.add_argument("--no-proxy", action="store_true",
                         help="No usar proxies (deshabilita redimensionado automático)")
     parser.add_argument("--no-similitud", action="store_true",
@@ -645,6 +682,8 @@ def main(argv: list[str] | None = None) -> None:
             umbral_tiempo_segundos=args.umbral_tiempo_segundos,
             criterio=args.criterio,
             modelo=args.modelo,
+            modelo_clustering=args.modelo_clustering,
+            modelo_embed=args.modelo_embed,
             usar_proxy=not args.no_proxy,
             usar_similitud=not args.no_similitud,
             criterio_agrupacion=args.criterio_agrupacion,

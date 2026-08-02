@@ -934,9 +934,9 @@ def opcion_improve_db():
     Regla de navegacion: hasta 9 opciones por hoja (1-9); cuando se superan,
     se crea una hoja nueva. n = Siguiente >>, p = << Anterior, 0 = Volver.
     Distribucion: Hoja 1 (IA y color, 9 opc), Hoja 2 (inferencia y
-    enriquecimiento, 7 opc)."""
+    enriquecimiento, 9 opc), Hoja 3 (audio/video IA, 1 opc)."""
     db_path = leer_db()
-    hoja = 1  # 1: IA y color, 2: inferencia y enriquecimiento
+    hoja = 1  # 1: IA y color, 2: inferencia y enriquecimiento, 3: audio/video IA
     while True:
         limpiar_pantalla()
         print("=== MEJORAR BASE DE DATOS ===\n")
@@ -954,16 +954,23 @@ def opcion_improve_db():
             print("  9) Keypoints de transcripciones")
             print("  n) Siguiente >>")
             print("  0) Volver\n")
-        else:
+        elif hoja == 2:
             print("  -- Pasos de inferencia y enriquecimiento --\n")
             print("  1) Inferir timestamps")
             print("  2) Inferir GPS")
-            print("  3) Localizacion (provincia, municipio, localidad)")
-            print("  4) Condiciones climaticas")
-            print("  5) Dia de la semana")
-            print("  6) Posicion del sol (astronomia)")
-            print("  7) Embeddings")
-            print("  8) Calcular gradientes de ruta")
+            print("  3) Calcular gradientes de ruta")
+            print("  4) Localizacion (provincia, municipio, localidad)")
+            print("  5) Condiciones climaticas")
+            print("  6) Dia de la semana")
+            print("  7) Posicion del sol (astronomia)")
+            print("  8) Embeddings")
+            print("  9) Keywords desde transcripciones")
+            print("  n) Siguiente >>")
+            print("  p) << Anterior")
+            print("  0) Volver\n")
+        else:
+            print("  -- Pasos de audio/video IA --\n")
+            print("  1) Audio tagging (sonidos ambientales)")
             print("  p) << Anterior")
             print("  0) Volver\n")
 
@@ -1047,7 +1054,7 @@ def opcion_improve_db():
                 print("  Opcion invalida.")
                 pausa()
 
-        else:  # hoja == 2
+        elif hoja == 2:
             if opc == "1":
                 modo = _preguntar_modo(db_path)
                 if modo is None:
@@ -1065,19 +1072,34 @@ def opcion_improve_db():
                 _ejecutar_improve_db(pasos="gps", modo=modo)
                 pausa()
             elif opc == "3":
-                opcion_geocode()
-            elif opc == "4":
-                opcion_weather()
-            elif opc == "5":
-                opcion_dia_semana()
-            elif opc == "6":
-                opcion_astronomia()
-            elif opc == "7":
-                opcion_embeddings()
-            elif opc == "8":
                 opcion_gradient()
+            elif opc == "4":
+                opcion_geocode()
+            elif opc == "5":
+                opcion_weather()
+            elif opc == "6":
+                opcion_dia_semana()
+            elif opc == "7":
+                opcion_astronomia()
+            elif opc == "8":
+                opcion_embeddings()
+            elif opc == "9":
+                opcion_keywords_transcripciones(db_path)
+            elif opc.lower() in ("n", "next"):
+                hoja = 3
             elif opc.lower() in ("p", "prev"):
                 hoja = 1
+            elif opc == "0":
+                break
+            else:
+                print("  Opcion invalida.")
+                pausa()
+
+        else:  # hoja == 3
+            if opc == "1":
+                opcion_audio_tagging(db_path)
+            elif opc.lower() in ("p", "prev"):
+                hoja = 2
             elif opc == "0":
                 break
             else:
@@ -1207,6 +1229,71 @@ def opcion_refinar_keywords(db_path: str | None = None):
         subprocess.run([sys.executable, script] + db_flag + ["--dry-run"])
     elif opc == "4":
         subprocess.run([sys.executable, script] + db_flag + ["--dry-run", "--usar-embeddings"])
+    elif opc == "0":
+        return
+
+    pausa()
+
+
+def opcion_keywords_transcripciones(db_path: str | None = None):
+    """
+    Extrae keywords desde transcripciones (whisper_segments) con un modelo de
+    texto (qwen2.5:3b). Guarda en media_metadata clave 'ia_keywords_transcripcion'.
+    """
+    import subprocess
+    script = os.path.join(os.path.dirname(__file__), "scripts", "ai_media", "keywords_transcripciones.py")
+    db_flag = ["--db", db_path or leer_db()]
+
+    limpiar_pantalla()
+    print("=== KEYWORDS DESDE TRANSCRIPCIONES ===\n")
+    print("  Extrae keywords del SENTIDO de las transcripciones de audio/video\n"
+          "  (no solo palabras literales). Usa Ollama (qwen2.5:3b).\n")
+    print("  1) Procesar (solo pendientes)")
+    print("  2) Re-procesar todos (update)")
+    print("  3) Limpiar y regenerar (replace)")
+    print("  4) Previsualizar (dry-run)")
+    print("  0) Volver\n")
+
+    opc = input("  Opcion: ").strip()
+
+    if opc in ("1", "2", "3"):
+        modos = {"1": "skip", "2": "update", "3": "replace"}
+        subprocess.run([sys.executable, script] + db_flag + ["--mode", modos[opc]])
+    elif opc == "4":
+        subprocess.run([sys.executable, script] + db_flag + ["--dry-run"])
+    elif opc == "0":
+        return
+
+    pausa()
+
+
+def opcion_audio_tagging(db_path: str | None = None):
+    """
+    Reconoce sonidos ambientales en audios/videos con el modelo CED-mini de
+    sherpa-onnx (local, sin Ollama). Guarda en media_metadata claves
+    'ia_keywords_sonido' (ES) e 'ia_sonido_raw' (JSON con probabilidades).
+    """
+    import subprocess
+    script = os.path.join(os.path.dirname(__file__), "scripts", "ai_media", "audio_tagging.py")
+    db_flag = ["--db", db_path or leer_db()]
+
+    limpiar_pantalla()
+    print("=== AUDIO TAGGING (sonidos ambientales) ===\n")
+    print("  Detecta sonidos en audios/videos (tráfico, pájaros, viento, agua,\n"
+          "  motores, voces...) con el modelo CED-mini de sherpa-onnx (100% local).\n")
+    print("  1) Procesar (solo pendientes)")
+    print("  2) Re-procesar todos (update)")
+    print("  3) Limpiar y regenerar (replace)")
+    print("  4) Previsualizar (dry-run)")
+    print("  0) Volver\n")
+
+    opc = input("  Opcion: ").strip()
+
+    if opc in ("1", "2", "3"):
+        modos = {"1": "skip", "2": "update", "3": "replace"}
+        subprocess.run([sys.executable, script] + db_flag + ["--mode", modos[opc]])
+    elif opc == "4":
+        subprocess.run([sys.executable, script] + db_flag + ["--dry-run"])
     elif opc == "0":
         return
 

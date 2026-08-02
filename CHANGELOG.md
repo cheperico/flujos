@@ -7,6 +7,23 @@ Las versiones corresponden a entregas funcionales, no a releases semánticas.
 
 ---
 
+## [Entrega 15] — 2026-08-01
+
+### Añadido
+- **Keywords desde transcripciones** (`scripts/ai_media/keywords_transcripciones.py`): extrae keywords del **SENTIDO** de las transcripciones (`whisper_segments`) con Ollama texto (`qwen2.5:3b`). Prompt semántico: captura conceptos implícitos (no solo palabras literales), filtra muletillas y ruido, parseo de JSON/texto/numerado. Guarda `ia_keywords_transcripcion` (ES, coma-separado). Umbrales: `MIN_TEXTO_LEN=40`, `MAX_KEYWORDS=8`. Probado: media 227 (entrevista agua hidráulica) → `agua, laguna, bomba, inundación, salinidad, canal, riego, proyección`.
+- **Audio tagging** (`scripts/ai_media/audio_tagging.py`): reconocimiento de sonidos ambientales en audio/video con **sherpa-onnx CED-mini** (527 clases AudioSet, int8, 100% local en CPU, sin Ollama). ffmpeg extrae WAV 16 kHz mono en memoria (sin archivos temporales), se divide en ventanas de 10 s, se agregan probs por etiqueta y se queda con top-k. Guarda `ia_keywords_sonido` (ES con glosario EN→ES) e `ia_sonido_raw` (JSON `[{name, prob}]`). Modelo en `models/audio/sherpa-onnx-ced-mini-audio-tagging-2024-04-19/`.
+- **TUI Mejorar DB → Hoja 3 "Audio/video IA"**: nueva hoja paginada con Audio tagging. La Hoja 2 ganó la opción 9 (Keywords desde transcripciones) y `n) Siguiente >>` para ir a la Hoja 3. Coherente con la regla de paginación (las opciones de IA/audio van a la hoja siguiente cuando la temática está llena).
+
+### Cambiado
+- **Requisitos nuevos** (`AGENTS.md`): `onnxruntime 1.27.0` + `sherpa-onnx 1.13.4` (`pip install onnxruntime sherpa-onnx`), con instrucciones de descarga/extracción del modelo CED-mini.
+
+### Nota técnica (API sherpa-onnx 1.13)
+- **NO** usar `compute(tuple, rate)` (API vieja, da `TypeError`): en 1.13 el flujo es `stream = tagging.create_stream()` → `stream.accept_waveform(rate, samples_float)` → `tagging.compute(stream)` → eventos con `.name`, `.prob`, `.index`.
+- **NO** existe `stream.input_finished()` en `OfflineStream` (solo `accept_waveform`, `result`, `get_option`, etc.).
+- Resultado: 270 audios/videos procesados en ~78 s (0.29 s/media); 24 sin pista de audio (ffmpeg falla → se loguea como "sin audio").
+
+---
+
 ## [Entrega 14] — 2026-08-01
 
 ### Añadido

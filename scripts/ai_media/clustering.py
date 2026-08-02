@@ -4,20 +4,45 @@ Módulo de clustering semántico para agrupar imágenes dentro de una tanda temp
 Estrategias:
   - tags: agrupa por palabras clave extraídas por IA
   - embeddings: agrupa por similitud semántica de descripciones (nomic-embed-text)
+
+Modelo de visión:
+  Esta tarea NO necesita descripciones de alta calidad (solo un texto lo
+  suficientemente semántico para generar embeddings de agrupación). Por eso
+  se usa moondream:latest (~0.8s/img) en vez de minicpm (~3-13s/img), que
+  queda reservado para el pipeline de DB. La descripción del clustering NO
+  se reutiliza en la DB (no se guarda).
 """
 
 import logging
 from typing import Optional
 
 from scripts.ai_media.image_analysis import MODELO_VISION_DEFAULT
+from scripts.ai_media.proxy import obtener_proxy
 
 logger = logging.getLogger(__name__)
+
+# Modelo de visión para clustering: moondream es ~15x más rápido que minicpm
+# y suficiente para la tarea de agrupar (descripción breve → embedding).
+# ⚠️ moondream responde MAL a prompts en español → prompts EN.
+MODELO_CLUSTERING_DEFAULT = "moondream:latest"
+
+# Prompts EN (moondream está entrenado en inglés)
+PROMPT_CLUSTER_DESC = (
+    "Briefly describe what is seen in this image in one sentence "
+    "of at most 15 words. Avoid judgments, only describe content."
+)
+
+PROMPT_CLUSTER_TAGS = (
+    "Reply with ONLY 3 comma-separated keywords describing the main "
+    "content of this image. Example: 'sunset, plaza, bicycles'"
+)
 
 
 def agrupar_por_tags(
     grupo: list[str],
-    modelo_vision: str = MODELO_VISION_DEFAULT,
+    modelo_vision: str = MODELO_CLUSTERING_DEFAULT,
     compartir_min: int = 1,
+    usar_proxy: bool = True,
 ) -> list[list[str]]:
     """
     Agrupa imágenes dentro de un grupo temporal compartiendo al menos N tags.
@@ -29,7 +54,10 @@ def agrupar_por_tags(
     Args:
         grupo: Lista de rutas de imágenes (mismo grupo temporal).
         modelo_vision: Modelo de visión para extraer tags.
+                       Default: moondream (rápido, suficiente para agrupar).
         compartir_min: Mínimo de tags compartidos para estar en el mismo grupo.
+        usar_proxy: Si True, redimensiona a 800px antes de enviar a la IA
+                    (mucho más rápido, menos tokens de visión).
 
     Returns:
         Lista de sub-grupos.
@@ -41,16 +69,13 @@ def agrupar_por_tags(
 
     cliente = OllamaVision(modelo=modelo_vision)
 
-    prompt_tags = (
-        "Respondé ÚNICAMENTE 3 palabras clave separadas por coma "
-        "que describan el contenido principal de esta imagen. "
-        "Ejemplo: 'atardecer, plaza, bicicletas'"
-    )
+    prompt_tags = PROMPT_CLUSTER_TAGS
 
     tags_por_ruta = {}
     for ruta in grupo:
         try:
-            respuesta = cliente.analizar_imagen(ruta, prompt=prompt_tags, temperatura=0.1)
+            ruta_ia = obtener_proxy(ruta, usar_proxy=usar_proxy)
+            respuesta = cliente.analizar_imagen(ruta_ia, prompt=prompt_tags, temperatura=0.1)
             tags = [t.strip().lower().rstrip(".") for t in respuesta.split(",")][:3]
             tags_por_ruta[ruta] = set(tags)
             logger.debug("Tags de %s: %s", ruta, tags)
@@ -92,9 +117,10 @@ def agrupar_por_tags(
 
 def agrupar_por_embeddings(
     grupo: list[str],
-    modelo_vision: str = MODELO_VISION_DEFAULT,
+    modelo_vision: str = MODELO_CLUSTERING_DEFAULT,
     modelo_embed: str = "nomic-embed-text",
     umbral_similitud: float = 0.7,
+    usar_proxy: bool = True,
 ) -> list[list[str]]:
     """
     Agrupa imágenes por similitud semántica usando embeddings de descripciones.
@@ -106,8 +132,10 @@ def agrupar_por_embeddings(
     Args:
         grupo: Lista de rutas de imágenes.
         modelo_vision: Modelo de visión para describir.
+                       Default: moondream (rápido, suficiente para agrupar).
         modelo_embed: Modelo de embeddings (nomic-embed-text recomendado).
         umbral_similitud: Umbral de cosine similarity (0-1) para considerar mismo grupo.
+        usar_proxy: Si True, redimensiona a 800px antes de enviar a la IA.
 
     Returns:
         Lista de sub-grupos.
@@ -121,16 +149,14 @@ def agrupar_por_embeddings(
 
     cliente = OllamaVision(modelo=modelo_vision)
 
-    prompt_desc = (
-        "Describí brevemente lo que se ve en esta imagen en una oración "
-        "de máximo 15 palabras. Evitá valoraciones, solo describí el contenido."
-    )
+    prompt_desc = PROMPT_CLUSTER_DESC
 
     # 1. Obtener descripciones
     desc_por_ruta = {}
     for ruta in grupo:
         try:
-            desc = cliente.analizar_imagen(ruta, prompt=prompt_desc, temperatura=0.1)
+            ruta_ia = obtener_proxy(ruta, usar_proxy=usar_proxy)
+            desc = cliente.analizar_imagen(ruta_ia, prompt=prompt_desc, temperatura=0.1)
             desc_por_ruta[ruta] = desc.strip()
             logger.debug("Descripción de %s: %s", ruta, desc[:50])
         except Exception as e:
