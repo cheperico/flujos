@@ -119,9 +119,9 @@ Al ejecutar `python flujos.py` sin argumentos se ingresa al menú TUI:
   │  ├─ 4. Keywords con IA
   │  ├─ 5. Descripción con IA
   │  ├─ 6. Keywords + Descripción
-  │  ├─ 7. Transcripción
-  │  ├─ 8. Keypoints
-  │  ├─ 9. Refinar keywords (normaliza + sinónimos)
+  │  ├─ 7. Refinar keywords (normaliza + sinónimos)
+  │  ├─ 8. Transcripción
+  │  ├─ 9. Keypoints
   │  ├─ n. Siguiente >> → Parte 2
   │  └─ 0. Volver
   └─ Parte 2: Inferencia y enriquecimiento
@@ -135,6 +135,7 @@ Al ejecutar `python flujos.py` sin argumentos se ingresa al menú TUI:
      │   ├─ 1. Generar embeddings
      │   ├─ 2. Previsualizar (dry-run)
      │   └─ 0. Volver
+     ├─ 8. Calcular gradientes de ruta
      ├─ p. << Anterior → Parte 1
      └─ 0. Volver
 
@@ -144,12 +145,13 @@ Al ejecutar `python flujos.py` sin argumentos se ingresa al menú TUI:
 
 5. Mantenimiento DB
   ├─ 1. Relocalizar medios
-  ├─ 2. Calcular gradientes de ruta
+  ├─ 2. Posición del sol (astronomía)
   ├─ 3. Backfill end_time
   ├─ 4. Backup DB
   ├─ 5. Restore DB desde backup
   ├─ 6. Resetear DB
-  └─ 7. Exportar DB a CSV
+  ├─ 7. Exportar DB a CSV
+  └─ 8. Mover/Copiar medios
 
 6. Mapa de ruta (Folium)
 

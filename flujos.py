@@ -963,6 +963,7 @@ def opcion_improve_db():
             print("  5) Dia de la semana")
             print("  6) Posicion del sol (astronomia)")
             print("  7) Embeddings")
+            print("  8) Calcular gradientes de ruta")
             print("  p) << Anterior")
             print("  0) Volver\n")
 
@@ -1073,6 +1074,8 @@ def opcion_improve_db():
                 opcion_astronomia()
             elif opc == "7":
                 opcion_embeddings()
+            elif opc == "8":
+                opcion_gradient()
             elif opc.lower() in ("p", "prev"):
                 hoja = 1
             elif opc == "0":
@@ -1243,19 +1246,18 @@ def opcion_geocode():
 
 
 def opcion_mantenimiento(db_path: str | None = None):
-    """Menu: mantenimiento general de la DB (backup, restore, exportar, gradientes, etc)."""
+    """Menu: mantenimiento general de la DB (backup, restore, exportar, etc)."""
     while True:
         limpiar_pantalla()
         print("=== MANTENIMIENTO DB ===\n")
         print("  1) Relocalizar medios (cambio de raiz)")
-        print("  2) Calcular gradientes de ruta")
-        print("  3) Calcular posición del sol (astronomía)")
-        print("  4) Backfill end_time")
-        print("  5) Backup DB (solo backup, sin borrar)")
-        print("  6) Restore DB desde backup")
-        print("  7) Resetear DB (backup + limpiar)")
-        print("  8) Exportar DB a CSV")
-        print("  9) Mover/Copiar medios")
+        print("  2) Calcular posición del sol (astronomía)")
+        print("  3) Backfill end_time")
+        print("  4) Backup DB (solo backup, sin borrar)")
+        print("  5) Restore DB desde backup")
+        print("  6) Resetear DB (backup + limpiar)")
+        print("  7) Exportar DB a CSV")
+        print("  8) Mover/Copiar medios")
         print("  0) Volver\n")
 
         opc = input("  Opcion: ").strip()
@@ -1263,20 +1265,18 @@ def opcion_mantenimiento(db_path: str | None = None):
         if opc == "1":
             opcion_relocalizar(db_path)
         elif opc == "2":
-            opcion_gradient()
-        elif opc == "3":
             opcion_astronomia(db_path)
-        elif opc == "4":
+        elif opc == "3":
             opcion_backfill_end_time(db_path)
-        elif opc == "5":
+        elif opc == "4":
             opcion_backup_db(db_path)
-        elif opc == "6":
+        elif opc == "5":
             opcion_restore_db(db_path)
-        elif opc == "7":
+        elif opc == "6":
             opcion_reset_db(db_path)
-        elif opc == "8":
+        elif opc == "7":
             opcion_exportar_csv(db_path)
-        elif opc == "9":
+        elif opc == "8":
             opcion_mover_media(db_path)
         elif opc == "0":
             break

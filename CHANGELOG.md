@@ -29,6 +29,7 @@ Las versiones corresponden a entregas funcionales, no a releases semánticas.
 ### Corregido
 - **Bug en fase B**: `_crear_cliente_texto()` ahora llama `asegurar_ollama()` y lanza `RuntimeError` si no hay servidor (antes fallaba con error oscuro del cliente).
 - **`_reparar_json`** aplicado en `_parsear_combinado` (antes solo se intentaba `json.loads` directo).
+- **Gradientes de ruta reubicados en el TUI**: se movió la opción "Calcular gradientes de ruta" de `Mantenimiento DB` (donde estaba como opción 2) a `Mejorar DB → Hoja 2` (nueva opción 8, junto a inferencia/enriquecimiento). Coherente con la filosofía de agrupación temática (gradientes son enriquecimiento, como geocode/clima/astronomía). `Mantenimiento DB` quedó renumerado (ahora 8 opciones, sin gradientes).
 - **6 bugs de robustez en `image_analysis.py` / `tag_images.py` / `puente_td.py`** (revisión de código):
   - `_validar_genero` ya no pierde la primera keyword descriptiva: `keywords[0] = "otras"` (sobrescribía) → `keywords.insert(0, "otras")`.
   - `_parsear_keywords` ahora maneja JSON objeto `{"keywords": [...]}` (qwen2.5vl responde así a veces), no solo listas planas.

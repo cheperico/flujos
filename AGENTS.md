@@ -426,6 +426,7 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
      │   ├─ 1. Generar embeddings (solo pendientes)
      │   ├─ 2. Previsualizar (dry-run)
      │   └─ 0. Volver
+     ├─ 8. Gradientes de ruta            → scripts/gradiente.py (con modo)
      ├─ p. << Anterior → Hoja 1
      └─ 0. Volver
 
@@ -444,14 +445,13 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 
 5. Mantenimiento DB
   ├─ 1. Relocalizar medios              → scripts/relocate.py
-  ├─ 2. Calcular gradientes de ruta     → scripts/gradiente.py (con modo)
-  ├─ 3. Posición del sol (astronomía)   → scripts/astronomia.py (con modo)
-  ├─ 4. Backfill end_time               → opcion_backfill_end_time() (con modo)
-  ├─ 5. Backup DB (solo backup)         → opcion_backup_db()
-  ├─ 6. Restore DB desde backup         → opcion_restore_db()
-  ├─ 7. Resetear DB (backup + limpiar)  → opcion_reset_db()
-  ├─ 8. Exportar CSV                    → exportar_csv.main()
-  └─ 9. Mover/Copiar medios             → scripts/mover_media.py
+  ├─ 2. Posición del sol (astronomía)   → scripts/astronomia.py (con modo)
+  ├─ 3. Backfill end_time               → opcion_backfill_end_time() (con modo)
+  ├─ 4. Backup DB (solo backup)         → opcion_backup_db()
+  ├─ 5. Restore DB desde backup         → opcion_restore_db()
+  ├─ 6. Resetear DB (backup + limpiar)  → opcion_reset_db()
+  ├─ 7. Exportar CSV                    → exportar_csv.main()
+  └─ 8. Mover/Copiar medios             → scripts/mover_media.py
 
 6. Mapa de ruta (Folium) → opcion_mapa() (mapa HTML con Folium)
 
@@ -471,7 +471,8 @@ El menú TUI organiza las opciones por **temática**, no por complejidad o crono
 | **Inferencia básica** (timestamps/GPS) | 3. Mejorar DB — Hoja 2 (1-2) | Inferir timestamps, inferir GPS |
 | **Ubicación y tiempo** (contexto geo-temporal) | 3. Mejorar DB — Hoja 2 (3-6) | Localización, clima, día de la semana, astronomía |
 | **Búsqueda semántica** | 3. Mejorar DB — Hoja 2 (7) | Embeddings |
-| **Mantenimiento** (operaciones técnicas) | 5. Mantenimiento DB | Relocalizar, gradientes, astronomía, backfill, backup, restore, reset, export |
+| **Esfuerzo físico** | 3. Mejorar DB — Hoja 2 (8) | Gradientes de ruta |
+| **Mantenimiento** (operaciones técnicas) | 5. Mantenimiento DB | Relocalizar, astronomía, backfill, backup, restore, reset, export |
 
 > **Regla de agrupación**: siempre que se agregue una opción nueva al TUI, debe insertarse cerca de opciones temáticamente relacionadas, no al final de la lista.
 
