@@ -7,6 +7,24 @@ Las versiones corresponden a entregas funcionales, no a releases semánticas.
 
 ---
 
+## [Entrega 16] — 2026-08-01
+
+### Añadido
+- **Motor de loop** (el "cerebro" de la instalación, agnóstico del renderizador):
+  - `scripts/ai_media/loop_engine.py` — **núcleo puro** (sin DB ni render): matemática de arcos horarios (N horas → N−1 segmentos de duración igual), cruce de medianoche (`24 + (H[i+1]−H[i])`), posición de un medio en el loop (`t_loop = t_start + frac·duracion_seg`), descarte de medios fuera del arco, y armado de la spec JSON. Funciones: `calcular_segmentos()`, `hora_en_fraccion()`, `posicionar_hora()/posicionar_medio()`, `armar_spec()`.
+  - `scripts/ai_media/loop_db.py` — integración con la DB (solo lectura): filtra `media`+`media_metadata` por municipios/colores/tags/días/clima (AND), ordena por recorrido real (`cumul_distance_m`) o elección, normaliza `timestamp_utc` mixto (`Z`/`+00:00`), genera y **consolida los chiches** por (texto, hora en punto) para no spamear el render, y vuelca la spec a JSON. CLI: `python scripts/ai_media/loop_db.py --horas 7 16 13 18 --salida spec.json`.
+  - `scripts/ai_media/test_motor_loop.py` — 47 tests del núcleo (segmentos, cruce nocturno, fracción, posición, descarte, todas las horas). Fix de consola Windows: reconfigura `stdout` a UTF-8 (la flecha `→` rompe cp1252).
+- **Documento** `docs/motor_loop.md` — especificación completa del motor (entrada, matemática de segmentos, posicionamiento, chiches, salida JSON, arquitectura y pendientes). Actualiza la referencia de `diseno_instalacion.md` (antes "próximo paso: motor de loop").
+
+### Validado
+- Corrida real contra `db/flujos.db` con `--horas 7 16 13 18`: 1328 medios posicionados, 63 chiches **consolidados** (antes 1574), 3 segmentos (7→16, 16→13 nocturno, 13→18).
+
+### Cambiado
+- Limpieza de imports duplicados y comentario obsoleto en `audio_tagging.py`; robustez en `batch_selector.py` (nitidez redimensiona a 800px) y `clustering.py` (parseo de keywords + guard de coseno 0).
+- `ROADMAP.md`/`VISION.md`/`AGENTS.md`/`README.md` actualizados para reflejar el estado real (pipeline IA EN→ES, audio tagging, motor de loop, GPX, Telegram).
+
+---
+
 ## [Entrega 15] — 2026-08-01
 
 ### Añadido
