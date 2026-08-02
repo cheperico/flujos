@@ -58,14 +58,13 @@ import tarfile
 import time
 import urllib.error
 import urllib.request
-import urllib.request
 import wave
 
 log = logging.getLogger(__name__)
 
 # ── Modelo y constantes ──────────────────────────────────────────────────────
-# Ruta al modelo CED-mini (descargado manualmente, ver README/AGENTS).
-# Si no existe, se puede pasar --modelo con otra ruta al .onnx.
+# Ruta al modelo CED-mini. Si no existe, se descarga automáticamente (ver
+# _descargar_modelo). También se puede pasar --modelo con otra ruta al .onnx.
 RUTA_MODELO_DEFAULT = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
     "models", "audio", "sherpa-onnx-ced-mini-audio-tagging-2024-04-19",

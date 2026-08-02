@@ -14,9 +14,8 @@ Modelo de visión:
 """
 
 import logging
-from typing import Optional
 
-from scripts.ai_media.image_analysis import MODELO_VISION_DEFAULT
+from scripts.ai_media.image_analysis import _parsear_keywords
 from scripts.ai_media.proxy import obtener_proxy
 
 logger = logging.getLogger(__name__)
@@ -76,7 +75,7 @@ def agrupar_por_tags(
         try:
             ruta_ia = obtener_proxy(ruta, usar_proxy=usar_proxy)
             respuesta = cliente.analizar_imagen(ruta_ia, prompt=prompt_tags, temperatura=0.1)
-            tags = [t.strip().lower().rstrip(".") for t in respuesta.split(",")][:3]
+            tags = [t.strip().lower() for t in _parsear_keywords(respuesta)][:3]
             tags_por_ruta[ruta] = set(tags)
             logger.debug("Tags de %s: %s", ruta, tags)
         except Exception as e:
@@ -198,9 +197,10 @@ def agrupar_por_embeddings(
             if otra in asignadas or otra not in emb_por_ruta:
                 continue
             emb_otra = emb_por_ruta[otra]
-            sim = float(np.dot(emb_ref, emb_otra) / (
-                np.linalg.norm(emb_ref) * np.linalg.norm(emb_otra)
-            ))
+            denom = float(np.linalg.norm(emb_ref) * np.linalg.norm(emb_otra))
+            if denom == 0:
+                continue
+            sim = float(np.dot(emb_ref, emb_otra) / denom)
             if sim >= umbral_similitud:
                 grupo_sim.append(otra)
                 asignadas.add(otra)

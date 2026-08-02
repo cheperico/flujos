@@ -291,6 +291,12 @@ def _seleccionar_por_descripcion(
     }
 
 
+# Lado máximo de análisis de nitidez: la varianza del Laplaciano es una métrica
+# de enfoque invariante ante resolución razonable. Reducir aquí corta el coste
+# ~10-20x en fotos grandes sin alterar la elección de la más nítida.
+_NITIDEZ_ANALISIS = 800
+
+
 def _seleccionar_por_nitidez(rutas: list[str]) -> dict:
     """
     Selecciona la imagen más nítida usando la varianza del Laplaciano.
@@ -323,6 +329,7 @@ def _seleccionar_por_nitidez(rutas: list[str]) -> dict:
     for ruta in rutas:
         try:
             with Image.open(ruta) as img:
+                img.thumbnail((_NITIDEZ_ANALISIS, _NITIDEZ_ANALISIS))
                 if img.mode != "L":
                     img = img.convert("L")
                 laplaciano = img.filter(kernel_laplaciano)
