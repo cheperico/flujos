@@ -934,7 +934,7 @@ def opcion_improve_db():
     Regla de navegacion: hasta 9 opciones por hoja (1-9); cuando se superan,
     se crea una hoja nueva. n = Siguiente >>, p = << Anterior, 0 = Volver.
     Distribucion: Hoja 1 (IA y color, 9 opc), Hoja 2 (inferencia y
-    enriquecimiento, 9 opc), Hoja 3 (audio/video IA, 1 opc)."""
+    enriquecimiento, 9 opc), Hoja 3 (cierre, 1 opc: embeddings)."""
     db_path = leer_db()
     hoja = 1  # 1: IA y color, 2: inferencia y enriquecimiento, 3: audio/video IA
     while True:
@@ -963,14 +963,14 @@ def opcion_improve_db():
             print("  5) Condiciones climaticas")
             print("  6) Dia de la semana")
             print("  7) Posicion del sol (astronomia)")
-            print("  8) Embeddings")
-            print("  9) Keywords desde transcripciones")
+            print("  8) Keywords desde transcripciones")
+            print("  9) Audio tagging (sonidos ambientales)")
             print("  n) Siguiente >>")
             print("  p) << Anterior")
             print("  0) Volver\n")
         else:
-            print("  -- Pasos de audio/video IA --\n")
-            print("  1) Audio tagging (sonidos ambientales)")
+            print("  -- Pasos de cierre --\n")
+            print("  1) Embeddings")
             print("  p) << Anterior")
             print("  0) Volver\n")
 
@@ -1082,9 +1082,9 @@ def opcion_improve_db():
             elif opc == "7":
                 opcion_astronomia()
             elif opc == "8":
-                opcion_embeddings()
-            elif opc == "9":
                 opcion_keywords_transcripciones(db_path)
+            elif opc == "9":
+                opcion_audio_tagging(db_path)
             elif opc.lower() in ("n", "next"):
                 hoja = 3
             elif opc.lower() in ("p", "prev"):
@@ -1097,7 +1097,7 @@ def opcion_improve_db():
 
         else:  # hoja == 3
             if opc == "1":
-                opcion_audio_tagging(db_path)
+                opcion_embeddings()
             elif opc.lower() in ("p", "prev"):
                 hoja = 2
             elif opc == "0":

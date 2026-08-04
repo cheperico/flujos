@@ -31,9 +31,17 @@ from PIL import Image
 # Permitir importar scripts/ como paquete
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from scripts.ai_media.image_analysis import extraer_keywords, MODELO_VISION_DEFAULT
-from scripts.ai_media.batch_selector import seleccionar_mejor_imagen
-from scripts.ai_media.proxy import obtener_proxy, limpiar_todos_los_proxies, NOMBRE_CARPETA_PROXIES
+from scripts.ai_media.image_analysis import extraer_keywords
+from scripts.ai_media.batch_selector import (
+    seleccionar_mejor_imagen,
+    MODELO_SELECCION_DEFAULT,
+)
+from scripts.ai_media.proxy import (
+    obtener_proxy,
+    limpiar_proxies,
+    limpiar_todos_los_proxies,
+    NOMBRE_CARPETA_PROXIES,
+)
 from scripts.ai_media.clustering import (
     agrupar_por_tags,
     agrupar_por_embeddings,
@@ -315,13 +323,14 @@ def limpiar_tandas(
     umbral_hamming: int = 5,
     umbral_tiempo_segundos: int = 30,
     criterio: str = "calidad",
-    modelo: str = MODELO_VISION_DEFAULT,
+    modelo: str = MODELO_SELECCION_DEFAULT,
     modelo_clustering: str = MODELO_CLUSTERING_DEFAULT,
     modelo_embed: str = "nomic-embed-text",
     usar_proxy: bool = True,
     usar_similitud: bool = True,
     criterio_agrupacion: str = "embeddings",
     carpeta_excluir: str = "excluir",
+    limpiar_proxies_al_final: bool = False,
     dry_run: bool = False,
 ) -> dict:
     """
@@ -342,7 +351,9 @@ def limpiar_tandas(
         criterio: Criterio de selección (calidad, tema, diversidad, descripcion, nitidez).
                    "nitidez" usa varianza Laplaciano (Pillow, sin IA, instantáneo).
         modelo: Modelo de visión para la SELECCIÓN de la mejor imagen
-                (default: minicpm-v4.6:latest).
+                (default: moondream:latest — la limpieza es solo curación, no escribe
+                en la DB, así que no necesita el español ni el modelo pesado del
+                FLUJO IA. moondream es ~15x más rápido ~0.8s/img).
         modelo_clustering: Modelo de visión para la AGRUPACIÓN (embeddings/tags).
                            Default: moondream:latest — mucho más rápido (~0.8s/img)
                            y suficiente para la tarea de agrupar. La descripción
@@ -358,6 +369,9 @@ def limpiar_tandas(
             - "phash": hash perceptual (imágenes casi idénticas)
             - "tags": palabras clave por IA (agrupación semántica simple)
         carpeta_excluir: Nombre de la carpeta para imágenes descartadas.
+        limpiar_proxies_al_final: Si True, borra toda la carpeta .proxies/ de la
+                                  raíz al terminar (no rompe el caché de las
+                                  conservadas durante la corrida; la usa al final).
         dry_run: Si True, solo muestra qué se haría sin ejecutar.
 
     Returns:
@@ -493,6 +507,10 @@ def limpiar_tandas(
             "Movidas %d imágenes a %s", len(descartadas), excluir_path
         )
 
+    # 5b. Limpieza total de proxies (opcional, explícita)
+    if limpiar_proxies_al_final and not dry_run:
+        limpiar_todos_los_proxies(str(carpeta))
+
     # Reporte final
     reporte = {
         "carpeta": str(carpeta),
@@ -569,6 +587,10 @@ def _mover_a_excluir(rutas: list[str], carpeta_raiz: Path, carpeta_excluir: Path
             logger.debug("Movido: %s -> %s", ruta.name, destino)
         except Exception as e:
             logger.error("Error moviendo %s: %s", ruta, e)
+
+        # Limpiar el proxy de la imagen descartada: el .proxies/ queda en la
+        # carpeta original (no sigue a la imagen) y en excluir/ se ignora.
+        limpiar_proxies(str(ruta))
 
 
 def imprimir_reporte(reporte: dict):
@@ -647,9 +669,9 @@ def main(argv: list[str] | None = None) -> None:
                         choices=["calidad", "tema", "diversidad", "descripcion", "nitidez"],
                         help="Criterio de selección (default: calidad). "
                              "nitidez = varianza Laplaciano, SIN IA (instantáneo)")
-    parser.add_argument("--modelo", default=MODELO_VISION_DEFAULT,
+    parser.add_argument("--modelo", default=MODELO_SELECCION_DEFAULT,
                         help=f"Modelo de visión para SELECCIONAR la mejor imagen "
-                             f"(default: {MODELO_VISION_DEFAULT})")
+                             f"(default: {MODELO_SELECCION_DEFAULT}, rápido; limpieza es solo curación)")
     parser.add_argument("--modelo-clustering", default=MODELO_CLUSTERING_DEFAULT,
                         help=f"Modelo de visión para AGRUPAR (embeddings/tags) "
                              f"(default: {MODELO_CLUSTERING_DEFAULT}, rápido)")
@@ -668,6 +690,8 @@ def main(argv: list[str] | None = None) -> None:
                              "tags=keywords IA")
     parser.add_argument("--carpeta-excluir", default="excluir",
                         help="Nombre de la carpeta para imágenes descartadas (default: excluir)")
+    parser.add_argument("--limpiar-proxies", action="store_true",
+                        help="Borrar toda la carpeta .proxies/ de la raíz al terminar")
     parser.add_argument("--dry-run", action="store_true",
                         help="Solo mostrar qué se haría sin mover archivos")
     parser.add_argument("--json", help="Exportar reporte a JSON")
@@ -688,6 +712,7 @@ def main(argv: list[str] | None = None) -> None:
             usar_similitud=not args.no_similitud,
             criterio_agrupacion=args.criterio_agrupacion,
             carpeta_excluir=args.carpeta_excluir,
+            limpiar_proxies_al_final=args.limpiar_proxies,
             dry_run=args.dry_run,
         )
 

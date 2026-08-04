@@ -21,7 +21,7 @@ import logging
 import os
 import sqlite3
 import sys
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 # Permitir ejecución standalone: agregar raíz del proyecto al path
 if __name__ == "__main__" and __package__ is None:
@@ -29,24 +29,42 @@ if __name__ == "__main__" and __package__ is None:
 
 from db.util import abrir, resolver_db
 
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%H:%M:%S",
+)
 log = logging.getLogger("dia_semana")
 
 # Días de la semana en español
 # datetime.weekday(): 0=lunes, 1=martes, ..., 6=domingo
 DIAS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
 
+# Zona horaria del viaje (Argentina, UTC-3). El día de la semana se calcula en
+# hora LOCAL: 23:30 local del lunes es 02:30 UTC del martes, pero para la
+# instalación (agrupar por día de viaje) debe quedar "lunes".
+_ZONA_ARGENTINA = timezone(timedelta(hours=-3))
+
 
 def parsear_timestamp(ts: str | None) -> datetime | None:
-    """Parsea timestamp_utc desde la DB (ISO 8601 o SQLite datetime)."""
+    """Parsea timestamp_utc desde la DB (ISO 8601 o SQLite datetime) y lo
+    convierte a hora local de Argentina (UTC-3)."""
     if not ts:
         return None
     try:
-        return datetime.fromisoformat(ts)
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
     except (ValueError, TypeError):
         try:
-            return datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")
+            dt = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")
         except (ValueError, TypeError):
             return None
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(_ZONA_ARGENTINA)
+    return dt
 
 
 # ── Procesamiento ────────────────────────────────────────────────────────────
@@ -139,7 +157,7 @@ def procesar(
         log.info("  Distribución por día:")
         for dia in DIAS:
             if dia in resultados:
-                log.info("    %-10s → %d", dia.capitalize(), resultados[dia])
+                log.info("    %-10s -> %d", dia.capitalize(), resultados[dia])
 
     conn.close()
 

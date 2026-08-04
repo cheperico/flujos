@@ -32,7 +32,7 @@ import logging
 import os
 import sqlite3
 import sys
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import Any, Optional
 
 log = logging.getLogger(__name__)
@@ -106,11 +106,21 @@ def _parsear_timestamp(valor: Optional[str]) -> Optional[datetime]:
         return None
 
 
+# Zona horaria del viaje (Argentina, UTC-3). La instalación agrupa por hora
+# LOCAL del viaje (7, 16, 13, 18 = "las 7 de la mañana en la ruta"), pero
+# timestamp_utc está normalizado a UTC. Sin esta conversión los medios
+# caerían 3h tarde (una foto de las 07:00 local = 10:00 UTC).
+_ZONA_ARGENTINA = timezone(timedelta(hours=-3))
+
+
 def _extraer_hora(timestamp_utc: Optional[str]) -> Optional[float]:
     """
-    Calcula la hora de día (float 0..23.99) desde un timestamp_utc.
+    Calcula la hora de día LOCAL (float 0..23.99) desde un timestamp_utc.
 
-    Ej: 08:00 → 8.0; 14:30 → 14.5.
+    El timestamp_utc está normalizado a UTC; se convierte a Argentina (UTC-3)
+    para que el loop use la hora real del viaje.
+
+    Ej: 08:00 local → 8.0; 14:30 → 14.5.
 
     Args:
         timestamp_utc: valor de media.timestamp_utc.
@@ -121,6 +131,8 @@ def _extraer_hora(timestamp_utc: Optional[str]) -> Optional[float]:
     dt = _parsear_timestamp(timestamp_utc)
     if dt is None:
         return None
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(_ZONA_ARGENTINA)
     return dt.hour + dt.minute / 60.0 + dt.second / 3600.0
 
 

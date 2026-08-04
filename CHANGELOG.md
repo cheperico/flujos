@@ -7,6 +7,21 @@ Las versiones corresponden a entregas funcionales, no a releases semánticas.
 
 ---
 
+## [Entrega 17] — 2026-08-03
+
+### Cambiado
+- **Limpieza de tandas — selección con moondream** (`batch_selector.py`): se creó `MODELO_SELECCION_DEFAULT="moondream:latest"`, usado en `seleccionar_mejor_imagen()`, `seleccionar_mejores_n()` y el CLI `--modelo`. `limpiar_tandas.py` lo importa. La selección es solo curación (no escribe en la DB), así que no necesita el modelo pesado ni el español del FLUJO IA (minicpm) — es ~15x más rápida. El FLUJO IA (image_analysis, improve_db, tag_images) **no se tocó**. Los prompts de selección (`PROMPT_EVALUAR_CALIDAD`, `_seleccionar_por_tema`) se pasaron a **inglés escuetos** (moondream responde mal en español).
+- **Limpieza de proxies huérfanos** (`limpiar_tandas.py`): `limpiar_todos_los_proxies` era un import muerto. Ahora `_mover_a_excluir()` llama `limpiar_proxies(ruta)` por cada descartada (evita proxies huérfanos en `.proxies/`), y hay un flag `--limpiar-proxies` para borrar toda la carpeta `.proxies/` de la raíz al final.
+- **Timezone — día y hora local (Argentina UTC-3)**:
+  - `dia_semana.py`: `parsear_timestamp()` normaliza `Z` y convierte a Argentina antes de `weekday()` (antes el día se calculaba en UTC: 23:30 local lunes → "martes").
+  - `loop_db.py` `_extraer_hora()`: convierte a Argentina antes de sacar la hora (el loop quedaba 3h tarde). Guardián `if dt.tzinfo is not None`.
+  - `improve_db.py`: fuerza aware UTC (`_as_aware_utc()`) en la interpolación de `run_timestamps`, y normaliza `Z` en `run_keypoints`/`run_gps`.
+  - `fetch_weather.py`: normaliza `Z` en las 3 apariciones de `fromisoformat` (181, 255, 403).
+- **`--mostrar` → `--no-mostrar`** en `improve_db.py`: la vista en vivo de keywords/descripciones (texto EN generado) se muestra por default; `--no-mostrar` la silencia. Aplica a pasos keywords, descriptions y combinado.
+- **Docs**: `AGENTS.md` sincronizado (modelo de selección, limpieza de proxies, timezone, flag invertido). `README.md` actualizado con subcomandos `import-telegram`/`mover`, scripts nuevos y documentos de diseño faltantes.
+
+---
+
 ## [Entrega 16] — 2026-08-01
 
 ### Añadido

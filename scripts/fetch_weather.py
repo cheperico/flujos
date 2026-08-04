@@ -178,7 +178,7 @@ def agrupar_medios(rows: list[sqlite3.Row]) -> list[dict]:
         if not ts:
             continue
         try:
-            dt = datetime.fromisoformat(ts)
+            dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
         except (ValueError, TypeError):
             continue
 
@@ -252,7 +252,7 @@ def extraer_horarios(resp: dict) -> dict[int, dict]:
     resultado = {}
     for i, t in enumerate(times):
         try:
-            dt = datetime.fromisoformat(t)
+            dt = datetime.fromisoformat(t.replace("Z", "+00:00"))
             hora = dt.hour
         except (ValueError, TypeError):
             continue
@@ -400,7 +400,7 @@ def procesar(
                 continue
             ts = media_row["timestamp_utc"]
             try:
-                dt = datetime.fromisoformat(ts)
+                dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
                 hora = dt.hour
             except (ValueError, TypeError):
                 continue

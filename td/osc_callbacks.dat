@@ -12,6 +12,7 @@ Mensajes manejados:
   /flujos/slideshow/imagen -> movie1 + info_imagen
   /slideshow/imagen        -> idem (alternativo)
   /flujos/nube/datos       -> nube_datos
+  /flujos/elecciones/<id>  -> elec_<id> (nubes de elecciones)
   /flujos/seleccion        -> seleccion_actual
 """
 
@@ -69,6 +70,32 @@ def _enrutar(address, args):
         info = _ROOT.op("info_imagen")
         if info:
             info.par.text = f"ID: {media_id} | Color: {color_tag}"
+        return
+
+    # ---- Elecciones (nubes de metadatos seleccionables) -----------
+    # Formato OSC: /flujos/elecciones/<id> "<titulo>" <n> <valor1> <peso1> ...
+    # Se guarda en la tabla TD: elec_<id> con columnas [titulo, valor, peso]
+    if address.startswith("/flujos/elecciones/"):
+        grupo_id = address.replace("/flujos/elecciones/", "")
+        tabla = _ROOT.op("elec_" + grupo_id)
+        if not tabla:
+            print(f"[TD] Tabla elec_{grupo_id} no encontrada. Crear Table DAT 'elec_{grupo_id}'.")
+            return
+
+        # args[0]=titulo, args[1]=n, luego pares (valor, peso)
+        titulo = str(args[0]) if len(args) > 0 else ""
+        n = int(args[1]) if len(args) > 1 else 0
+
+        tabla.clear()
+        tabla.appendRow(["titulo", "valor", "peso"])
+        idx = 2
+        while idx + 1 < len(args):
+            valor = str(args[idx])
+            peso = float(args[idx + 1]) if isinstance(args[idx + 1], (int, float)) else 0.0
+            tabla.appendRow([titulo, valor, str(round(peso, 3))])
+            idx += 2
+
+        print(f"[TD] Elecciones {grupo_id}: {n} items")
         return
 
     # ---- Nube de etiquetas --------------------------------------

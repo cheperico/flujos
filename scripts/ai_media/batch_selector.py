@@ -34,23 +34,32 @@ from pathlib import Path
 from typing import Optional
 
 from scripts.ai_media.ollama_client import OllamaVision
-from scripts.ai_media.image_analysis import extraer_keywords, describir_imagen, MODELO_VISION_DEFAULT
+from scripts.ai_media.image_analysis import extraer_keywords, describir_imagen
 from scripts.ai_media.proxy import obtener_proxy
 
 logger = logging.getLogger(__name__)
 
+# Modelo de visión para la SELECCIÓN de la mejor imagen de una tanda.
+# Este script es SOLO curación (no escribe en la DB), así que no hace falta
+# el español ni el modelo pesado del FLUJO IA (image_analysis). moondream es
+# ~15x más rápido (~0.8s vs 3-13s por imagen) y suficiente para evaluar
+# calidad/tema. El FLUJO IA (improve_db, tag_images, etc.) NO se toca: sigue
+# con minicpm-v4.6 donde sí importa la calidad y el español.
+MODELO_SELECCION_DEFAULT = "moondream:latest"
+
+# moondream responde MAL a prompts en español (regurgita basura tipo "irtiville"),
+# así que los prompts de selección son en inglés y escuetos (rinde mejor así).
 PROMPT_EVALUAR_CALIDAD = (
-    "Evaluá esta imagen en términos de calidad visual considerando: "
-    "nitidez, composición, iluminación, color y contenido interesante. "
-    "Respondé ÚNICAMENTE un número del 1 al 10 (donde 10 es excelente) "
-    "seguido de una breve explicación de 10-15 palabras. "
-    "Formato: '7. Buena composición y colores vibrantes pero ligeramente subexpuesta.'"
+    "Evaluate this image's visual quality considering sharpness, "
+    "composition, lighting, color and interesting content. "
+    "Reply ONLY with a number 1-10 (10 = excellent) and a brief reason "
+    "of 10-15 words. Format: '8. Sharp, good composition, vibrant colors.'"
 )
 
 def seleccionar_mejor_imagen(
     rutas_imagenes: list[str],
     criterio: str = "calidad",
-    modelo: str = MODELO_VISION_DEFAULT,
+    modelo: str = MODELO_SELECCION_DEFAULT,
     tema: Optional[str] = None,
     temperatura: float = 0.2,
     usar_proxy: bool = True,
@@ -175,10 +184,9 @@ def _seleccionar_por_tema(
     evaluaciones = []
 
     prompt_tema = (
-        f"¿Esta imagen coincide con el tema '{tema}'? "
-        "Respondé ÚNICAMENTE un número del 1 al 10 indicando qué tanto coincide "
-        "(10 = coincide perfectamente), seguido de una breve explicación. "
-        "Formato: '8. La imagen muestra un paisaje natural con montañas y vegetación.'"
+        f"Does this image match '{tema}'? Reply ONLY with a 1-10 score "
+        f"(10 = perfect match) and a brief reason. "
+        f"Format: '8. Matches: natural landscape with mountains and vegetation.'"
     )
 
     for ruta in rutas:
@@ -380,7 +388,7 @@ def seleccionar_mejores_n(
     rutas_imagenes: list[str],
     n: int = 3,
     criterio: str = "calidad",
-    modelo: str = MODELO_VISION_DEFAULT,
+    modelo: str = MODELO_SELECCION_DEFAULT,
     tema: Optional[str] = None,
     usar_proxy: bool = True,
 ) -> list[dict]:
@@ -423,8 +431,8 @@ if __name__ == "__main__":
                         choices=["calidad", "tema", "diversidad", "descripcion", "nitidez"],
                         help="Criterio de selección (nitidez es computacional, sin IA)")
     parser.add_argument("--tema", help="Tema deseado (requerido si criterio=tema)")
-    parser.add_argument("--modelo", default=MODELO_VISION_DEFAULT,
-                        help=f"Modelo de visión (default: {MODELO_VISION_DEFAULT})")
+    parser.add_argument("--modelo", default=MODELO_SELECCION_DEFAULT,
+                        help=f"Modelo de visión (default: {MODELO_SELECCION_DEFAULT})")
     parser.add_argument("--no-proxy", action="store_true",
                         help="No usar proxies redimensionados (más lento)")
     parser.add_argument("--n", type=int, default=1,

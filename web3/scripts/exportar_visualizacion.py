@@ -1,10 +1,12 @@
 """
 Exporta datos de flujos.db → visualizacion.db para la visualización web3.
-Lee la tabla media (1122 registros) + media_metadata y reconstruye medios.
+Lee la tabla media + media_metadata y reconstruye medios.
+También exporta telegram_messages (chat) con sus fotos vinculadas.
 """
 import sqlite3
 import os
 import sys
+import json
 from datetime import datetime
 
 BASE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -107,6 +109,18 @@ def main():
             categoria_id INTEGER NOT NULL,
             PRIMARY KEY(medio_id, categoria_id)
         );
+
+        CREATE TABLE telegram_messages (
+            id INTEGER PRIMARY KEY,
+            message_id INTEGER,
+            chat_id INTEGER,
+            from_name TEXT,
+            text TEXT,
+            date_utc TEXT,
+            message_type TEXT,
+            has_media INTEGER DEFAULT 0,
+            fotos TEXT
+        );
     """)
 
     insert_sql = """
@@ -175,6 +189,37 @@ def main():
         dst.execute("INSERT OR IGNORE INTO categorias (grupo, valor, conteo) VALUES ('tipo', ?, ?)", (r[0], r[1]))
     dst.commit()
 
+    # ── Exportar Telegram (chat) ─────────────────────────────
+    # Mapa: telegram_messages.id (PK) → lista de media_ids de fotos
+    fotos_map = {}
+    for r in src.execute("""
+        SELECT message_id, media_id FROM telegram_media
+        WHERE media_type = 'photo' AND media_id IS NOT NULL
+        ORDER BY message_id, media_order
+    """):
+        fotos_map.setdefault(r['message_id'], []).append(r['media_id'])
+
+    # Mapa: id → tiene media adjunta (para has_media)
+    has_media_ids = set(r[0] for r in src.execute("SELECT DISTINCT message_id FROM telegram_media"))
+
+    tg_count = 0
+    cur = src.execute("""
+        SELECT id, message_id, chat_id, from_name, text, date_utc, message_type
+        FROM telegram_messages
+        ORDER BY id
+    """)
+    for r in cur:
+        mid = r['id']
+        fotos_json = json.dumps(fotos_map.get(mid, []))
+        has = 1 if mid in has_media_ids else 0
+        dst.execute(
+            "INSERT INTO telegram_messages (id, message_id, chat_id, from_name, text, date_utc, message_type, has_media, fotos)"
+            " VALUES (?,?,?,?,?,?,?,?,?)",
+            (mid, r['message_id'], r['chat_id'], r['from_name'], r['text'], r['date_utc'], r['message_type'], has, fotos_json)
+        )
+        tg_count += 1
+    dst.commit()
+
     # Resumen
     print(f"\n  Insertados: {count} registros")
     cur = dst.execute("SELECT tipo, COUNT(*) FROM medios GROUP BY tipo ORDER BY COUNT(*) DESC")
@@ -187,10 +232,16 @@ def main():
     print(f"  Con provincia: {cur.fetchone()[0]}")
     cur = dst.execute("SELECT COUNT(*) FROM medios WHERE latitud IS NOT NULL")
     print(f"  Con GPS: {cur.fetchone()[0]}")
+    cur = dst.execute("SELECT COUNT(*) FROM medios WHERE municipio IS NOT NULL")
+    print(f"  Con municipio: {cur.fetchone()[0]}")
+    cur = dst.execute("SELECT COUNT(*) FROM telegram_messages")
+    print(f"  Telegram mensajes: {cur.fetchone()[0]}")
+    cur = dst.execute("SELECT COUNT(*) FROM telegram_messages WHERE fotos IS NOT NULL AND fotos != '[]'")
+    print(f"  Telegram con fotos: {cur.fetchone()[0]}")
 
     src.close()
     dst.close()
-    print(f"\n✅ {VIZ_DB} actualizada ({count} registros)")
+    print(f"\nOK {VIZ_DB} actualizada ({count} registros, {tg_count} mensajes telegram)")
 
 if __name__ == '__main__':
     main()

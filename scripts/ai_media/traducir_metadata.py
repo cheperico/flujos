@@ -322,6 +322,22 @@ def main(argv: list[str] | None = None) -> None:
         conn.close()
         return
 
+    # Envolver el trabajo real con manejo de interrupción: al cortar con
+    # Ctrl+C se commitean los pendientes (el guardado ya es por ítem cada 25)
+    # y se sale con mensaje claro (manejar_interrupcion), sin traceback.
+    from scripts.ai_media.checkpoint import manejar_interrupcion
+    with manejar_interrupcion(conn=conn, etiqueta="traducir_metadata"):
+        _ejecutar(conn, args, rows)
+
+
+def _ejecutar(conn, args, rows) -> None:
+    """
+    Traduce los registros EN → ES sobre la DB (paso real del script).
+
+    Separado de main() para poder envolverlo en manejar_interrupcion sin
+    re-indentar el cuerpo (mismo nivel de indentación de función). El guardado
+    por ítem (cada 25 registros) ya existía y no se modifica.
+    """
     # Importar ollama y asegurar que el servidor esté corriendo
     try:
         import ollama

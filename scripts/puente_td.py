@@ -6,12 +6,16 @@ Modos:
   colores      → solo envía los colores disponibles
   enviar_imgs  → envía N imágenes de un color específico
   nube         → genera nube de etiquetas con keywords de la DB
+  elecciones   → envía las nubes de metadatos seleccionables (horas,
+                 municipios, colores, tags, días, clima) al motor TD
 
 Uso básico:
   python scripts/puente_td.py enviar              # loop completo
   python scripts/puente_td.py colores              # solo lista de colores
   python scripts/puente_td.py enviar_imgs rojo     # 10 imágenes rojas
   python scripts/puente_td.py nube                 # nube de tags
+  python scripts/puente_td.py elecciones           # nubes de elecciones
+  python scripts/puente_td.py elecciones --grupo horas,tags
 """
 
 import argparse
@@ -34,6 +38,13 @@ from pythonosc import osc_server
 from pythonosc import dispatcher
 
 from db.util import abrir, resolver_db
+# elecciones.py vive en scripts/ (misma carpeta que este script)
+if __package__ is None:
+    import sys, os as _os
+    _scripts_dir = _os.path.dirname(_os.path.abspath(__file__))
+    if _scripts_dir not in sys.path:
+        sys.path.insert(0, _scripts_dir)
+from elecciones import enviar_grupos as enviar_elecciones
 
 log = logging.getLogger(__name__)
 
@@ -93,6 +104,18 @@ def obtener_imagenes_por_color(db_path: str, color: str, limit: int = 10) -> lis
             "color_hex": f["color_1_hex"],
         })
     return resultados
+
+
+# ---------------------------------------------------------------------------
+# Modo: elecciones (nubes de metadatos seleccionables)
+# ---------------------------------------------------------------------------
+
+def modo_elecciones(db_path: str, grupos: Optional[str] = None):
+    """Envía las nubes de elecciones (horas, municipios, colores, tags...) a TD."""
+    ids = [s.strip() for s in grupos.split(",") if s.strip()] if grupos else []
+    log.info("Enviando nubes de elecciones a TD...")
+    enviar_elecciones(db_path, ids)
+    log.info("✅ Nubes de elecciones enviadas")
 
 
 # ---------------------------------------------------------------------------
@@ -307,11 +330,13 @@ Ejemplos:
 
     parser.add_argument("modo",
                         nargs="?",
-                        choices=["enviar", "colores", "enviar_imgs", "nube"],
+                        choices=["enviar", "colores", "enviar_imgs", "nube", "elecciones"],
                         default="enviar",
                         help="Modo de operación")
     parser.add_argument("color", nargs="?",
                         help="Color para enviar_imgs (ej: rojo, azul, verde)")
+    parser.add_argument("--grupo", default=None,
+                        help="Grupos de elecciones separados por coma (ej: horas,tags)")
     parser.add_argument("--db", default=None,
                         help="Ruta a la DB (default: db/flujos.db)")
     parser.add_argument("--cant", type=int, default=10,
@@ -345,6 +370,8 @@ Ejemplos:
         modo_enviar_imgs(db_path, args.color, args.cant)
     elif args.modo == "nube":
         modo_nube(db_path, args.max_tags)
+    elif args.modo == "elecciones":
+        modo_elecciones(db_path, args.grupo)
     else:  # enviar (default)
         modo_enviar(db_path)
 

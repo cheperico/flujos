@@ -1,20 +1,38 @@
 """
 generate_embeddings.py
 --------------------
-Script idempotente que genera embeddings vectoriales para todas las
-descripciones y transcripciones almacenadas en la base de datos que aún
-no tengan embeddings. Permite actualizar el índice cuando se ingeran
-nuevos medios.
+Script idempotente que genera embeddings vectoriales para los medios de la
+base de datos. El texto a embeber se construye de forma multi‑fuente a partir
+de los metadatos enriquecidos del pipeline (descripción IA, keywords, sonidos,
+transcripción por segmentos, caption de Telegram), de modo que los audios y
+videos con transcripción también quedan indexados para búsqueda semántica.
 
 Características:
   • Usa Ollama (modelo `nomic-embed-text` por defecto) para generar
-    vectores a partir de descripciones de imágenes y transcripciones de
-    audio/video.
-  • Almacena los vectores en la tabla `media_embeddings` (BLOB JSON).
+    vectores a partir del texto combinado de cada medio.
+  • Almacena los vectores en la tabla `media_embeddings` (BLOB JSON),
+    con `INSERT OR REPLACE` para ser idempotente.
+  • `--mode skip|update|replace` controla qué medios se procesan:
+      skip    → solo medios que aún NO tienen embedding para el modelo
+      update  → reprocesa TODOS los medios del modelo (sobrescribe)
+      replace → borra los embeddings del modelo y regenera todos
   • Puede procesar un número limitado de medios (`--limit`) o todos.
   • Opcional: genera un side‑car `.embeddings.json` junto a cada archivo.
   • Soporta `--list-models` para ver los modelos instalados en Ollama.
-  • `--list-models` muestra los modelos instalados y sale.
+
+Texto construido (en orden de prioridad y composición):
+  1. Transcripción por segmentos (`whisper_segments` en media_metadata o
+     keypoints `transcription` en media_keypoints), unida en orden temporal.
+  2. `ia_description` (descripción de visión).
+  3. `ia_keywords` (keywords de visión, normalizadas).
+  4. `ia_keywords_transcripcion` (keywords del sentido de la transcripción).
+  5. `ia_keywords_sonido` (sonidos ambientales detectados).
+  6. `text` del mensaje de Telegram vinculado (`media.telegram_message_id`),
+     si existe y no está vacío.
+
+El texto total se limita a `MAX_TEXTO_CHARS` caracteres recortando en un
+límite de palabra limpio. Si el texto construido queda vacío, el medio se
+salta (no se genera embedding).
 
 Requisitos:
   - Ollama instalado y en ejecución.
@@ -33,11 +51,20 @@ Formato del side‑car `.embeddings.json`:
     }
 
 Uso:
-    # Procesar todos los medios sin embedding
+    # Procesar todos los medios sin embedding (skip, default)
     python scripts/ai_media/generate_embeddings.py --db db/flujos.db
 
     # Procesar solo los primeros 10 medios
     python scripts/ai_media/generate_embeddings.py --db db/flujos.db --limit 10
+
+    # Reprocesar TODOS los medios del modelo (sobrescribe)
+    python scripts/ai_media/generate_embeddings.py --db db/flujos.db --mode update
+
+    # Limpiar embeddings del modelo y regenerar todos
+    python scripts/ai_media/generate_embeddings.py --db db/flujos.db --mode replace
+
+    # Previsualizar qué se procesaría sin tocar la DB (no llama a Ollama)
+    python scripts/ai_media/generate_embeddings.py --db db/flujos.db --dry-run
 
     # Usar un modelo diferente (p.ej. qwen2.5vl:3b)
     python scripts/ai_media/generate_embeddings.py --db db/flujos.db --modelo qwen2.5vl:3b
@@ -73,9 +100,20 @@ if _PROJECT_ROOT not in sys.path:
 EXT_VIDEO = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".mxf", ".mts", ".m2ts"}
 EXT_AUDIO = {".wav", ".mp3", ".flac", ".ogg", ".aac", ".m4a", ".opus"}
 
-# Clave en media_metadata donde guardamos descripción/transcripción
+# Claves en media_metadata / media_keypoints usadas como fuentes de texto
 KEY_DESCRIPTION = "ia_description"
-KEY_TRANSCRIPT = "transcript"
+KEY_KEYWORDS = "ia_keywords"
+KEY_KEYWORDS_TRANSCRIPCION = "ia_keywords_transcripcion"
+KEY_KEYWORDS_SONIDO = "ia_keywords_sonido"
+KEY_WHISPER_SEGMENTS = "whisper_segments"
+# Keypoints de transcripción (tabla media_keypoints, clave 'transcription')
+KEYPOINT_TRANSCRIPCION = "transcription"
+
+# Tamaño máximo del texto que se envía al modelo de embeddings.
+# nomic-embed-text tiene ~8192 tokens de contexto; 6000 caracteres en español
+# (~1500-2000 tokens) deja margen holgado. El recorte se hace en un límite de
+# palabra limpio (sin partir términos).
+MAX_TEXTO_CHARS = 6000
 
 # Modelo de embedding por defecto (puedes cambiarlo con --modelo)
 DEFAULT_EMBEDDING_MODEL = "nomic-embed-text"
@@ -168,27 +206,43 @@ def conectar_db(ruta_db: str) -> sqlite3.Connection:
     return conn
 
 
-def obtener_media_sin_embeddings(
+def obtener_medios_para_embeddings(
     conn: sqlite3.Connection,
     modelo: str = DEFAULT_EMBEDDING_MODEL,
+    modo: str = "skip",
     limite: Optional[int] = None,
 ):
     """
-    Busca medios (imágenes, videos o audios) que NO tengan embeddings guardados
-    para el modelo indicado. Devuelve lista de dicts con id, filepath_absoluto,
-    filename_original, type.
+    Busca los medios (imágenes, videos o audios) a procesar según el modo.
+
+    - `skip`:    medios que NO tengan embeddings guardados para el modelo
+    - `update`:  TODOS los medios (sobrescribe con INSERT OR REPLACE)
+    - `replace`: TODOS los medios (la limpieza previa se hace aparte)
+
+    Devuelve lista de dicts con id, filepath_absoluto, filename_original, type.
+    Solo se incluyen archivos que existen en disco.
     """
-    query = """
+    if modo not in ("skip", "update", "replace"):
+        raise ValueError(f"Modo inválido: {modo!r}. Esperado: skip, update, replace")
+
+    base = """
         SELECT m.id, m.filepath_absoluto, m.filename_original, m.type
         FROM media m
         WHERE m.type IN ('image', 'video', 'audio')
-          AND m.id NOT IN (
+        """
+
+    if modo == "skip":
+        query = base + """
+            AND m.id NOT IN (
                 SELECT media_id FROM media_embeddings
                 WHERE modelo = ?
             )
-        ORDER BY m.id
-        """
-    params = [modelo]
+            ORDER BY m.id
+            """
+        params: List = [modelo]
+    else:
+        query = base + " ORDER BY m.id"
+        params = []
 
     if limite:
         query += " LIMIT ?"
@@ -232,25 +286,208 @@ def guardar_embedding(conn: sqlite3.Connection, media_id: int, embedding: List[f
 # ----------------------------------------------------------------------
 # 4️⃣  EXTRAER TEXTO DE LA DB
 # ----------------------------------------------------------------------
-def obtener_texto_a_embeder(conn: sqlite3.Connection, media_id: int) -> Optional[str]:
+def _obtener_valor_metadata(conn: sqlite3.Connection, media_id: int, clave: str) -> Optional[str]:
+    """Lee el value de media_metadata para (media_id, clave), o None."""
+    fila = conn.execute(
+        "SELECT value FROM media_metadata WHERE media_id = ? AND key = ?",
+        (media_id, clave),
+    ).fetchone()
+    return fila["value"] if fila else None
+
+
+def _normalizar_keywords(valor: Optional[str]) -> str:
     """
-    Obtiene el texto que será embebido.
-    Prioriza `ia_description`; si no existe, usa `transcript`.
-    Si ninguno, devuelve None.
+    Normaliza un campo de keywords a un string limpio separado por espacios.
+
+    Soporta string plano separado por comas/puntos y coma/saltos de línea
+    (`"retrato, montaña, bicicleta"`) y JSON (`["retrato", "montaña"]` o
+    `{"keywords": [...]}`). Elimina duplicados consecutivos.
     """
-    cur = conn.execute(
-        f"""
-        SELECT value FROM media_metadata
-        WHERE media_id = ? AND key IN ('{KEY_DESCRIPTION}','{KEY_TRANSCRIPT}')
+    if not valor:
+        return ""
+    texto = str(valor).strip()
+    if not texto:
+        return ""
+
+    partes: List[str] = []
+
+    # Caso JSON (lista o dict con clave 'keywords')
+    if texto.startswith("[") or texto.startswith("{"):
+        try:
+            datos = json.loads(texto)
+            if isinstance(datos, list):
+                partes = [str(x) for x in datos]
+            elif isinstance(datos, dict):
+                kws = datos.get("keywords") or datos.get("palabras_clave") or []
+                partes = [str(x) for x in kws] if isinstance(kws, list) else [str(kws)]
+        except (json.JSONDecodeError, TypeError):
+            partes = []
+
+    # String plano: separar por comas, punto y coma o saltos de línea
+    if not partes:
+        partes = re.split(r"[,;\n]+", texto)
+
+    palabras: List[str] = []
+    for p in partes:
+        limpia = str(p).strip().strip(" \t.,;:¿?¡!\"'()[]{}")
+        if limpia and limpia not in palabras:
+            palabras.append(limpia)
+    return " ".join(palabras)
+
+
+def _combinar_segmentos_json(segmentos_json: Optional[str]) -> str:
+    """
+    Parsea el JSON de `whisper_segments` (lista de dicts con "inicio" y "texto")
+    y concatena los textos en orden temporal por "inicio". Devuelve '' si no
+    hay contenido útil.
+    """
+    if not segmentos_json:
+        return ""
+    try:
+        segmentos = json.loads(segmentos_json)
+    except (json.JSONDecodeError, TypeError):
+        logger.warning("  -> whisper_segments JSON inválido, ignorado.")
+        return ""
+    if not isinstance(segmentos, list):
+        logger.warning("  -> whisper_segments no es una lista, ignorado.")
+        return ""
+
+    pares: List[tuple] = []
+    for seg in segmentos:
+        if not isinstance(seg, dict):
+            continue
+        texto = str(seg.get("texto", "") or "").strip()
+        if not texto:
+            continue
+        try:
+            inicio = float(seg.get("inicio", 0) or 0)
+        except (TypeError, ValueError):
+            inicio = 0.0
+        pares.append((inicio, texto))
+
+    pares.sort(key=lambda t: t[0])
+    return " ".join(t for _, t in pares).strip()
+
+
+def _obtener_transcripcion(conn: sqlite3.Connection, media_id: int, tipo: str) -> str:
+    """
+    Obtiene la transcripción por segmentos de un medio (audio/video).
+
+    Prefiere la clave `whisper_segments` de media_metadata (JSON con los
+    segmentos en orden). Si no existe o está vacía, fallback a los keypoints
+    `transcription` de media_keypoints ordenados por timestamp_offset_secs.
+    """
+    # 1) whisper_segments (JSON en media_metadata) — funciona para cualquier tipo
+    seg_json = _obtener_valor_metadata(conn, media_id, KEY_WHISPER_SEGMENTS)
+    texto = _combinar_segmentos_json(seg_json)
+    if texto:
+        return texto
+
+    # 2) Keypoints de transcripción (solo audio/video tienen sentido)
+    if tipo not in ("audio", "video"):
+        return ""
+
+    filas = conn.execute(
+        """
+        SELECT value FROM media_keypoints
+        WHERE media_id = ? AND key = ?
+        ORDER BY timestamp_offset_secs ASC
         """,
-        (media_id,)
-    )
-    rows = cur.fetchall()
-    if not rows:
+        (media_id, KEYPOINT_TRANSCRIPCION),
+    ).fetchall()
+    fragmentos = [f["value"].strip() for f in filas if f["value"] and f["value"].strip()]
+    return " ".join(fragmentos).strip()
+
+
+def _obtener_texto_telegram(conn: sqlite3.Connection, media_id: int) -> str:
+    """
+    Si el medio está vinculado a un mensaje de Telegram (media.telegram_message_id),
+    devuelve el `text` del mensaje (caption). '' si no hay o está vacío.
+    """
+    fila = conn.execute(
+        """
+        SELECT tg.text
+        FROM media m
+        JOIN telegram_messages tg ON tg.id = m.telegram_message_id
+        WHERE m.id = ?
+        """,
+        (media_id,),
+    ).fetchone()
+    if fila and fila["text"] and str(fila["text"]).strip():
+        return str(fila["text"]).strip()
+    return ""
+
+
+def _recortar_texto(texto: str, max_chars: int) -> str:
+    """
+    Recorta el texto a `max_chars` caracteres cortando en el último espacio
+    disponible (no parte palabras). Si el texto no tiene espacios dentro del
+    recorte, corta duro en `max_chars`.
+    """
+    if len(texto) <= max_chars:
+        return texto.strip()
+    recorte = texto[:max_chars]
+    idx = recorte.rfind(" ")
+    if idx >= max_chars // 2:
+        return recorte[:idx].rstrip()
+    return recorte.rstrip()
+
+
+def obtener_texto_a_embeder(
+    conn: sqlite3.Connection, media_id: int, tipo: str
+) -> Optional[str]:
+    """
+    Construye el texto enriquecido multi‑fuente que será embebido.
+
+    Orden de composición (concatenado con espacios, en este orden):
+      1. Transcripción por segmentos (`whisper_segments` o keypoints
+         `transcription`) — tiene prioridad porque es el contenido más denso.
+      2. `ia_description` (descripción de visión).
+      3. `ia_keywords` (keywords de visión, normalizadas).
+      4. `ia_keywords_transcripcion` (si existe).
+      5. `ia_keywords_sonido` (si existe).
+      6. `text` del mensaje de Telegram vinculado (si existe y no está vacío).
+
+    El total se limita a MAX_TEXTO_CHARS caracteres sin partir palabras.
+    Devuelve None si al final el texto queda vacío.
+    """
+    partes: List[str] = []
+
+    # 1) Transcripción (mayor densidad semántica; puede existir en cualquier tipo)
+    transc = _obtener_transcripcion(conn, media_id, tipo)
+    if transc:
+        partes.append(transc)
+
+    # 2) Descripción IA
+    desc = _obtener_valor_metadata(conn, media_id, KEY_DESCRIPTION)
+    if desc and str(desc).strip():
+        partes.append(str(desc).strip())
+
+    # 3) Keywords de visión (string plano o JSON)
+    kw = _normalizar_keywords(_obtener_valor_metadata(conn, media_id, KEY_KEYWORDS))
+    if kw:
+        partes.append(kw)
+
+    # 4) Keywords del sentido de la transcripción (si apareciera)
+    kwt = _normalizar_keywords(_obtener_valor_metadata(conn, media_id, KEY_KEYWORDS_TRANSCRIPCION))
+    if kwt:
+        partes.append(kwt)
+
+    # 5) Sonidos ambientales detectados (si existen)
+    kws = _normalizar_keywords(_obtener_valor_metadata(conn, media_id, KEY_KEYWORDS_SONIDO))
+    if kws:
+        partes.append(kws)
+
+    # 6) Caption de Telegram vinculado (si existe y no está vacío)
+    tg = _obtener_texto_telegram(conn, media_id)
+    if tg:
+        partes.append(tg)
+
+    if not partes:
         return None
-    # Si hay varias filas (p.ej. ambas keys), concatenamos
-    textos = [row["value"] for row in rows]
-    return " ".join(textos).strip()
+
+    texto = " ".join(partes).strip()
+    return _recortar_texto(texto, MAX_TEXTO_CHARS)
 
 
 # ----------------------------------------------------------------------
@@ -342,39 +579,63 @@ def procesar_desde_db(
     limite: Optional[int] = None,
     sidecar: bool = False,
     dry_run: bool = False,
+    modo: str = "skip",
 ):
     """
-    Modo DB: recorre medios sin embedding, genera embedding con Ollama
-    y guarda en la tabla media_embeddings.
+    Modo DB: recorre medios según el modo (skip|update|replace), construye el
+    texto multi‑fuente, genera el embedding con Ollama y lo guarda en la tabla
+    media_embeddings.
+
+    En `--dry-run` NO se llama a Ollama: se construye el texto de cada medio y se
+    reporta cuántos quedarían con contenido para embedar (y cuántos sin texto).
     """
     conn = conectar_db(ruta_db)
 
-    medios = obtener_media_sin_embeddings(conn, modelo=modelo, limite=limite)
+    # Modo replace: borrar embeddings existentes del modelo antes de regenerar.
+    # En dry-run NO se borra nada, solo se informa cuántos se borrarían.
+    if modo == "replace":
+        if dry_run:
+            n_existentes = conn.execute(
+                "SELECT COUNT(*) FROM media_embeddings WHERE modelo = ?", (modelo,)
+            ).fetchone()[0]
+            logger.info("  [replace] (dry run) Se borrarían %d embeddings del modelo '%s'.",
+                        n_existentes, modelo)
+        else:
+            borrados = conn.execute(
+                "DELETE FROM media_embeddings WHERE modelo = ?", (modelo,)
+            ).rowcount
+            conn.commit()
+            logger.info("  [replace] Embeddings borrados del modelo '%s': %d", modelo, borrados)
+
+    medios = obtener_medios_para_embeddings(
+        conn, modelo=modelo, modo=modo, limite=limite
+    )
 
     if not medios:
-        logger.info("No hay medios sin embeddings en la DB.")
+        logger.info("No hay medios a procesar (modo=%s).", modo)
         conn.close()
         return
 
-    logger.info("Medios a procesar: %d%s", len(medios), " (dry run)" if dry_run else "")
+    logger.info("Medios a procesar: %d (modo=%s)%s",
+                len(medios), modo, " (dry run)" if dry_run else "")
 
     ok = 0
     fail = 0
     sin_texto = 0
 
     for i, m in enumerate(medios, 1):
-        logger.info("[%d/%d] %s", i, len(medios), m["nombre"])
-
-        if dry_run:
-            logger.info("  [DRY RUN] Se procesaría: %s", m["nombre"])
-            ok += 1
+        # Construir el texto multi‑fuente (en dry-run NO generamos embedding)
+        texto = obtener_texto_a_embeder(conn, m["id"], m["type"])
+        if not texto:
+            sin_texto += 1
+            logger.info("[%d/%d] %s - sin texto construible. Saltando.",
+                        i, len(medios), m["nombre"])
             continue
 
-        # Obtener descripción o transcripción desde la DB
-        texto = obtener_texto_a_embeder(conn, m["id"])
-        if not texto:
-            logger.warning("  -> Sin descripción ni transcripción. Saltando.")
-            sin_texto += 1
+        if dry_run:
+            logger.info("[%d/%d] %s (%d chars) - se procesaría.",
+                        i, len(medios), m["nombre"], len(texto))
+            ok += 1
             continue
 
         # Generar embedding
@@ -408,7 +669,7 @@ def procesar_desde_db(
     conn.close()
 
     logger.info(
-        "=== RESUMEN: %d embeddings, %d sin texto, %d errores (de %d) ===",
+        "=== RESUMEN: %d con texto, %d sin texto, %d errores (de %d) ===",
         ok, sin_texto, fail, len(medios),
     )
 
@@ -506,23 +767,40 @@ def main():
     )
     parser = argparse.ArgumentParser(
         description="Genera embeddings vectoriales para medios (imágenes/video/audio) "
-                    "y los guarda en la tabla media_embeddings o como side‑car.\n\n"
+                    "a partir del texto enriquecido multi‑fuente de la DB "
+                    "(transcripción por segmentos, descripción, keywords, sonidos, "
+                    "caption de Telegram) y los guarda en media_embeddings o como side‑car.\n\n"
                     "Modos:\n"
-                    "  --db ruta            : procesa medios de la DB que no tengan embeddings\n"
-                    "  --folder ruta        : procesa todos los archivos de una carpeta\n"
-                    "  --list-models        : muestra los modelos Ollama instalados y sale\n",
+                    "  --db ruta            : procesa medios de la DB (con --mode skip|update|replace)\n"
+                    "  --folder ruta        : procesa todos los archivos de una carpeta (sidecars)\n"
+                    "  --mode MODO          : skip (default) solo pendientes | update todos | replace limpia y regenera\n"
+                    "  --list-models        : muestra los modelos Ollama instalados y sale\n\n"
+                    "Fuentes del texto a embeber (en orden):\n"
+                    "  1. whisper_segments / keypoints transcription (transcripción)\n"
+                    "  2. ia_description\n"
+                    "  3. ia_keywords\n"
+                    "  4. ia_keywords_transcripcion\n"
+                    "  5. ia_keywords_sonido\n"
+                    "  6. text del mensaje de Telegram vinculado\n\n"
+                    "Ejemplos:\n"
+                    "  python scripts/ai_media/generate_embeddings.py --db db/flujos.db\n"
+                    "  python scripts/ai_media/generate_embeddings.py --db db/flujos.db --mode update\n"
+                    "  python scripts/ai_media/generate_embeddings.py --db db/flujos.db --mode replace --dry-run\n"
+                    "  python scripts/ai_media/generate_embeddings.py --db db/flujos.db --limit 20 --dry-run",
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument("--db", help="Ruta a la base de datos SQLite (modo post‑ingesta)")
     parser.add_argument("--folder", help="Ruta a carpeta con archivos de medios")
     parser.add_argument("--modelo", default="nomic-embed-text",
                         help="Modelo Ollama a usar para generar embeddings")
+    parser.add_argument("--mode", default="skip", choices=["skip", "update", "replace"],
+                        help="skip: solo sin embedding (default) | update: todos (sobrescribe) | replace: limpia y regenera")
     parser.add_argument("--limit", type=int, default=None,
                         help="Limitar número de medios a procesar (solo modo --db)")
     parser.add_argument("--sidecar", action="store_true",
                         help="Generar side‑car .embeddings.json (solo modo --db o --folder)")
     parser.add_argument("--dry-run", action="store_true",
-                         help="Solo muestra qué se procesaría, sin escribir nada")
+                         help="Solo muestra qué se procesaría, sin escribir nada (no llama a Ollama)")
     parser.add_argument("--list-models", action="store_true",
                         help="Mostrar modelos Ollama instalados y salir")
     args = parser.parse_args()
@@ -551,6 +829,7 @@ def main():
                 limite=args.limit,
                 sidecar=args.sidecar,
                 dry_run=args.dry_run,
+                modo=args.mode,
             )
         elif args.folder:
             procesar_desde_carpeta(

@@ -515,6 +515,21 @@ def main(argv: list[str] | None = None) -> None:
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
 
+    # Envolver el trabajo real con manejo de interrupción: al cortar con
+    # Ctrl+C se commitean los pendientes y se sale con mensaje claro
+    # (manejar_interrupcion), sin traceback.
+    from scripts.ai_media.checkpoint import manejar_interrupcion
+    with manejar_interrupcion(conn=conn, etiqueta="refinar_keywords"):
+        _ejecutar(conn, args)
+
+
+def _ejecutar(conn, args) -> None:
+    """
+    Ejecuta el refinamiento completo: léxico + diccionario + semántica + escritura.
+
+    Separado de main() para poder envolverlo en manejar_interrupcion sin
+    re-indentar el cuerpo (mismo nivel de indentación de función).
+    """
     # Leer keywords
     datos = obtener_keywords_db(conn)
     if not datos:
@@ -597,9 +612,11 @@ def main(argv: list[str] | None = None) -> None:
 
     # --- Paso 5: escribir en DB ---
     if not args.dry_run and cambios:
-        # Guardar backup previo en memoria (no en DB, por si acaso)
-        # Actualizar registros
-        conn.execute("BEGIN")
+        # Checkpoint por lote: commit cada 20 registros en vez de uno solo
+        # al final (si se corta con Ctrl+C, el progreso queda guardado y se
+        # retoma con --mode update).
+        from scripts.ai_media.checkpoint import Checkpoint
+        cp = Checkpoint(conn, cada=20, etiqueta="refinar_keywords")
         try:
             for mid, nueva in refinadas.items():
                 valor_nuevo = ", ".join(nueva)
@@ -607,9 +624,9 @@ def main(argv: list[str] | None = None) -> None:
                     "UPDATE media_metadata SET value = ? WHERE media_id = ? AND key = 'ia_keywords'",
                     (valor_nuevo, mid),
                 )
-            conn.commit()
+                cp.contar()
+            cp.finalizar()
         except Exception as e:
-            conn.rollback()
             log.error("  Error escribiendo en DB: %s", e)
             conn.close()
             sys.exit(1)

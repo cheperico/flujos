@@ -816,6 +816,22 @@ def main(argv: list[str] | None = None) -> None:
         conn.close()
         return
 
+    # ── Procesar (envuelto en manejar_interrupcion) ──
+    # Al cortar con Ctrl+C se commitean los pendientes (el guardado ya es por
+    # ítem cada 10) y se sale con mensaje claro, sin traceback.
+    from scripts.ai_media.checkpoint import manejar_interrupcion
+    with manejar_interrupcion(conn=conn, etiqueta="audio_tagging"):
+        _ejecutar(conn, args, rows, tagging)
+
+
+def _ejecutar(conn, args, rows, tagging) -> None:
+    """
+    Clasifica los sonidos de cada audio/video y guarda las etiquetas en la DB.
+
+    Separado de main() para poder envolverlo en manejar_interrupcion sin
+    re-indentar el cuerpo (mismo nivel de indentación de función). El
+    guardado por ítem (cada 10) ya existía y no se modifica.
+    """
     # ── Procesar ──
     ok = 0
     errors = 0

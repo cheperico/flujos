@@ -10,7 +10,8 @@ Uso:
     python scripts/improve_db.py --mode update            # Re-ejecutar y actualizar
     python scripts/improve_db.py --mode replace           # Borrar y regenerar
     python scripts/improve_db.py --db ruta/a/flujos.db    # DB personalizada
-    python scripts/improve_db.py --steps keywords --mostrar  # Mostrar en vivo cada keyword
+    python scripts/improve_db.py --steps keywords            # muestra en vivo cada keyword (default)
+    python scripts/improve_db.py --steps keywords --no-mostrar  # silencioso
     python scripts/improve_db.py --steps keywords --workers 1  # 1 request a la vez (default, estable)
 
     ⚠️ --workers 2+: NO recomendado. Ollama serializa la inferencia; 2 requests
@@ -327,13 +328,44 @@ def _procesar_vision(conn, mode, stats, nombre, fn_vision, clave_en, clave_es,
     ok = 0
     errors = 0
     warnings = 0
-    batch = []
     n_workers = max(1, CONTEXTO.get("workers", 1))
-    with ThreadPoolExecutor(max_workers=n_workers) as pool:
-        futures = {pool.submit(_process_one, mid, fpath): (mid, fpath)
-                   for mid, fpath in rows}
-        for f in tqdm(as_completed(futures), total=len(futures),
-                      desc=f"  {mostrar_label} (EN)", unit="img", ncols=80):
+    timeout_future = CONTEXTO.get("timeout_future", 300)
+
+    # ── Checkpoint por lote: guarda cada `cada` ítems y commitea ──
+    # En lugar de acumular todo en memoria y commiter al final (que pierde
+    # todo el progreso si el proceso se cuelga o se corta), se va guardando
+    # por lote. El DELETE de las claves ES viejas se ejecuta en el MISMO lote
+    # del checkpoint (misma transacción) para mantener la sesión coherente.
+    from scripts.ai_media.checkpoint import Checkpoint
+
+    cp = Checkpoint(conn, cada=20, etiqueta=nombre)
+    lote: list = []
+
+    def _guardar_lote():
+        """Guarda el lote acumulado: DELETE ES viejo + INSERT INTO EN, y se hace commit."""
+        nonlocal lote
+        if not lote:
+            return
+        ids_ok = [int(mid) for mid, _ in lote]
+        conn.execute(
+            f"DELETE FROM media_metadata WHERE key = ? AND media_id IN ({','.join('?' * len(ids_ok))})",
+            [clave_es] + ids_ok,
+        )
+        conn.executemany(
+            "INSERT OR REPLACE INTO media_metadata (media_id, key, value) "
+            f"VALUES (?, '{clave_en}', ?)", lote)
+        conn.commit()
+        lote = []
+
+    pool = ThreadPoolExecutor(max_workers=n_workers)
+    futures = {pool.submit(_process_one, mid, fpath): (mid, fpath)
+               for mid, fpath in rows}
+    try:
+        # timeout en as_completed() para evitar que un worker colgado congele
+        # el pool para siempre (riesgo documentado en AGENTS.md).
+        for f in tqdm(as_completed(futures, timeout=timeout_future),
+                      total=len(futures), desc=f"  {mostrar_label} (EN)",
+                      unit="img", ncols=80):
             result, data = f.result()
             if result == "warning":
                 log.warning("  Archivo no encontrado: %s", data)
@@ -345,26 +377,36 @@ def _procesar_vision(conn, mode, stats, nombre, fn_vision, clave_en, clave_es,
                 if CONTEXTO["mostrar"] and valor:
                     tqdm.write(f"    [media {mid}] {valor}")
                 if valor:
-                    batch.append((mid, valor))
+                    lote.append((mid, valor))
                 ok += 1
             else:
                 fpath, exc = data
                 log.warning("  ⚠ Error en imagen %s: %s", fpath, exc)
                 errors += 1
-
-    if batch:
-        # SIEMPRE al regenerar el EN, invalidar el ES viejo (la fase B lo retraduce).
-        # Incluye skip: si una imagen tiene ES viejo pero se regeneró su EN,
-        # el ES queda obsoleto y debe traducirse de nuevo.
-        ids_ok = [str(mid) for mid, _ in batch]
-        conn.execute(
-            f"DELETE FROM media_metadata WHERE key = ? AND media_id IN ({','.join('?' * len(ids_ok))})",
-            [clave_es] + [int(mid) for mid in ids_ok],
-        )
-        conn.executemany(
-            "INSERT OR REPLACE INTO media_metadata (media_id, key, value) "
-            f"VALUES (?, '{clave_en}', ?)", batch)
-        conn.commit()
+            cp.contar()
+            if len(lote) >= cp.cada:
+                _guardar_lote()
+    except TimeoutError:
+        log.warning("  Timeout esperando resultados (%.ds). Guardo lo procesado "
+                    "y cancelo el resto.", timeout_future)
+        pool.shutdown(wait=False, cancel_futures=True)
+        _guardar_lote()
+    except KeyboardInterrupt:
+        log.warning("  ⚠ Interrupción detectada en el pool. Cancelando futuros...")
+        pool.shutdown(wait=False, cancel_futures=True)
+        _guardar_lote()
+        cp.finalizar()
+        stats["warnings"] += warnings
+        log.info("  ⚠ Visión %s interrumpida: %d ok | %d errores "
+                 "(progreso guardado).", nombre, ok, errors)
+        stats[f"{nombre}_ok"] = ok
+        stats[f"{nombre}_err"] = errors
+        # Relanza para que el main lo capture (manejar_interrupcion).
+        raise
+    else:
+        pool.shutdown(wait=True)
+        _guardar_lote()
+        cp.finalizar()
 
     stats["warnings"] += warnings
     log.info("  ✅ Visión %s: %d  |  Errores: %d", nombre, ok, errors)
@@ -424,6 +466,11 @@ def _traducir_metadata(conn, mode, stats, nombre, clave_en, clave_es, paso,
     ok = 0
     errors = 0
 
+    # Checkpoint por lote: commit cada `cada` traducciones (antes un solo
+    # commit al final que perdía todo el progreso si se cortaba la corrida).
+    from scripts.ai_media.checkpoint import Checkpoint
+    cp = Checkpoint(conn, cada=20, etiqueta=f"traduccion_{nombre}")
+
     for mid, v_en in tqdm(rows, desc=f"  Traduciendo {mostrar_label_nombre(paso)}",
                           unit="img", ncols=80):
         try:
@@ -478,8 +525,9 @@ def _traducir_metadata(conn, mode, stats, nombre, clave_en, clave_es, paso,
         except Exception as e:
             log.warning("  ⚠ Error traduciendo media %s: %s", mid, e)
             errors += 1
+        cp.contar()
 
-    conn.commit()
+    cp.finalizar()
     log.info("  ✅ Traducción %s: %d  |  Errores: %d", nombre, ok, errors)
     stats[f"traduccion_{nombre}_ok"] = ok
     stats[f"traduccion_{nombre}_err"] = errors
@@ -589,14 +637,45 @@ def run_combinado(conn, db_path, mode, stats):
     ok = 0
     errors = 0
     warnings = 0
-    batch_kw = []
-    batch_desc = []
     n_workers = max(1, CONTEXTO.get("workers", 1))
-    with ThreadPoolExecutor(max_workers=n_workers) as pool:
-        futures = {pool.submit(_process_one, mid, fpath): (mid, fpath)
-                   for mid, fpath in rows}
-        for f in tqdm(as_completed(futures), total=len(futures),
-                      desc="  Combinado (EN)", unit="img", ncols=80):
+    timeout_future = CONTEXTO.get("timeout_future", 300)
+
+    # ── Checkpoint por lote: guarda keywords+descripción cada `cada` ítems ──
+    from scripts.ai_media.checkpoint import Checkpoint
+    cp = Checkpoint(conn, cada=20, etiqueta="combinado")
+    lote_kw: list = []
+    lote_desc: list = []
+
+    def _guardar_lote():
+        """Guarda el lote: DELETE ES viejos + INSERT INTO EN, y se hace commit."""
+        nonlocal lote_kw, lote_desc
+        ids_ok = set(int(mid) for mid, _ in lote_kw + lote_desc)
+        if not ids_ok:
+            return
+        conn.execute(
+            f"DELETE FROM media_metadata WHERE key IN (?, ?) "
+            f"AND media_id IN ({','.join('?' * len(ids_ok))})",
+            [CLAVE_KW_ES, CLAVE_DESC_ES] + list(ids_ok),
+        )
+        if lote_kw:
+            conn.executemany(
+                "INSERT OR REPLACE INTO media_metadata (media_id, key, value) "
+                f"VALUES (?, '{CLAVE_KW_EN}', ?)", lote_kw)
+        if lote_desc:
+            conn.executemany(
+                "INSERT OR REPLACE INTO media_metadata (media_id, key, value) "
+                f"VALUES (?, '{CLAVE_DESC_EN}', ?)", lote_desc)
+        conn.commit()
+        lote_kw = []
+        lote_desc = []
+
+    pool = ThreadPoolExecutor(max_workers=n_workers)
+    futures = {pool.submit(_process_one, mid, fpath): (mid, fpath)
+               for mid, fpath in rows}
+    try:
+        for f in tqdm(as_completed(futures, timeout=timeout_future),
+                      total=len(futures), desc="  Combinado (EN)",
+                      unit="img", ncols=80):
             result, data = f.result()
             if result == "warning":
                 log.warning("  Archivo no encontrado: %s", data)
@@ -608,31 +687,39 @@ def run_combinado(conn, db_path, mode, stats):
                 if CONTEXTO["mostrar"]:
                     tqdm.write(f"    [media {mid}] kw={kw} | desc={desc[:80]}...")
                 if kw:
-                    batch_kw.append((mid, ", ".join(kw)))
+                    lote_kw.append((mid, ", ".join(kw)))
                 if desc:
-                    batch_desc.append((mid, desc))
+                    lote_desc.append((mid, desc))
                 ok += 1
             else:
                 fpath, exc = data
                 log.warning("  ⚠ Error en imagen %s: %s", fpath, exc)
                 errors += 1
-
-    if batch_kw or batch_desc:
-        # SIEMPRE al regenerar el EN, invalidar los ES viejos (la fase B los retraduce)
-        ids_ok = set(mid for mid, _ in batch_kw + batch_desc)
-        conn.execute(
-            f"DELETE FROM media_metadata WHERE key IN (?, ?) AND media_id IN ({','.join('?' * len(ids_ok))})",
-            [CLAVE_KW_ES, CLAVE_DESC_ES] + list(ids_ok),
-        )
-        if batch_kw:
-            conn.executemany(
-                "INSERT OR REPLACE INTO media_metadata (media_id, key, value) "
-                f"VALUES (?, '{CLAVE_KW_EN}', ?)", batch_kw)
-        if batch_desc:
-            conn.executemany(
-                "INSERT OR REPLACE INTO media_metadata (media_id, key, value) "
-                f"VALUES (?, '{CLAVE_DESC_EN}', ?)", batch_desc)
-        conn.commit()
+            cp.contar()
+            if len(lote_kw) + len(lote_desc) >= cp.cada:
+                _guardar_lote()
+    except TimeoutError:
+        log.warning("  Timeout esperando resultados (%ds). Guardo lo procesado "
+                    "y cancelo el resto.", timeout_future)
+        pool.shutdown(wait=False, cancel_futures=True)
+        _guardar_lote()
+    except KeyboardInterrupt:
+        log.warning("  ⚠ Interrupción detectada en el pool combinado. "
+                    "Cancelando futuros...")
+        pool.shutdown(wait=False, cancel_futures=True)
+        _guardar_lote()
+        cp.finalizar()
+        stats["warnings"] += warnings
+        log.info("  ⚠ Combinado interrumpido: %d ok | %d errores "
+                 "(progreso guardado).", ok, errors)
+        stats["combinado_ok"] = ok
+        stats["combinado_err"] = errors
+        # Relanza para que el main lo capture (manejar_interrupcion).
+        raise
+    else:
+        pool.shutdown(wait=True)
+        _guardar_lote()
+        cp.finalizar()
 
     stats["warnings"] += warnings
     log.info("  ✅ Visión combinada: %d  |  Errores: %d", ok, errors)
@@ -772,7 +859,7 @@ def run_keypoints(conn, db_path, mode, stats):
             continue
 
         try:
-            dt_base = datetime.fromisoformat(ts_utc)
+            dt_base = datetime.fromisoformat(ts_utc.replace("Z", "+00:00"))
             segmentos = json.loads(segments_json)
             batch = []
             for seg in segmentos:
@@ -861,8 +948,22 @@ def run_timestamps(conn, db_path, mode, stats):
         for idx in range(len(conocidos) - 1):
             i1, r1 = conocidos[idx]
             i2, r2 = conocidos[idx + 1]
-            t1 = datetime.fromisoformat(r1[4])
-            t2 = datetime.fromisoformat(r2[4])
+
+            def _as_aware_utc(v: str) -> datetime:
+                """Parsea timestamp_utc y lo fuerza a aware UTC.
+
+                El timestamp_utc de la DB está normalizado a UTC, pero por
+                robustez se normaliza la 'Z' y, si quedó naive, se asume UTC
+                (nunca la zona del sistema operativo). Sin esto, el
+                astimezone(-3) de abajo usaría la zona del SO en vez de ART.
+                """
+                dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                return dt
+
+            t1 = _as_aware_utc(r1[4])
+            t2 = _as_aware_utc(r2[4])
             gap = i2 - i1  # cuántos índices hay entre conocidos
             if gap <= 1:
                 continue  # consecutivos, no hay nada que interpolar
@@ -942,9 +1043,9 @@ def run_gps(conn, db_path, mode, stats):
             # Interpolar linealmente entre las dos coordenadas
             lat1, lon1, t1 = anterior
             lat2, lon2, t2 = siguiente
-            dt1 = datetime.fromisoformat(t1)
-            dt2 = datetime.fromisoformat(t2)
-            dt_target = datetime.fromisoformat(ts_utc)
+            dt1 = datetime.fromisoformat(t1.replace("Z", "+00:00"))
+            dt2 = datetime.fromisoformat(t2.replace("Z", "+00:00"))
+            dt_target = datetime.fromisoformat(ts_utc.replace("Z", "+00:00"))
 
             if dt2 == dt1:
                 lat, lon = lat1, lon1
@@ -1179,7 +1280,13 @@ DEP_ORDER = ["colors", "keywords", "descriptions", "combinado", "transcribe", "k
              "timestamps", "gps", "video_metadata"]
 
 # Contexto global compartido con las funciones run_* (evita cambiar la firma de todas)
-CONTEXTO: dict = {"mostrar": False, "workers": 1}
+CONTEXTO: dict = {
+    "mostrar": True,
+    "workers": 1,
+    # Timeout (segundos) para as_completed() en los pools de visión: evita que
+    # un worker colgado congele el pool para siempre (riesgo documentado).
+    "timeout_future": 300,
+}
 
 
 def listar_pasos():
@@ -1225,7 +1332,8 @@ Ejemplos:
   python scripts/improve_db.py --steps keypoints --mode replace  # regenerar keypoints
   python scripts/improve_db.py --list                       # listar pasos
   python scripts/improve_db.py --db db/flujos.db            # DB personalizada
-  python scripts/improve_db.py --steps keywords,descriptions --mostrar  # mostrar en vivo
+  python scripts/improve_db.py --steps keywords,descriptions            # muestra en vivo por default
+  python scripts/improve_db.py --steps keywords,descriptions --no-mostrar  # silencioso
         """,
     )
     parser.add_argument(
@@ -1249,9 +1357,10 @@ Ejemplos:
         help="Listar pasos disponibles",
     )
     parser.add_argument(
-        "--mostrar",
-        action="store_true",
-        help="Mostrar en vivo keywords/descripciones imagen por imagen (solo pasos keywords/descriptions)",
+        "--no-mostrar",
+        action="store_false",
+        dest="mostrar",
+        help="NO mostrar en vivo keywords/descripciones imagen por imagen (default: mostrar)",
     )
     parser.add_argument(
         "--workers",
@@ -1319,15 +1428,21 @@ Ejemplos:
     print()
 
     # Ejecutar pasos
+    # Envuelto en manejar_interrupcion: si el usuario corta con Ctrl+C, se
+    # commitean los pendientes de la conexión y se sale con mensaje claro
+    # (sys.exit(130)), sin traceback. Los pasos ya commitean por checkpoint.
+    from scripts.ai_media.checkpoint import manejar_interrupcion
+
     stats = {"warnings": 0, "errors": 0}
-    for paso in pasos:
-        print()
-        meta = REGISTRY[paso]
-        try:
-            meta["run"](conn, db_path, args.mode, stats)
-        except Exception as e:
-            log.error("  ❌ Error en paso '%s': %s", paso, e)
-            stats["errors"] += 1
+    with manejar_interrupcion(conn=conn, etiqueta="improve_db"):
+        for paso in pasos:
+            print()
+            meta = REGISTRY[paso]
+            try:
+                meta["run"](conn, db_path, args.mode, stats)
+            except Exception as e:
+                log.error("  ❌ Error en paso '%s': %s", paso, e)
+                stats["errors"] += 1
 
     # Resumen final
     print()

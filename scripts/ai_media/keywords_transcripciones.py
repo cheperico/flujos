@@ -359,7 +359,23 @@ def main(argv: list[str] | None = None) -> None:
         conn.close()
         return
 
-    # ── Modo real: importar ollama y procesar ──
+    # ── Modo real: procesar (envuelto en manejar_interrupcion) ──
+    # Al cortar con Ctrl+C se commitean los pendientes (el guardado ya es por
+    # ítem cada 25) y se sale con mensaje claro, sin traceback.
+    from scripts.ai_media.checkpoint import manejar_interrupcion
+    with manejar_interrupcion(conn=conn, etiqueta="keywords_transcripciones"):
+        _ejecutar(conn, args, rows)
+
+
+def _ejecutar(conn, args, rows) -> None:
+    """
+    Extrae las keywords de las transcripciones y las escribe en la DB.
+
+    Separado de main() para poder envolverlo en manejar_interrupcion sin
+    re-indentar el cuerpo (mismo nivel de indentación de función). El
+    guardado por ítem (cada 25) ya existía y no se modifica.
+    """
+    # ── Modo real: importar ollama y asegurar que el servidor esté corriendo ──
     try:
         import ollama
         from scripts.ai_media.ollama_client import asegurar_ollama
