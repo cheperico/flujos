@@ -37,7 +37,7 @@ FLUJO IA (keywords/descriptions/combinado):
     Los modelos de visión (minicpm) responden mejor en inglés, así que el
     pipeline interno genera EN y lo guarda en claves temporales:
         ia_keywords_en / ia_description_en
-    Luego traduce a español con un modelo de texto (qwen2.5:3b) y guarda en:
+    Luego traduce a español con un modelo de texto (translategemma) y guarda en:
         ia_keywords    / ia_description
     La INTERFAZ (lo que el usuario consume) es SIEMPRE español. El EN queda
     en DB para poder re-traducir sin re-correr visión (--mode update).
@@ -415,7 +415,7 @@ def _procesar_vision(conn, mode, stats, nombre, fn_vision, clave_en, clave_es,
 
 
 def _traducir_metadata(conn, mode, stats, nombre, clave_en, clave_es, paso,
-                       modelo_traduccion="qwen2.5:3b"):
+                       modelo_traduccion="translategemma"):
     """
     Fase B de keywords/descriptions: traduce EN → ES sobre la DB.
 
@@ -430,7 +430,7 @@ def _traducir_metadata(conn, mode, stats, nombre, clave_en, clave_es, paso,
         clave_en: clave con el texto EN.
         clave_es: clave donde se escribe el ES.
         paso: "keywords" | "descriptions" | "ambos" para traducir_llamada.
-        modelo_traduccion: modelo de texto (default qwen2.5:3b).
+        modelo_traduccion: modelo de texto (default translategemma).
     """
     log.info("  [Fase B] Traducción (%s → %s)", clave_en, clave_es)
 
@@ -737,7 +737,7 @@ def run_combinado(conn, db_path, mode, stats):
 
 
 def run_transcribe(conn, db_path, mode, stats):
-    """Transcribe audios y videos con faster-whisper."""
+    """Transcribe audios y videos con faster-whisper (con VAD y filtro de confianza)."""
     log.info("Paso: transcribe — Transcribiendo audios/videos")
 
     if mode == "replace":
@@ -745,12 +745,19 @@ def run_transcribe(conn, db_path, mode, stats):
     elif mode == "update":
         query = "SELECT id, filepath_absoluto FROM media WHERE type IN ('video', 'audio')"
     else:
+        # skip: retoma pendientes. Considera "pendiente" a los archivos que aún
+        # no tienen whisper_estado (ni tocados, ni corte a mitad de batch /
+        # checkpoint): así cualquier corrida interrumpida se auto-recupera en la
+        # siguiente pasada. El marcador de "terminado" es whisper_estado, porque
+        # un archivo sin_voz queda con estado pero SIN whisper_segments (no
+        # guardamos basura): por eso NO se usa whisper_segments para detectar
+        # pendientes (eso re-transcribiría todos los sin_voz en cada corrida).
         query = """
             SELECT m.id, m.filepath_absoluto FROM media m
             WHERE m.type IN ('video', 'audio')
               AND NOT EXISTS (
-                  SELECT 1 FROM media_metadata mm
-                  WHERE mm.media_id = m.id AND mm.key = 'whisper_segments'
+                  SELECT 1 FROM media_metadata me
+                  WHERE me.media_id = m.id AND me.key = 'whisper_estado'
               )
         """
 
@@ -760,26 +767,46 @@ def run_transcribe(conn, db_path, mode, stats):
         return
 
     try:
-        from scripts.ai_media.transcribe import transcribir_audio
+        from scripts.ai_media.transcribe import transcribir_audio, clasificar_estado
     except ImportError:
         try:
             sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-            from scripts.ai_media.transcribe import transcribir_audio
+            from scripts.ai_media.transcribe import transcribir_audio, clasificar_estado
         except ImportError as e:
             log.error("  No se pudo importar transcribir_audio: %s", e)
             stats["errors"] += 1
             return
 
+    from scripts.ai_media.checkpoint import Checkpoint
+
     ok = 0
     errors = 0
+    cp = Checkpoint(conn, cada=20, etiqueta="transcribe")
     for mid, fpath in tqdm(rows, desc="  Transcribe", unit="arch", ncols=80):
         if not os.path.isfile(fpath):
             log.warning("  Archivo no encontrado: %s", fpath)
             stats["warnings"] += 1
             continue
         try:
-            segmentos, info = transcribir_audio(fpath, modelo="base")
-            if segmentos:
+            segmentos, info = transcribir_audio(
+                fpath,
+                modelo="small",
+                # Detectar persona hablando y descartar ruido/silencio:
+                vad_filter=True,
+                vad_parameters={"min_speech_duration_ms": 300},
+                # Cortar lazos de repetición típicos de alucinaciones:
+                condition_on_previous_text=False,
+                # Exigir texto confiado / inteligible:
+                no_speech_threshold=0.6,
+                compression_ratio_threshold=2.4,
+                log_prob_threshold=-0.8,
+                incluir_metricas=True,
+            )
+            estado = clasificar_estado(segmentos)
+            # Guardar los segmentos SOLO si la transcripción es confiable (ok).
+            # En sin_voz (ruido/silencio sin habla útil) no se acumula basura:
+            # solo queda la marca whisper_estado = sin_voz.
+            if estado == "ok" and segmentos:
                 conn.execute(
                     "INSERT OR REPLACE INTO media_metadata (media_id, key, value) VALUES (?, 'whisper_segments', ?)",
                     (mid, json.dumps(segmentos, ensure_ascii=False)),
@@ -791,11 +818,17 @@ def run_transcribe(conn, db_path, mode, stats):
                         "language_probability": float(info.language_probability),
                     })),
                 )
+            conn.execute(
+                "INSERT OR REPLACE INTO media_metadata (media_id, key, value) VALUES (?, 'whisper_estado', ?)",
+                (mid, estado),
+            )
             ok += 1
         except Exception as e:
             log.warning("  ⚠ Error transcribiendo %s: %s", fpath, e)
             errors += 1
+        cp.contar()
 
+    cp.finalizar()
     conn.commit()
     log.info("  ✅ Transcripciones: %d  |  Errores: %d", ok, errors)
     stats["transcribe_ok"] = ok
@@ -1245,7 +1278,7 @@ REGISTRY = {
         "run": run_combinado,
     },
     "transcribe": {
-        "description": "Transcribir audios/videos con faster-whisper",
+        "description": "Transcribir audios/videos con faster-whisper (VAD + confianza)",
         "dependencies": [],
         "check": check_transcribe,
         "run": run_transcribe,

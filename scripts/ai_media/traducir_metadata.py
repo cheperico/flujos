@@ -4,7 +4,7 @@ traducir_metadata.py — Traduce keywords y descripciones IA de EN → ES sobre 
 
 El pipeline nuevo genera keywords/descripciones con minicpm en INGLÉS y las
 guarda en claves temporales (`ia_keywords_en`, `ia_description_en`). Este
-script lee esas claves, traduce con un modelo de texto (qwen2.5:3b) y escribe
+script lee esas claves, traduce con un modelo de texto (translategemma) y escribe
 los resultados definitivos en español (`ia_keywords`, `ia_description`).
 
 Por qué sobre la DB:
@@ -24,7 +24,7 @@ Uso:
     python scripts/ai_media/traducir_metadata.py --paso descriptions
     python scripts/ai_media/traducir_metadata.py --dry-run        # previsualizar
     python scripts/ai_media/traducir_metadata.py --mode update    # re-traduce todo
-    python scripts/ai_media/traducir_metadata.py --modelo qwen2.5:3b
+    python scripts/ai_media/traducir_metadata.py --modelo translategemma
 
 Modos:
     skip    → solo registros que tienen EN y aún NO tienen ES (default)
@@ -47,23 +47,13 @@ import time
 log = logging.getLogger(__name__)
 
 # ── Modelo de texto para traducción ──────────────────────────────────────────
-MODELO_TRADUCCION_DEFAULT = "qwen2.5:3b"
+MODELO_TRADUCCION_DEFAULT = "translategemma"
 
 # ── Claves en DB ─────────────────────────────────────────────────────────────
 CLAVE_KW_EN = "ia_keywords_en"
 CLAVE_DESC_EN = "ia_description_en"
 CLAVE_KW_ES = "ia_keywords"
 CLAVE_DESC_ES = "ia_description"
-
-# ── Glosario de cicloturismo (evita errores semánticos en la traducción) ─────
-GLOSARIO = (
-    "Glosario cicloturismo: road trip → viaje en ruta | repair → reparación | "
-    "gear → equipamiento | cloth/fabric → tela | helmet → casco | "
-    "bike/bicycle → bicicleta | pannier → alforja | gravel → ripio/grava | "
-    "roadside → banquina | trail → sendero | handlebar → manubrio | "
-    "pump → inflador | tire → cubierta | chain → cadena | "
-    "wind → viento | sky → cielo | tree → árbol"
-)
 
 # ── Prompts de traducción ────────────────────────────────────────────────────
 
@@ -74,8 +64,6 @@ PROMPT_TRADUCIR_AMBOS = (
     "2. NO dejes palabras en inglés, traducí TODAS.\n"
     "3. NO es portugués: en español se dice 'persona', 'objeto', 'color', 'acción'.\n"
     "4. Descripción: traducción natural y completa.\n"
-    "5. Si una palabra está en el glosario, usá EXACTAMENTE la traducción del glosario.\n"
-    + GLOSARIO + "\n"
     'Respondé SOLO con JSON: {{"keywords": "palabras en español separadas por comas", '
     '"description": "descripción en español"}}\n\n'
     "Keywords EN: {kw}\n"
@@ -89,8 +77,7 @@ PROMPT_TRADUCIR_KEYWORDS = (
     "2. Las palabras deben ser SUSTANTIVOS (no verbos ni frases verbales).\n"
     "3. NO dejes ninguna palabra en inglés, traducí TODAS.\n"
     "4. NO es portugués: recordá que en español se dice 'persona', 'objeto', 'color', 'acción'.\n"
-    "5. Si una palabra está en el glosario, usá EXACTAMENTE la traducción del glosario.\n"
-    + GLOSARIO + "\n\n"
+    "\n"
     "Palabras en inglés: {kw}"
 )
 

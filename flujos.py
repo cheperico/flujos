@@ -1202,9 +1202,9 @@ def opcion_embeddings():
 
 def opcion_refinar_keywords(db_path: str | None = None):
     """
-    Refina las keywords de IA: normaliza (léxico), unifica sinónimos del
-    dominio (diccionario) y opcionalmente agrupa por similitud semántica
-    con embeddings (paraphrase-multilingual).
+    Refina las keywords de IA: normaliza (léxico) y unifica sinónimos del
+    dominio (diccionario). La capa semántica con embeddings fue eliminada
+    (Ago 2026): introducía falsos sinónimos.
     """
     import subprocess
     script = os.path.join(os.path.dirname(__file__), "scripts", "ai_media", "refinar_keywords.py")
@@ -1212,23 +1212,17 @@ def opcion_refinar_keywords(db_path: str | None = None):
 
     limpiar_pantalla()
     print("=== REFINAR KEYWORDS ===\n")
-    print("  Normaliza y unifica las keywords generadas por IA:\n")
-    print("  1) Solo léxico + diccionario (rápido, sin IA)")
-    print("  2) + capa semántica (embeddings, agrupa sinónimos)")
-    print("  3) Previsualizar (dry-run, léxico + diccionario)")
-    print("  4) Previsualizar (dry-run, con embeddings)")
+    print("  Normaliza y unifica las keywords generadas por IA (léxico + diccionario):\n")
+    print("  1) Refinar todos (update)")
+    print("  2) Previsualizar (dry-run)")
     print("  0) Volver\n")
 
     opc = input("  Opcion: ").strip()
 
     if opc == "1":
-        subprocess.run([sys.executable, script] + db_flag)
+        subprocess.run([sys.executable, script] + db_flag + ["--mode", "update"])
     elif opc == "2":
-        subprocess.run([sys.executable, script] + db_flag + ["--usar-embeddings"])
-    elif opc == "3":
         subprocess.run([sys.executable, script] + db_flag + ["--dry-run"])
-    elif opc == "4":
-        subprocess.run([sys.executable, script] + db_flag + ["--dry-run", "--usar-embeddings"])
     elif opc == "0":
         return
 

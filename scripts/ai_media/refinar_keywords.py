@@ -3,7 +3,7 @@
 refinar_keywords.py — Refina y unifica las keywords generadas por IA.
 
 Toma los valores de `media_metadata.ia_keywords` ya generados y los limpia
-en 3 capas:
+en 2 capas:
 
   1. LÉXICA (siempre, sin IA)
      - minúsculas, limpieza de caracteres raros
@@ -15,19 +15,18 @@ en 3 capas:
      - Sinónimos explícitos del dominio (bici → bicicleta, moto → motocicleta)
      - El canónico es el término más "estándar" del grupo
 
-  3. SEMÁNTICA (--usar-embeddings, opcional)
-     - Embeddings con paraphrase-multilingual:latest (entrenado para sinónimos)
-     - Agrupa keywords con similitud coseno ≥ umbral (default 0.87)
-     - El canónico de cada grupo = el término más frecuente en la DB
-     - ⚠️ Umbral medido en pruebas: sinónimos reales ≥ 0.88; falsos positivos
-       de palabras truncadas (monta~obra 0.84, monta~cerro 0.87) quedan fuera.
+(Nota: la capa SEMÁNTICA con embeddings fue ELIMINADA en Ago 2026. Los
+embeddings de paraphrase-multilingual generaban falsos sinónimos que
+degradaban términos específicos del dominio, por ejemplo ciclismo→deporte,
+nublado→soleado, parche→parque. La traducción con translategemma ya produce
+keywords limpias y consistentes, así que la unificación por embeddings no
+aportaba y podía meter errores.)
 
 Después de refinar, reescribe `media_metadata.ia_keywords` con los valores
 canónicos, deduplicando y manteniendo el género fotográfico en primer lugar.
 
 Uso:
-    python scripts/ai_media/refinar_keywords.py                 # solo léxico + diccionario
-    python scripts/ai_media/refinar_keywords.py --usar-embeddings   # + capa semántica
+    python scripts/ai_media/refinar_keywords.py                 # léxico + diccionario
     python scripts/ai_media/refinar_keywords.py --dry-run       # previsualizar sin escribir
     python scripts/ai_media/refinar_keywords.py --mode update   # reprocesa todos
 
@@ -40,7 +39,6 @@ Modos (igual que el resto del pipeline):
 import argparse
 import json
 import logging
-import math
 import os
 import re
 import sqlite3
@@ -49,10 +47,15 @@ from collections import Counter
 
 log = logging.getLogger(__name__)
 
-# ── Modelo de embeddings para sinónimos ─────────────────────────────────────
-# paraphrase-multilingual:latest está entrenado específicamente para detectar
-# si dos textos significan lo mismo (paráfrasis). Multilingüe (español OK).
-MODELO_EMBEDDINGS = "paraphrase-multilingual:latest"
+# Permitir ejecución standalone: agregar raíz del proyecto al path
+# (el TUI lo ejecuta como script suelto, donde 'scripts' no es un paquete
+# importable; sin esto `from scripts.ai_media.checkpoint import ...` falla con
+# ModuleNotFoundError). Mismo patrón que los demás scripts de ai_media/.
+if __name__ == "__main__" and __package__ is None:
+    sys.path.insert(
+        0,
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    )
 
 # ── Diccionario de sinónimos del dominio (bici, viaje, Argentina) ───────────
 # Clave = canónico, valor = lista de variantes que se unifican al canónico.
@@ -74,9 +77,10 @@ SINONIMOS: dict[str, list[str]] = {
     "animales": ["animal", "vaca", "vacas", "caballo", "caballos", "perro", "perros",
                  "gato", "gatos", "oveja", "ovejas", "burro", "burros", "ganado", "animals"],
     "comida": ["gastronomía", "comidas", "plato", "platos", "almuerzo", "cena", "desayuno", "asado", "food"],
-    "personas": ["persona", "gente", "hombres", "mujeres", "ciclista", "ciclistas",
-                 "caminante", "caminantes", "viajero", "viajeros", "baqueano", "people", "cyclists", "cyclist"],
-    "deporte": ["deportes", "ciclismo", "competición", "carrera", "sport"],
+    "personas": ["persona", "gente", "hombres", "mujeres",
+                 "caminante", "caminantes", "viajero", "viajeros", "baqueano", "people"],
+    "deporte": ["deportes", "competición", "carrera", "sport"],
+    "ciclismo": ["ciclista", "ciclistas", "cycling", "cyclist", "cyclists", "pedaleando"],
     "viaje": ["trayecto", "recorrido", "ruta viajera", "trip", "adventure", "aventura", "road trip", "viaje en ruta"],
     "fotografía": ["foto", "fotos", "imagen", "imágenes", "retrato fotográfico", "photography"],
     "urbanismo": ["edificios", "edificio", "rascacielos", "construcción", "buildings"],
@@ -192,7 +196,6 @@ VARIANTES_GENERO = {
     "comidas": "comida",
     "gastronomía": "comida",
     "deportes": "deporte",
-    "ciclismo": "deporte",
 }
 
 
@@ -272,16 +275,6 @@ def aplicar_sinonimos(palabra: str) -> str:
         if p in [v.lower() for v in variantes if v]:
             return canonico
     return palabra
-
-
-def similitud_coseno(a: list[float], b: list[float]) -> float:
-    """Similitud coseno entre dos vectores."""
-    dot = sum(x * y for x, y in zip(a, b))
-    na = math.sqrt(sum(x * x for x in a))
-    nb = math.sqrt(sum(x * x for x in b))
-    if na == 0 or nb == 0:
-        return 0.0
-    return dot / (na * nb)
 
 
 def es_genero(palabra: str) -> str | None:
@@ -368,87 +361,6 @@ def refinar_lista_keywords(keywords: list[str]) -> list[str]:
     return [genero] + resto_uniq[:6]
 
 
-def refinar_con_embeddings(keywords_unicas: list[str], umbral: float = 0.87,
-                           frecuencias: Counter | None = None) -> dict[str, str]:
-    """
-    Capa semántica: agrupa keywords por similitud de embeddings y devuelve
-    un mapeo {palabra_original → palabra_canónica}.
-
-    Args:
-        keywords_unicas: Lista de keywords únicas normalizadas.
-        umbral: Similitud coseno mínima para considerar sinónimos
-                (default 0.87, medido: reales ≥0.88, truncadas ~0.84-0.87).
-        frecuencias: Contador de frecuencias para elegir el canónico
-                     (el más frecuente gana).
-
-    Returns:
-        Dict palabra → canónico.
-    """
-    try:
-        import ollama
-        from scripts.ai_media.ollama_client import asegurar_ollama
-    except ImportError:
-        log.warning("  No se pudo importar ollama. Capa semántica desactivada.")
-        return {}
-
-    if not asegurar_ollama():
-        log.warning("  Ollama no está disponible. Capa semántica desactivada.")
-        return {}
-
-    log.info("  Generando embeddings para %d keywords con %s...",
-             len(keywords_unicas), MODELO_EMBEDDINGS)
-    try:
-        resp = ollama.embed(model=MODELO_EMBEDDINGS, input=keywords_unicas)
-        embs = resp.get("embeddings", [])
-    except Exception as e:
-        log.warning("  Error generando embeddings: %s. Capa semántica desactivada.", e)
-        return {}
-
-    if not embs or len(embs) != len(keywords_unicas):
-        log.warning("  Embeddings devueltos no coinciden (%d != %d). Capa semántica desactivada.",
-                    len(embs), len(keywords_unicas))
-        return {}
-
-    # Agrupar por similitud: algoritmo de unión simple (greedy)
-    grupos: list[list[str]] = []
-    for i, kw in enumerate(keywords_unicas):
-        emb = embs[i]
-        encontrado = False
-        for grupo in grupos:
-            # Comparar contra el primer elemento del grupo (centroide aproximado)
-            idx = keywords_unicas.index(grupo[0])
-            if similitud_coseno(emb, embs[idx]) >= umbral:
-                grupo.append(kw)
-                encontrado = True
-                break
-        if not encontrado:
-            grupos.append([kw])
-
-    # Elegir canónico de cada grupo: el más frecuente, luego el más corto
-    mapeo: dict[str, str] = {}
-    for grupo in grupos:
-        if len(grupo) == 1:
-            mapeo[grupo[0]] = grupo[0]
-            continue
-        mejor = None
-        mejor_score: tuple[int, int] | None = None
-        for kw in grupo:
-            freq = frecuencias.get(kw, 0) if frecuencias else 0
-            score = (freq, -len(kw))  # más frecuente, y si empata, más corto
-            if mejor_score is None or score > mejor_score:
-                mejor_score = score
-                mejor = kw
-        for kw in grupo:
-            mapeo[kw] = mejor
-
-    # Log de grupos formados (para debug)
-    for grupo in grupos:
-        if len(grupo) > 1:
-            log.info("    Grupo sinónimos: %s → %s", ", ".join(grupo), mapeo[grupo[0]])
-
-    return mapeo
-
-
 def obtener_keywords_db(conn: sqlite3.Connection) -> dict[int, list[str]]:
     """Lee todos los ia_keywords de la DB. Devuelve {media_id: [keywords]}."""
     filas = conn.execute(
@@ -474,16 +386,12 @@ def obtener_keywords_db(conn: sqlite3.Connection) -> dict[int, list[str]]:
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
-        description="Refina y unifica keywords de IA (léxico + diccionario + embeddings)",
+        description="Refina y unifica keywords de IA (léxico + diccionario)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--db", default=None, help="Ruta a la base de datos (default: db/flujos.db)")
     parser.add_argument("--mode", default="skip", choices=["skip", "update", "replace"],
                         help="skip: solo los que tienen keywords (default) | update: todos | replace: igual que update")
-    parser.add_argument("--usar-embeddings", action="store_true",
-                        help="Activa la capa semántica con paraphrase-multilingual")
-    parser.add_argument("--umbral", type=float, default=0.87,
-                        help="Similitud mínima para agrupar sinónimos (default: 0.87)")
     parser.add_argument("--dry-run", action="store_true", help="Previsualizar cambios sin escribir")
     parser.add_argument("--verbose", action="store_true", help="Log detallado")
 
@@ -525,7 +433,7 @@ def main(argv: list[str] | None = None) -> None:
 
 def _ejecutar(conn, args) -> None:
     """
-    Ejecuta el refinamiento completo: léxico + diccionario + semántica + escritura.
+    Ejecuta el refinamiento completo: léxico + diccionario + escritura.
 
     Separado de main() para poder envolverlo en manejar_interrupcion sin
     re-indentar el cuerpo (mismo nivel de indentación de función).
@@ -552,39 +460,7 @@ def _ejecutar(conn, args) -> None:
     for mid, lista in datos.items():
         refinadas[mid] = refinar_lista_keywords(lista)
 
-    # --- Paso 3 (opcional): capa semántica sobre keywords únicas ---
-    mapeo_semantico: dict[str, str] = {}
-    if args.usar_embeddings:
-        # Keywords únicas después de la capa léxica/diccionario (para no embeddear ruido).
-        # Excluimos los géneros fotográficos: son vocabulario cerrado y canónico,
-        # no deben re-mapearse por embeddings (evita "naturaleza"→"paisaje").
-        unicas_post = set()
-        for lista in refinadas.values():
-            unicas_post.update(lista)
-        unicas_post = sorted(k for k in unicas_post if es_genero(k) is None)
-        if unicas_post:
-            # Frecuencias post-refinamiento (para elegir canónico)
-            freq_post: Counter = Counter()
-            for lista in refinadas.values():
-                freq_post.update(lista)
-            mapeo_semantico = refinar_con_embeddings(
-                unicas_post, umbral=args.umbral, frecuencias=freq_post)
-            # Aplicar mapeo (NUNCA al género: posición 0 queda intacta)
-            for mid in refinadas:
-                if not refinadas[mid]:
-                    continue
-                genero_actual = refinadas[mid][0]
-                resto_mapeado = [mapeo_semantico.get(k, k) for k in refinadas[mid][1:]]
-                # Dedupe final preservando orden
-                vistos = {genero_actual}
-                lista_final = [genero_actual]
-                for k in resto_mapeado:
-                    if k not in vistos:
-                        vistos.add(k)
-                        lista_final.append(k)
-                refinadas[mid] = lista_final
-
-    # --- Paso 4: comparar y mostrar cambios ---
+    # --- Paso 3: comparar y mostrar cambios ---
     cambios = 0
     sin_cambios = 0
     for mid in list(refinadas.keys()):
@@ -610,7 +486,7 @@ def _ejecutar(conn, args) -> None:
         conn.close()
         return
 
-    # --- Paso 5: escribir en DB ---
+    # --- Paso 4: escribir en DB ---
     if not args.dry_run and cambios:
         # Checkpoint por lote: commit cada 20 registros en vez de uno solo
         # al final (si se corta con Ctrl+C, el progreso queda guardado y se

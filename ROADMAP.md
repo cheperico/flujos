@@ -51,7 +51,7 @@ Etapa 5: INSTALACIÓN          →  TouchDesigner + motor de deriva
 | Keypoints (segmentos de transcripción) | Alta | ✅ | `improve-db --steps keypoints --mode` |
 | **Inferencia de GPS** desde medios cercanos | Alta | ✅ | `improve-db --steps gps --mode` |
 | **Inferencia de timestamps faltantes** | Alta | ✅ | `improve-db --steps timestamps --mode` |
-| Pipeline unificado (9 pasos) con skip/update/replace | Alta | ✅ | `improve_db.py` + flujos.py TUI |
+| Pipeline unificado (10 pasos) con skip/update/replace | Alta | ✅ | `improve_db.py` + flujos.py TUI |
 | Etiquetado combinado (keywords + descripción en 1 llamada de visión) | Media | ✅ | `improve-db --steps combinado --mode` |
 | Pipeline IA EN → ES (visión genera EN, traducción ES con qwen2.5:3b) | Alta | ✅ | `improve_db.py` + `traducir_metadata.py` |
 | Refinar/unificar keywords (sinónimos, embeddings) | Media | ✅ | `refinar_keywords.py` |

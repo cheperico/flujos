@@ -1,0 +1,286 @@
+"""
+elecciones_ui.dat — Callbacks para elecciones_ui_callbacks (Script DAT).
+Genera las nubes de elecciones seleccionables en TD a partir de las tablas
+elec_<id> que llena osc_callbacks.dat (OSC /flujos/elecciones/<id>).
+
+VINCULACION EN TD:
+  - Crear un Script DAT 'elecciones_ui' (o reutilizar generar_nube)
+  - Seleccionar su DAT interno elecciones_ui_callbacks
+  - Parametros: File -> td/elecciones_ui.dat, Sync to File = ON
+
+REQUIERE (crear una vez en TD):
+  - Para cada grupo enviado desde Python: Table DAT 'elec_<id>'
+      (ej: elec_horas, elec_municipios, elec_colores, elec_tags, ...)
+    Columnas: [titulo, valor, peso]  (las llena osc_callbacks.dat)
+  - Un Base COMP 'elecciones_container' donde se crean los grupos
+  - Opcional: Mouse CHOP 'mouse1' para seleccionar con clic
+  - Opcional: OSC Out DAT 'osc_out1' (127.0.0.1:9001) para devolver
+    la seleccion a Python: /flujos/seleccion <grupo> <valor> <activo>
+
+COMO CRECER:
+  El script escanea TODAS las tablas que empiecen con 'elec_' en la raiz.
+  Agregar un grupo nuevo en Python (scripts/elecciones.py) y su tabla
+  elec_<id> en TD -> la UI lo muestra automaticamente.
+
+INTERACCION (mouse):
+  - Clic sobre una palabra -> toggle activo (visual bold/opacidad)
+  - Envia a Python: /flujos/seleccion <grupo> <valor> 1|0
+"""
+
+# Raiz del proyecto (cambiar si no es /project2)
+_ROOT = op("/project2")
+
+# Configuracion visual
+TEXTO_MIN = 12
+TEXTO_MAX = 56
+MARGEN_X = 40
+MARGEN_Y = 30
+TAMANO_GRUPO_X = 300   # ancho del contenedor de cada grupo
+TAMANO_GRUPO_Y = 240   # alto del contenedor de cada grupo
+GAP_GRUPOS = 40        # separacion entre grupos
+
+# Estado de seleccion: {grupo: {valor: True/False}}
+_SELECCION = {}
+
+
+def onCook(scriptOp):
+    pass
+
+
+def onPulse(par):
+    if par.name == "Generar":
+        print("[elecciones_ui] Generando UI de elecciones...")
+        generar_ui()
+    elif par.name == "Limpiar":
+        global _SELECCION
+        _SELECCION = {}
+        generar_ui()
+        print("[elecciones_ui] Seleccion limpiada")
+
+
+def onSetupParameters(scriptOp):
+    page = scriptOp.appendCustomPage("Elecciones")
+    page.appendPulse("Generar", label="Generar UI")
+    page.appendPulse("Limpiar", label="Limpiar seleccion")
+
+
+# ──────────────────────────────────────────────────────────────────
+# Utilidades
+# ──────────────────────────────────────────────────────────────────
+
+
+def _listar_tablas_elec():
+    """Devuelve los ids de grupos presentes: tablas elec_<id> en la raiz."""
+    ids = []
+    for child in _ROOT.children:
+        if child.name.startswith("elec_"):
+            ids.append(child.name.replace("elec_", "", 1))
+    return sorted(ids)
+
+
+def _leer_grupo(grupo_id):
+    """Lee elec_<id> -> (titulo, [(valor, peso)])."""
+    tabla = _ROOT.op("elec_" + grupo_id)
+    if not tabla:
+        return None, []
+    titulo = str(tabla[1, 0]) if tabla.numRows > 1 and tabla[1, 0] else grupo_id
+    items = []
+    for row in range(1, tabla.numRows):
+        valor = str(tabla[row, 1]) if tabla[row, 1] else ""
+        if not valor:
+            continue
+        peso_str = str(tabla[row, 2]) if tabla[row, 2] else "0"
+        try:
+            peso = float(peso_str)
+        except ValueError:
+            peso = 0.0
+        items.append((valor, peso))
+    return titulo, items
+
+
+def _crear_contenedor(nombre):
+    """Crea (o reutiliza) el contenedor ui_<nombre> dentro de elecciones_container."""
+    cont_padre = _ROOT.op("elecciones_container")
+    if not cont_padre:
+        print("[elecciones_ui] ERROR: no existe elecciones_container en la raiz")
+        return None
+    comp = cont_padre.op(nombre)
+    if comp:
+        # Limpiar Text TOPs viejos
+        for child in comp.children:
+            if child.name.startswith("w_"):
+                child.destroy()
+        return comp
+    return cont_padre.create(baseCOMP, nombre)
+
+
+def _posicion_espiral(idx, n, radio_max=110):
+    """Posicion en espiral alrededor del centro del contenedor."""
+    import math
+    angulo = idx * 2.39996  # angulo aureo (137.5 grados)
+    radio = radio_max * (idx / max(n, 1)) ** 0.5
+    return (int(radio * math.cos(angulo)), int(radio * math.sin(angulo)))
+
+
+# ──────────────────────────────────────────────────────────────────
+# Generacion de la UI
+# ──────────────────────────────────────────────────────────────────
+
+
+def generar_ui():
+    global _SELECCION
+    cont_padre = _ROOT.op("elecciones_container")
+    if not cont_padre:
+        print("[elecciones_ui] ERROR: no existe elecciones_container")
+        return
+
+    # Limpiar contenedores viejos de grupos (ui_*) que ya no existen
+    for child in cont_padre.children:
+        if child.name.startswith("ui_") and child.name not in [
+            "ui_" + gid for gid in _listar_tablas_elec()
+        ]:
+            child.destroy()
+
+    grupos = _listar_tablas_elec()
+    if not grupos:
+        print("[elecciones_ui] No hay tablas elec_* en la raiz")
+        return
+
+    cx = MARGEN_X
+    cy = MARGEN_Y
+    for grupo_id in grupos:
+        titulo, items = _leer_grupo(grupo_id)
+        if not items:
+            continue
+
+        cont = _crear_contenedor("ui_" + grupo_id)
+        if not cont:
+            continue
+
+        # Tamaño fijo del contenedor
+        cont.par.posx = cx
+        cont.par.posy = cy
+
+        # Titulo del grupo
+        titulo_top = cont.op("titulo")
+        if not titulo_top:
+            titulo_top = cont.create(textTOP, "titulo")
+            titulo_top.par.outputresolution = "custom"
+            titulo_top.par.resolutionw = 260
+            titulo_top.par.resolutionh = 30
+            titulo_top.par.fontcolorr = 0.9
+            titulo_top.par.fontcolorg = 0.9
+            titulo_top.par.fontcolorb = 0.9
+        titulo_top.par.text = titulo
+
+        # Palabras
+        max_peso = max((p for _, p in items), default=1.0) or 1.0
+        n = len(items)
+        for idx, (valor, peso) in enumerate(items):
+            proporcion = peso / max_peso
+            tamano = int(TEXTO_MIN + (TEXTO_MAX - TEXTO_MIN) * (proporcion ** 0.7))
+            px, py = _posicion_espiral(idx, n)
+
+            nombre = f"w_{idx:03d}"
+            top = cont.op(nombre)
+            if not top:
+                top = cont.create(textTOP, nombre)
+                top.par.outputresolution = "custom"
+                top.par.resolutionw = 240
+                top.par.resolutionh = tamano + 16
+                top.par.bgalpha = 0
+            top.par.text = valor
+            top.par.fontsizex = tamano
+            top.par.keepfontratio = 1
+            top.par.posx = px - 120  # centrar aprox
+            top.par.posy = py - tamano // 2
+
+            # Estado de seleccion
+            activo = _SELECCION.get(grupo_id, {}).get(valor, False)
+            _aplicar_estado(top, activo)
+
+        print(f"[elecciones_ui] {grupo_id}: {n} items")
+        cx += TAMANO_GRUPO_X + GAP_GRUPOS
+
+
+def _aplicar_estado(top, activo):
+    """Visual del estado de una palabra (bold+color si activa)."""
+    if activo:
+        top.par.bold = 1
+        top.par.fontcolorr = 1.0
+        top.par.fontcolorg = 0.85
+        top.par.fontcolorb = 0.4
+    else:
+        top.par.bold = 0
+        top.par.fontcolorr = 0.75
+        top.par.fontcolorg = 0.75
+        top.par.fontcolorb = 0.75
+
+
+# ──────────────────────────────────────────────────────────────────
+# Seleccion con mouse (si hay Mouse CHOP 'mouse1' y osc_out1)
+# ──────────────────────────────────────────────────────────────────
+
+
+def onFrameStart(frame):
+    """Detecta clics sobre palabras y devuelve la seleccion a Python."""
+    mouse = _ROOT.op("mouse1")
+    if not mouse or mouse.numChans < 5:
+        return
+    if not mouse[0].eval() and mouse[0].prevFrameVal > 0.5:
+        pass  # boton soltado
+    if mouse[0].eval() < 0.5 or mouse[0].prevFrameVal < 0.5:
+        return  # solo en el frame en que se presiona
+
+    mx = mouse[1].eval()
+    my = mouse[2].eval()
+    _procesar_click(mx, my)
+
+
+def _procesar_click(mx, my):
+    """Encuentra que palabra contiene el clic (mx,my en px de la ventana)."""
+    cont_padre = _ROOT.op("elecciones_container")
+    if not cont_padre:
+        return
+
+    # Coordenadas del contenedor en pantalla (aproximadas: usar el Transform TOP
+    # que renderiza elecciones_container; por defecto asumimos pos 0,0)
+    base_x = cont_padre.par.posx.eval() if hasattr(cont_padre.par, "posx") else 0
+    base_y = cont_padre.par.posy.eval() if hasattr(cont_padre.par, "posy") else 0
+
+    for comp in cont_padre.children:
+        if not comp.name.startswith("ui_"):
+            continue
+        grupo_id = comp.name.replace("ui_", "", 1)
+        gx = comp.par.posx.eval() if hasattr(comp.par, "posx") else 0
+        gy = comp.par.posy.eval() if hasattr(comp.par, "posy") else 0
+        for top in comp.children:
+            if not top.name.startswith("w_"):
+                continue
+            # Caja del texto: posx, posy, resw, resh
+            tx = gx + top.par.posx.eval()
+            ty = gy + top.par.posy.eval()
+            tw = top.par.resolutionw.eval()
+            th = top.par.resolutionh.eval()
+            if (tx <= mx <= tx + tw) and (ty <= my <= ty + th):
+                valor = top.par.text.eval()
+                _toggle(grupo_id, valor, top)
+                return
+
+
+def _toggle(grupo_id, valor, top):
+    """Cambia el estado de una palabra y avisa a Python."""
+    global _SELECCION
+    estado = _SELECCION.setdefault(grupo_id, {})
+    activo = not estado.get(valor, False)
+    estado[valor] = activo
+    _aplicar_estado(top, activo)
+
+    # Enviar a Python: /flujos/seleccion <grupo> <valor> <1|0>
+    osc_out = _ROOT.op("osc_out1")
+    if osc_out:
+        try:
+            osc_out.sendOSC("/flujos/seleccion", [grupo_id, valor, 1 if activo else 0])
+        except Exception as e:
+            print(f"[elecciones_ui] Error OSC: {e}")
+    print(f"[elecciones_ui] {'+' if activo else '-'} {grupo_id}: {valor}")

@@ -7,6 +7,32 @@ Las versiones corresponden a entregas funcionales, no a releases semánticas.
 
 ---
 
+## [Entrega 19] — 2026-08-04
+
+### Cambiado
+- **Traductor EN→ES cambiado a `translategemma`** (`traducir_metadata.py`, `improve_db.py` `_traducir_metadata`): auditoría cruzada de keywords EN (crudo de visión) vs ES reveló que la basura (`户外`, `ripio/grava`, checklist de `banquina/manubrio/...`) la generaba el **traductor qwen2.5:3b** (colapso en checklist/chino), NO la visión (minicpm da EN limpio). Batería de 11 casos reales de la DB: qwen2.5:3b **score −2.3** (3 chino, 5 checklist, 5 slash) vs **translategemma +1.6** (0/0/0, fiel, 10/11 conteo exacto). Modelos grandes sin ventaja y más pesados (requisito: hardware limitado) → se eligió translategemma (3.3GB, 4.3B, especializado). Nuevo `MODELO_TRADUCCION_DEFAULT = "translategemma"`.
+- **Re-traducción masiva aplicada**: `traducir_metadata.py --paso keywords --mode update` → **702 ok / 0 errores**. Verificado en DB: chino 15+ → 0, slash 55 → 1, checklist 90 → 1.
+- **GLOSARIO eliminado** de `traducir_metadata.py`: test A/B demostró que era **decorativo** (0 términos usados por translategemma en 11 casos con/sin) y su regla "usá EXACTAMENTE" empujaba al modelo viejo al checklist/slash. Se quitaron la constante `GLOSARIO` y la regla 5 de `PROMPT_TRADUCIR_AMBOS`/`PROMPT_TRADUCIR_KEYWORDS`.
+- **Capa semántica eliminada de `refinar_keywords.py`** (ahora 2 capas: léxica + diccionario): `--usar-embeddings` con `paraphrase-multilingual:latest` introducía **falsos sinónimos** que degradaban el dominio (`ciclismo→deporte`, `nublado→soleado`, `parche→parque`, `cesta→ruta`). Se quitó por completo (no queda ni como opción): `refinar_con_embeddings()`, `similitud_coseno()`, `MODELO_EMBEDDINGS`, args `--usar-embeddings`/`--umbral`, e import `math`.
+- **`ciclismo`/`ciclista(s)` dejaron de colapsar** a `deporte`/`personas` en `SINONIMOS` de `refinar_keywords.py`: `ciclismo` pasó a término canónico propio (variantes: ciclista, ciclistas, cycling, cyclist, cyclists, pedaleando).
+- **TUI `opcion_refinar_keywords`** (`flujos.py`): se eliminaron las opciones de embeddings (antes 2 "capa semántica" y 4 "dry-run con embeddings"); ahora opción 1 "Refinar todos (update)" y 2 "Previsualizar (dry-run)".
+
+---
+
+### Cambiado
+- **Transcripción con VAD + filtro de alucinaciones** (`transcribe.py`, `improve_db.py`): auditoría de las 217 transcripciones detectó **alucinaciones masivas de Whisper** — solo 144/217 (66%) en español; 73 en idiomas aleatorios (noruego-nynorsk 28, inglés 36, italiano 4, javanés 2, coreano 1, portugués 1, turco 1), 58 de los 73 con confianza de idioma < 0.5. Causa raíz: faster-whisper corría **sin VAD** sobre clips de **ruido ambiental (cámaras GoPro sin habla)**, con `language=None` y `condition_on_previous_text=True` → inventaba basura repetitiva ("I'm going to finish it" ×10, "Bu ne? Bu ne?"), incluso con `language_probability` alta (0.79 → "4-5-6-7-8"). Factores desencadenados: idioma aleatorio en silencio, sin detección de voz, lazo de repetición auto-alimentado y sin filtro de texto.
+- **Removido el paso `transcribe_zg`** de `improve_db.py`: era redundante — con el `run_transcribe` nuevo (VAD + autoidioma + filtro de confianza + no guarda basura en `sin_voz`) ya no queda "zona gris" que arreglar: mismo motor y parámetros, en una regeneración completa (`--mode replace`) `transcribe` cubre todo. Se eliminaron `_query_zona_gris`, `check_transcribe_zg`, `run_transcribe_zg`, la entrada del REGISTRY, de `DEP_ORDER` y del docstring. La doc (AGENTS.md, README.md, mapa de datos, catálogo, nota histórica) quedó sincronizada.
+- **Fix import `clasificar_estado`** (`improve_db.py` `run_transcribe`): el paso usaba `clasificar_estado()` pero el import solo traía `transcribir_audio` → NameError al guardar (`name 'clasificar_estado' is not defined`), por lo que las transcripciones se procesaban (VAD OK) pero **no se escribían en la DB**. Se agregó `clasificar_estado` a ambos imports (normal + fallback con `sys.path`).
+- **`skip` auto-recuperable en `run_transcribe`**: la query de modo `skip` ahora considera pendiente **solo** a los archivos **sin `whisper_estado`** (ni tocados, ni corte a mitad de batch / checkpoint), retomando cualquier corrida interrumpida (Ctrl+C/cuelgue) en la siguiente pasada con `--mode skip`. El marcador de "terminado" es `whisper_estado` y **no** `whisper_segments`, porque con el ajuste de abajo un archivo `sin_voz` queda con estado pero sin segmentos (usar `whisper_segments` re-transcribiría los `sin_voz` en cada corrida).
+
+### Añadido
+- **`transcribe.py` gana soporte VAD + confianza**: parámetros `vad_filter`/`vad_parameters`, `condition_on_previous_text`, umbrales (`no_speech_threshold`, `compression_ratio_threshold`, `log_prob_threshold`), y `incluir_metricas` → cada segmento lleva `promedio_logprob`, `no_hay_habla_prob`, `ratio_compresion`. Nuevos helpers `filtrar_segmentos_confiables()` (logprob ≥ -0.8, no_habla < 0.6, compresión < 2.4, duración ≥ 1.5 s) y `clasificar_estado()` (`ok` | `sin_voz`). Retrocompatible con segmentos sin métricas.
+- **`run_transcribe` en `improve_db.py`** mejorado: ahora usa modelo `small` + VAD + autodetección + filtro de confianza, escribe `whisper_estado`, y usa checkpoint incremental (`Checkpoint` cada 20) en vez de un único commit final.
+- **`run_transcribe` no guarda basura en `sin_voz`**: ahora `run_transcribe` solo persiste `whisper_segments`/`whisper_info` cuando clasifica `ok`; en ruido/silencio (`sin_voz`) deja únicamente la marca `whisper_estado=sin_voz`.
+- **Docs**: `AGENTS.md` sincronizado (mapa de datos, catálogo, nota histórica).
+
+---
+
 ## [Entrega 17] — 2026-08-03
 
 ### Cambiado

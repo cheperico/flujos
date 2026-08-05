@@ -161,6 +161,13 @@ def transcribir_audio(
     language: Optional[str] = None,
     word_timestamps: bool = False,
     extraer_audio: bool = True,
+    vad_filter: bool = False,
+    vad_parameters: Optional[dict] = None,
+    condition_on_previous_text: bool = True,
+    no_speech_threshold: float = 0.6,
+    compression_ratio_threshold: float = 2.4,
+    log_prob_threshold: float = -1.0,
+    incluir_metricas: bool = False,
 ) -> tuple[list[dict], object]:
     """
     Transcribe un archivo de audio o video a texto usando faster-whisper.
@@ -178,10 +185,31 @@ def transcribir_audio(
         word_timestamps: Si True, incluye marcas por palabra.
         extraer_audio: Si True y el archivo es un video, extrae audio automáticamente.
                        Si False, pasa el video directamente a whisper (puede fallar).
+        vad_filter: Si True, usa Silero VAD para transcribir SOLO los tramos con
+                    voz humana, ignorando silencio/ruido ambiental. Es el gate
+                    clave para no alucinar sobre clips sin habla.
+        vad_parameters: Dict de parámetros para VAD (threshold, min_speech_duration_ms,
+                        min_silence_duration_ms, speech_pad_ms). Si None usa defaults
+                        de faster-whisper. Recomendado para cámara de acción:
+                        {"min_speech_duration_ms": 300}.
+        condition_on_previous_text: Si False, transcribe cada tramo sin usar el
+                    texto anterior — corta los lazos de repetición típicos de
+                    las alucinaciones sobre ruido (ej: "I'm going to finish it" ×10).
+        no_speech_threshold: Prob bajo el cual un tramo se considera "no habla".
+                    Aceptar texto necesita no_speech_prob < this.
+        compression_ratio_threshold: gzip(texto)/len(texto). Si supera este valor,
+                    el tramo es texto muy repetitivo (alucinación) y se descarta.
+        log_prob_threshold: avg_logprob por token. Aceptar texto necesita
+                    avg_logprob >= log_prob_threshold (proxy de confianza/inteligibilidad;
+                    recomendado -0.8 para exigir texto asentado).
+        incluir_metricas: Si True, cada segmento incluye además los campos
+                    "promedio_logprob", "no_hay_habla_prob" y "ratio_compresion",
+                    útiles para filtrar alucinaciones post-hoc.
 
     Returns:
         Tuple de (segmentos, info_deteccion).
-        segmentos: lista de dicts con "inicio", "fin", "texto".
+        segmentos: lista de dicts con "inicio", "fin", "texto"
+                   (+ metricas si incluir_metricas=True).
         info_deteccion: objeto con .language y .language_probability.
 
     Raises:
@@ -231,6 +259,12 @@ def transcribir_audio(
             beam_size=beam_size,
             language=language,
             word_timestamps=word_timestamps,
+            vad_filter=vad_filter,
+            vad_parameters=vad_parameters,
+            condition_on_previous_text=condition_on_previous_text,
+            no_speech_threshold=no_speech_threshold,
+            compression_ratio_threshold=compression_ratio_threshold,
+            log_prob_threshold=log_prob_threshold,
         )
 
         logger.info(
@@ -240,11 +274,16 @@ def transcribir_audio(
 
         resultado = []
         for segment in segments:
-            resultado.append({
+            seg_dict = {
                 "inicio": segment.start,
                 "fin": segment.end,
                 "texto": segment.text.strip(),
-            })
+            }
+            if incluir_metricas:
+                seg_dict["promedio_logprob"] = float(getattr(segment, "avg_logprob", 0.0))
+                seg_dict["no_hay_habla_prob"] = float(getattr(segment, "no_speech_prob", 0.0))
+                seg_dict["ratio_compresion"] = float(getattr(segment, "compression_ratio", 0.0))
+            resultado.append(seg_dict)
 
         logger.info("Transcripción completa: %d segmentos", len(resultado))
         return resultado, info
@@ -264,6 +303,90 @@ def transcribir_audio(
                     parent.rmdir()
             except Exception:
                 pass
+
+
+# ── Filtrado por confianza / detección de alucinaciones ──────────────────────
+# Umbrales por defecto. La combinación busca texto "asentado" (avg_logprob alto),
+# sin repetición (compression_ratio bajo) y que Whisper no haya marcado "no habla".
+
+UMBRAL_LOGPROB = -0.8
+UMBRAL_NO_HABLA = 0.6
+UMBRAL_COMPRESION = 2.4
+MIN_DURACION_ACEPTADA_S = 1.5
+
+
+def filtrar_segmentos_confiables(
+    segmentos: list[dict],
+    logprob_umbral: float = UMBRAL_LOGPROB,
+    no_habla_umbral: float = UMBRAL_NO_HABLA,
+    compresion_umbral: float = UMBRAL_COMPRESION,
+    min_duracion_s: float = MIN_DURACION_ACEPTADA_S,
+) -> list[dict]:
+    """
+    Filtra los segmentos cuyo texto parece una alucinación de Whisper
+    (sobre ruido/silencio). Devuelve solo los segmentos confiables.
+
+    Cada segmento debe tener las métricas `promedio_logprob`,
+    `no_hay_habla_prob` y `ratio_compresion` (generadas con
+    `transcribir_audio(..., incluir_metricas=True)`).
+
+    Criterio de aceptación (todos a la vez):
+      - promedio_logprob >= logprob_umbral          (texto confiado/inteligible)
+      - no_hay_habla_prob  <  no_habla_umbral       (Whisper NO cree que sea silencio)
+      - ratio_compresion   <  compresion_umbral     (texto NO repetitivo)
+      - duración del segmento >= min_duracion_s     (no aceptar blips de 0.x s)
+
+    Si un segmento no tiene métricas (vino sin `incluir_metricas`), se conserva
+    (no se puede evaluar → no se descarta por falta de datos).
+    """
+    confiables = []
+    for sg in segmentos:
+        inicio = sg.get("inicio", 0)
+        fin = sg.get("fin", 0)
+        texto = (sg.get("texto") or "").strip()
+        if not texto:
+            continue
+        if "promedio_logprob" in sg:
+            lp = sg.get("promedio_logprob")
+            ns = sg.get("no_hay_habla_prob")
+            cr = sg.get("ratio_compresion")
+            if lp is not None and lp < logprob_umbral:
+                continue
+            if ns is not None and ns >= no_habla_umbral:
+                continue
+            if cr is not None and cr >= compresion_umbral:
+                continue
+        if (fin - inicio) < min_duracion_s:
+            continue
+        confiables.append(sg)
+    return confiables
+
+
+def clasificar_estado(segmentos: list[dict]) -> str:
+    """
+    Clasifica el resultado de una transcripción según tenga o no texto
+    confiable tras filtrar alucinaciones.
+
+    Estados posibles:
+      - "ok":        hay >=1 segmento confiable (voz real + texto asentado).
+      - "sin_voz":   VAD no arrojó segmentos, o los arrojados no pasan el
+                     filtro de confianza → audio de ruido/silencio sin habla
+                     útil (tu intuición: si Whisper no lo oyó, un humano tampoco).
+      - "dudosa":    hay segmentos pero TODOS quedaron descartados por duración
+                     o métricas parciales; caso límite para revisión humana.
+
+    Con VAD activado, un clip de solo ruido devuelve 0 segmentos → sin_voz.
+    """
+    if not segmentos:
+        return "sin_voz"
+    texto_total = " ".join(s.get("texto", "") for s in segmentos).strip()
+    if not texto_total:
+        return "sin_voz"
+    confiables = filtrar_segmentos_confiables(segmentos)
+    if confiables:
+        return "ok"
+    # Hay texto crudo pero nada pasa el filtro → el audio es de mala calidad.
+    return "sin_voz"
 
 
 def segmentos_a_srt(segmentos: list[dict], archivo_salida: str):

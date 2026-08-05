@@ -212,7 +212,7 @@ Todas las operaciones que modifican la DB preguntan el modo
 | `video_analysis.py` | Análisis de videos (keyframes + descripción) |
 | `analyze_video.py` | Scene-change detection + análisis visual |
 | `tag_images.py` | Etiquetar imágenes (modo DB o sidecar) |
-| `transcribe.py` | Transcripción vía faster-whisper (independiente, sin DB) |
+| `transcribe.py` | Transcripción vía faster-whisper (independiente, sin DB) — VAD + filtro de confianza |
 | `transcribe_media.py` | Transcripción desde DB |
 | `batch_selector.py` | Selección de mejor imagen de tanda con IA |
 | `clustering.py` | Agrupamiento por tags o embeddings |
@@ -627,7 +627,7 @@ pip install torch --index-url https://download.pytorch.org/whl/cu121
 │   ├── ingest.py              # Ingesta de medios
 │   ├── ingest_gpx.py          # Ingesta de tracks GPS (GPX)
 │   ├── import_telegram.py     # Importar export de Telegram
-│   ├── improve_db.py          # Post-procesamiento (9 pasos)
+│   ├── improve_db.py          # Post-procesamiento (10 pasos)
 │   ├── query.py               # Consultas a DB
 │   ├── exportar_csv.py        # Exportar DB a CSV
 │   ├── relocate.py            # Relocalizar medios
