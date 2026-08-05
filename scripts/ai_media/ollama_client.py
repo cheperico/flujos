@@ -7,16 +7,17 @@ Proporciona una interfaz unificada para:
   - Listar y seleccionar modelos disponibles
 
 Modelos de visión recomendados (ordenados por capacidad):
-  1. qwen2.5vl:3b (3.2 GB) — liviano, sigue bien prompts complejos (default)
-  2. qwen2.5vl:latest (6.0 GB) — mejor equilibrio calidad/velocidad
-  3. llama3.2-vision:latest (7.8 GB) — buena calidad general
-  4. gemma4:e4b (9.6 GB) — multimodal potente
-  5. moondream:latest (1.7 GB) — rápido y ligero, pero NO sigue prompts complejos
+  1. minicpm-v4.6:latest (1.6 GB) — GANADOR de la comparativa (Ago 2026), default (MODELO_VISION_DEFAULT)
+  2. qwen2.5vl:3b (3.2 GB) — liviano, sigue bien prompts complejos
+  3. qwen2.5vl:latest (6.0 GB) — mejor equilibrio calidad/velocidad
+  4. llama3.2-vision:latest (7.8 GB) — buena calidad general
+  5. gemma4:e4b (9.6 GB) — multimodal potente
+  6. moondream:latest (1.7 GB) — rápido y ligero, pero NO sigue prompts complejos
 
 Uso básico:
     from scripts.ai_media.ollama_client import OllamaVision
 
-    cliente = OllamaVision(modelo="qwen2.5vl:latest")
+    cliente = OllamaVision(modelo="minicpm-v4.6:latest")
     respuesta = cliente.analizar_imagen("ruta/a/imagen.jpg",
                                         "Describí esta imagen en una frase")
     print(respuesta)
@@ -37,6 +38,7 @@ logger = logging.getLogger(__name__)
 
 # Modelos de visión disponibles en el sistema
 MODELOS_VISION = [
+    "minicpm-v4.6:latest",
     "qwen2.5vl:latest",
     "qwen2.5vl:3b",
     "moondream:latest",
@@ -171,7 +173,7 @@ def asegurar_ollama(espera_max: float = 30.0, auto_iniciar: bool = True) -> bool
 class OllamaVision:
     """Cliente para analizar imágenes usando modelos de visión de Ollama."""
 
-    def __init__(self, modelo: str = "qwen2.5vl:3b", timeout: int = 180,
+    def __init__(self, modelo: str = "minicpm-v4.6:latest", timeout: int = 180,
                  num_ctx: int = NUM_CTX_DEFAULT):
         """
         Args:

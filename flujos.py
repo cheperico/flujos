@@ -132,6 +132,26 @@ def pausa():
     input("\n  Presiona Enter para continuar...")
 
 
+def _buscar_gpx_disponibles() -> list[str]:
+    """Busca archivos .gpx en tracks/ (y en la raiz del proyecto) para
+    ofrecerlos como opciones en el menu de ingesta GPX. Devuelve rutas
+    ordenadas alfabeticamente (absolutas si estan fuera de la raiz)."""
+    raiz = os.path.dirname(os.path.abspath(__file__))
+    carpetas = [os.path.join(raiz, "tracks"), raiz]
+    candidatos: list[str] = []
+    vistos: set[str] = set()
+    for carpeta in carpetas:
+        if not os.path.isdir(carpeta):
+            continue
+        for nombre in sorted(os.listdir(carpeta)):
+            if nombre.lower().endswith(".gpx"):
+                ruta = os.path.join(carpeta, nombre)
+                if ruta not in vistos:
+                    vistos.add(ruta)
+                    candidatos.append(ruta)
+    return candidatos
+
+
 def mostrar_bienvenida():
     limpiar_pantalla()
     print("███████╗██╗     ██╗   ██╗     ██╗ ██████╗ ███████╗")
@@ -1371,9 +1391,38 @@ def opcion_ingestar_gpx(db_path: str | None = None):
     limpiar_pantalla()
     print("=== INGERIR TRACK GPS (GPX) ===\n")
 
-    gpx_path = input("  Ruta al archivo .gpx [tracks/Al_FaB_Tucuman.gpx]: ").strip()
+    disponibles = _buscar_gpx_disponibles()
+    if disponibles:
+        print("  Archivos .gpx encontrados:")
+        for i, ruta in enumerate(disponibles, 1):
+            print(f"    {i}) {ruta}")
+        print("    0) Ingresar ruta manual")
+        print()
+        eleccion = input(f"  Seleccionar track [1]: ").strip()
+        if eleccion == "0":
+            gpx_path = input("  Ruta al archivo .gpx: ").strip()
+        elif eleccion == "":
+            gpx_path = disponibles[0]
+        else:
+            try:
+                idx = int(eleccion)
+                if 1 <= idx <= len(disponibles):
+                    gpx_path = disponibles[idx - 1]
+                else:
+                    print(f"  Opcion invalida: {eleccion}")
+                    pausa()
+                    return
+            except ValueError:
+                print(f"  Opcion invalida: {eleccion}")
+                pausa()
+                return
+    else:
+        gpx_path = input("  Ruta al archivo .gpx: ").strip()
+
     if not gpx_path:
-        gpx_path = "tracks/Al_FaB_Tucuman.gpx"
+        print("  No se ingreso ninguna ruta.")
+        pausa()
+        return
     if not os.path.isfile(gpx_path):
         print(f"  ❌ Archivo no encontrado: {gpx_path}")
         pausa()

@@ -1,60 +1,100 @@
 """
-elecciones_ui.dat — Callbacks para elecciones_ui_callbacks (Script DAT).
-Genera las nubes de elecciones seleccionables en TD a partir de las tablas
-elec_<id> que llena osc_callbacks.dat (OSC /flujos/elecciones/<id>).
+elecciones_ui.dat — Rediseño de la UI de "nubes de elecciones" (Rediseño 2026)
 
-VINCULACION EN TD:
-  - Crear un Script DAT 'elecciones_ui' (o reutilizar generar_nube)
+PROBLEMA DEL DISEÑO ANTERIOR:
+  - Se creaban Text TOPs individuales (w_###) dentro de Base COMPs ui_<id>.
+  - Los Text TOP son generadores de imagen: NO tienen posicion en un espacio
+    2D compartido (par.posx/posy aplican a Panel COMPs, no a Text TOPs).
+  - Para ver N Text TOPs superpuestos habia que agregar Transform TOP +
+    Composite TOP por palabra = red enorme e inusable.
+
+SOLUCION (patrón idiomático de TD: Panel COMPs + Panel CHOP + Render):
+  - Cada palabra = un Button COMP (un tipo de Panel COMP) con su texto como
+    label, tamanio y posicion segun peso, dentro del contenedor
+    elecciones_container (Container COMP).
+  - Un unico Render (Top Render COMP) apuntando a elecciones_container
+    compone todos los paneles automaticamente: el usuario ve la nube sin
+    armar Composite ni Transform/Text TOPs.
+  - Un Panel CHOP sobre elecciones_container lee el estado de cada boton.
+  - Un CHOP Execute DAT (creado por este script) detecta los toggles y
+    devuelve la seleccion a Python por el OSC Out DAT osc_out1:
+        /flujos/seleccion <grupo> <valor> 1|0
+
+VINCULACION EN TD (una sola vez):
+  - Crear un Script DAT 'elecciones_ui' en /project2
   - Seleccionar su DAT interno elecciones_ui_callbacks
   - Parametros: File -> td/elecciones_ui.dat, Sync to File = ON
+  - Pulsar "Generar UI" (o el parametro "Generar") en la pestana Elecciones.
 
-REQUIERE (crear una vez en TD):
-  - Para cada grupo enviado desde Python: Table DAT 'elec_<id>'
-      (ej: elec_horas, elec_municipios, elec_colores, elec_tags, ...)
-    Columnas: [titulo, valor, peso]  (las llena osc_callbacks.dat)
-  - Un Base COMP 'elecciones_container' donde se crean los grupos
-  - Opcional: Mouse CHOP 'mouse1' para seleccionar con clic
-  - Opcional: OSC Out DAT 'osc_out1' (127.0.0.1:9001) para devolver
-    la seleccion a Python: /flujos/seleccion <grupo> <valor> <activo>
+GENERA AUTOMATICAMENTE (no hay que crearlos a mano):
+  - elecciones_container   (Container COMP) si no existe.
+  - ui_<id>                (Container COMP por grupo) dentro del contenedor.
+  - w_<grupo>_###          (Button COMP por palabra) + titulo_<grupo>.
+  - elecciones_panelchop   (Panel CHOP -> componente elecciones_container,
+                            select=value0).
+  - elecciones_exec        (CHOP Execute DAT) que detecta toggles y dispara
+                            el OSC hacia osc_out1.
+  - elecciones_render      (Top Render COMP -> elecciones_container), si la
+                            API lo permite; si falla, se crea a mano (ver
+                            instrucciones al final del archivo).
+
+CREADO UNA SOLA VEZ POR EL USUARIO:
+  - osc_out1               (OSC Out DAT) hacia 127.0.0.1:9001 (TD -> Python).
+  - elec_<id>              (Table DAT por grupo: [titulo, valor, peso]).
+  - Las tablas elec_* las llena osc_callbacks.dat desde /flujos/elecciones/<id>.
 
 COMO CRECER:
   El script escanea TODAS las tablas que empiecen con 'elec_' en la raiz.
-  Agregar un grupo nuevo en Python (scripts/elecciones.py) y su tabla
-  elec_<id> en TD -> la UI lo muestra automaticamente.
+  Agregar un grupo nuevo -> su tabla elec_<id> aparece en la UI al pulsar
+  "Generar".
 
-INTERACCION (mouse):
-  - Clic sobre una palabra -> toggle activo (visual bold/opacidad)
-  - Envia a Python: /flujos/seleccion <grupo> <valor> 1|0
+REQUIERE que el contenedor este "abierto" como Panel (Node Viewer de tipo
+Control Panel) o que elecciones_render apunte a el, para que TD ejecute la
+interaccion de mouse/touch sobre los botones.
 """
 
 # Raiz del proyecto (cambiar si no es /project2)
 _ROOT = op("/project2")
 
-# Configuracion visual
-TEXTO_MIN = 12
-TEXTO_MAX = 56
-MARGEN_X = 40
-MARGEN_Y = 30
-TAMANO_GRUPO_X = 300   # ancho del contenedor de cada grupo
-TAMANO_GRUPO_Y = 240   # alto del contenedor de cada grupo
-GAP_GRUPOS = 40        # separacion entre grupos
+# Nombre del contenedor raiz de la nube
+CONTENEDOR = "elecciones_container"
 
-# Estado de seleccion: {grupo: {valor: True/False}}
+# Configuracion visual (en pixeles, panel units)
+ANCHO_LIENZO = 1440
+ALTO_LIENZO = 900
+ANCHO_GRUPO = 440
+ALTO_GRUPO = 820
+GAP_GRUPOS = 50
+MARGEN_GRUPO_X = 30
+MARGEN_GRUPO_Y = 60       # margen superior para el titulo del grupo
+ANCHO_BASE = 70           # ancho minimo de un boton
+ANCHO_MAX = 220           # ancho maximo de un boton (segun peso)
+ALTO_BASE = 30
+ALTO_MAX = 64
+GAP_BOTONES = 8
+COLUMNAS_GRUPO = 3
+FONT_MIN = 16
+FONT_MAX = 28
+
+# Estados de seleccion {grupo: {valor: True/False}} (solo persistencia local)
 _SELECCION = {}
 
 
 def onCook(scriptOp):
+    """
+    No hace nada: la deteccion de clics es EVENT-DRIVEN (CHOP Execute DAT
+    'elecciones_exec' creado por este script sobre el Panel CHOP). Ese DAT
+    llama a osc_out1.sendOSC() cuando un boton cambia de estado.
+    """
     pass
 
 
 def onPulse(par):
     if par.name == "Generar":
         print("[elecciones_ui] Generando UI de elecciones...")
-        generar_ui()
+        crear_ui()
     elif par.name == "Limpiar":
-        global _SELECCION
-        _SELECCION = {}
-        generar_ui()
+        limpiar_seleccion()
         print("[elecciones_ui] Seleccion limpiada")
 
 
@@ -64,10 +104,9 @@ def onSetupParameters(scriptOp):
     page.appendPulse("Limpiar", label="Limpiar seleccion")
 
 
-# ──────────────────────────────────────────────────────────────────
-# Utilidades
-# ──────────────────────────────────────────────────────────────────
-
+# ───────────────────────────────────────────────────────────────
+# Lectura de datos
+# ───────────────────────────────────────────────────────────────
 
 def _listar_tablas_elec():
     """Devuelve los ids de grupos presentes: tablas elec_<id> en la raiz."""
@@ -82,7 +121,7 @@ def _leer_grupo(grupo_id):
     """Lee elec_<id> -> (titulo, [(valor, peso)])."""
     tabla = _ROOT.op("elec_" + grupo_id)
     if not tabla:
-        return None, []
+        return grupo_id, []
     titulo = str(tabla[1, 0]) if tabla.numRows > 1 and tabla[1, 0] else grupo_id
     items = []
     for row in range(1, tabla.numRows):
@@ -98,189 +137,391 @@ def _leer_grupo(grupo_id):
     return titulo, items
 
 
-def _crear_contenedor(nombre):
-    """Crea (o reutiliza) el contenedor ui_<nombre> dentro de elecciones_container."""
-    cont_padre = _ROOT.op("elecciones_container")
-    if not cont_padre:
-        print("[elecciones_ui] ERROR: no existe elecciones_container en la raiz")
+def _normalizar_pesos(items):
+    """Normaliza pesos a 0..1 manteniendo el orden original."""
+    pesos = [p for _, p in items]
+    max_peso = max(pesos) if pesos else 1.0
+    if max_peso <= 0:
+        max_peso = 1.0
+    return [(v, p / max_peso) for v, p in items]
+
+
+# ───────────────────────────────────────────────────────────────
+# Creacion de operadores de soporte (una sola vez cada uno)
+# ───────────────────────────────────────────────────────────────
+
+def _param(op, nombre, valor):
+    """Establece un parametro si existe (robustez ante nombres de version)."""
+    try:
+        if op is not None and op.par.haspar(nombre):
+            op.par[nombre] = valor
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def _clase_global(fragmentos):
+    """Devuelve la clase global de TD que coincida con algun fragmento."""
+    for frag in fragmentos:
+        for nombre, valor in list(globals().items()):
+            if isinstance(valor, type) and frag in nombre.lower():
+                return valor
+    return None
+
+
+def _asegurar_contenedor():
+    """Crea (si hace falta) el Container COMP raiz de la nube."""
+    cont = _ROOT.op(CONTENEDOR)
+    if cont is None:
+        cont = _ROOT.create(containerCOMP, CONTENEDOR)
+        cont.nodeY = 300
+    # Tamano del lienzo y layout libre (align none -> los hijos usan x/y).
+    _param(cont, "w", ANCHO_LIENZO)
+    _param(cont, "h", ALTO_LIENZO)
+    _param(cont, "align", "none")
+    return cont
+
+
+def _asegurar_panelchop(cont):
+    """Crea (si hace falta) el Panel CHOP que lee el estado de los botones."""
+    pc = _ROOT.op("elecciones_panelchop")
+    if pc is None:
+        pc = _ROOT.create(panelCHOP, "elecciones_panelchop")
+    _param(pc, "component", cont.path)
+    # value0 = estado on/off de cada Button COMP.
+    _param(pc, "select", "value0")
+    return pc
+
+
+def _asegurar_render(cont):
+    """
+    Crea (mejor esfuerzo) el Top Render COMP que compone el contenedor de
+    paneles a una textura. El opType y el nombre del parametro de destino
+    varian segun la version de TD; por eso se prueban varias alternativas.
+    Devuelve el render o None (en ese caso el usuario lo crea a mano).
+    """
+    render = _ROOT.op("elecciones_render")
+    if render is None:
+        cls = _clase_global(["tprender", "toprender"])
+        if cls is not None:
+            try:
+                render = _ROOT.create(cls, "elecciones_render")
+            except Exception:
+                render = None
+    if render is not None:
+        # El parametro que apunta al contenedor se llama distinto por version.
+        for nombre in ("container", "component", "cm_target", "target"):
+            if _param(render, nombre, cont.path):
+                break
+        _param(render, "resolutionw", ANCHO_LIENZO)
+        _param(render, "resolutionh", ALTO_LIENZO)
+    return render
+
+
+def _asegurar_exec(cont):
+    """
+    Detecta (o crea) el Panel Execute DAT que convierte los clicks de los
+    botones en OSC hacia el cerebro.
+
+    En TD 2025.32820 los Execute DATs se crean con la clase global directa
+    (panelexecuteDAT) — los strings "chopexec" NO se resuelven. El patron
+    correcto para detectar toggles de Button COMPs es el Panel Execute DAT
+    (no el viejo CHOP Execute): monitorea elecciones_container y por cada
+    cambio llama onOffToOn/onOnToOff con panelValue.owner = boton tocado.
+
+    Si no se puede crear por codigo, indica crear el operador a mano UNA vez:
+      - COMP -> Panel Execute (o DAT -> Panel Execute DAT)
+      - Nombre: elecciones_exec
+      - Panels  -> /project2/elecciones_container
+      - Panel Value -> state
+      - Toggles: Off to On = ON, On to Off = ON, Value Change = OFF
+    """
+    exec_d = _ROOT.op("elecciones_exec")
+    if exec_d is None:
+        try:
+            exec_d = _ROOT.create(panelexecuteDAT, "elecciones_exec")
+        except Exception as e:
+            print("[elecciones_ui] No se pudo crear el Panel Execute DAT:", e)
+            exec_d = None
+    if exec_d is None:
+        print("[elecciones_ui] Crear a mano un Panel Execute DAT llamado "
+              "'elecciones_exec' en /project2:")
+        print("    Panels -> %s | Panel Value -> state" % cont.path)
+        print("    Off to On = ON, On to Off = ON")
         return None
-    comp = cont_padre.op(nombre)
-    if comp:
-        # Limpiar Text TOPs viejos
-        for child in comp.children:
-            if child.name.startswith("w_"):
-                child.destroy()
-        return comp
-    return cont_padre.create(baseCOMP, nombre)
+
+    # Configurar el panel monitoreado y los toggles (idempotente).
+    _param(exec_d, "panels", cont.path)
+    _param(exec_d, "panelvalue", "state")
+    _param(exec_d, "offtoon", 1)
+    _param(exec_d, "ontooff", 1)
+    _param(exec_d, "valuechange", 0)
+
+    # Escribir los callbacks en el DAT interno del execute.
+    _escribir_callbacks_exec(exec_d)
+    return exec_d
 
 
-def _posicion_espiral(idx, n, radio_max=110):
-    """Posicion en espiral alrededor del centro del contenedor."""
-    import math
-    angulo = idx * 2.39996  # angulo aureo (137.5 grados)
-    radio = radio_max * (idx / max(n, 1)) ** 0.5
-    return (int(radio * math.cos(angulo)), int(radio * math.sin(angulo)))
+def _escribir_callbacks_exec(exec_d):
+    """Pone el codigo de callbacks en el DAT interno del CHOP Execute DAT."""
+    codigo = (
+        "# Callbacks del Panel Execute DAT generados por elecciones_ui.dat\n"
+        "def onOffToOn(panelValue):\n"
+        "    _procesar(panelValue, 1)\n"
+        "def onOnToOff(panelValue):\n"
+        "    _procesar(panelValue, 0)\n"
+        "def _procesar(panelValue, activo):\n"
+        "    btn = panelValue.owner\n"
+        "    if btn is None or not btn.valid or not btn.name.startswith('w_'):\n"
+        "        return\n"
+        "    grupo = btn.fetch('grupo')\n"
+        "    valor = btn.fetch('valor')\n"
+        "    if grupo is None or valor is None:\n"
+        "        return\n"
+        "    out = op('osc_out1')\n"
+        "    if out is None:\n"
+        "        return\n"
+        "    try:\n"
+        "        out.sendOSC('/flujos/seleccion', [grupo, valor, int(activo)])\n"
+        "    except Exception as e:\n"
+        "        print('[elecciones_ui] osc_out1 error:', e)\n"
+    )
+    # Los Execute DATs exponen su script como .text; fallback al DAT docked.
+    try:
+        exec_d.text = codigo
+    except Exception:
+        try:
+            for d in exec_d.findChildren(type=textDAT):
+                d.text = codigo
+                break
+        except Exception:
+            pass
 
 
-# ──────────────────────────────────────────────────────────────────
-# Generacion de la UI
-# ──────────────────────────────────────────────────────────────────
+# ───────────────────────────────────────────────────────────────
+# Creacion de los paneles (botones) por grupo
+# ───────────────────────────────────────────────────────────────
+
+def _dims_peso(peso_norm):
+    """Devuelve (ancho, alto, font) segun el peso normalizado 0..1."""
+    ancho = int(ANCHO_BASE + (ANCHO_MAX - ANCHO_BASE) * (peso_norm ** 0.7))
+    alto = int(ALTO_BASE + (ALTO_MAX - ALTO_BASE) * (peso_norm ** 0.7))
+    font = int(FONT_MIN + (FONT_MAX - FONT_MIN) * (peso_norm ** 0.7))
+    return ancho, alto, font
 
 
-def generar_ui():
-    global _SELECCION
-    cont_padre = _ROOT.op("elecciones_container")
-    if not cont_padre:
-        print("[elecciones_ui] ERROR: no existe elecciones_container")
-        return
+def _crear_boton(grupo, idx, valor, peso_norm, x0, y0, cont):
+    """Crea un Button COMP (toggle) para una palabra y lo devuelve."""
+    ancho, alto, font = _dims_peso(peso_norm)
+    nombre = "w_%s_%03d" % (grupo, idx)
+    btn = cont.op(nombre)
+    if btn is None:
+        btn = cont.create(buttonCOMP, nombre)
 
-    # Limpiar contenedores viejos de grupos (ui_*) que ya no existen
-    for child in cont_padre.children:
-        if child.name.startswith("ui_") and child.name not in [
-            "ui_" + gid for gid in _listar_tablas_elec()
-        ]:
+    # Comportamiento: toggle (on/off) al pulsarlo; el estado queda en value0.
+    _param(btn, "buttontype", "toggledown")
+    _param(btn, "label", valor)
+    _param(btn, "x", x0)
+    _param(btn, "y", ALTO_GRUPO - y0 - alto)   # y crece hacia arriba en paneles
+    _param(btn, "w", ancho)
+    _param(btn, "h", alto)
+    _param(btn, "fontsize", font)
+    _param(btn, "scaletofit", "onlyshrink")
+    _param(btn, "alignallow", "ignoremargin")  # no dejar que el padre lo mueva
+    _param(btn, "enable", 1)
+
+    # Guardar grupo/valor como storage accesible desde el CHOP Execute.
+    try:
+        btn.store("grupo", grupo)
+        btn.store("valor", valor)
+    except Exception:
+        pass
+
+    # Aplicar estado visual guardado (seleccionado / no).
+    _aplicar_estado(btn, _SELECCION.get(grupo, {}).get(valor, False))
+    return btn
+
+
+def _crear_titulo(grupo, titulo, cont):
+    """Crea un Button COMP deshabilitado como titulo del grupo."""
+    nombre = "titulo_" + grupo
+    t = cont.op(nombre)
+    if t is None:
+        t = cont.create(buttonCOMP, nombre)
+    _param(t, "buttontype", "momentary")
+    _param(t, "label", titulo)
+    _param(t, "x", MARGEN_GRUPO_X)
+    _param(t, "y", ALTO_GRUPO - 24)
+    _param(t, "w", ANCHO_GRUPO - 2 * MARGEN_GRUPO_X)
+    _param(t, "h", 26)
+    _param(t, "fontsize", 22)
+    _param(t, "bold", 1)
+    _param(t, "enable", 0)   # no interactivo
+    _param(t, "colorr", 0.95)
+    _param(t, "colorg", 0.9)
+    _param(t, "colorb", 0.6)
+    _param(t, "align", "horizcenter")  # el texto queda centrado en el panel
+    return t
+
+
+def _limpiar_grupos(cont):
+    """Destruye los grupos ui_<id> viejos (y con ellos los botones)."""
+    for child in cont.children:
+        if child.name.startswith("ui_"):
             child.destroy()
+
+
+def _crear_grupo(grupo, titulo, items, offset_x):
+    """Crea un grupo ui_<grupo> en el contenedor, posicionado en la nube."""
+    cont_padre = _ROOT.op(CONTENEDOR)
+
+    grupo_cont = cont_padre.op("ui_" + grupo)
+    if grupo_cont is None:
+        grupo_cont = cont_padre.create(containerCOMP, "ui_" + grupo)
+
+    # Posicion del grupo dentro del lienzo: x = offset_x, y centrado.
+    _param(grupo_cont, "x", offset_x)
+    _param(grupo_cont, "y", (ALTO_LIENZO - ALTO_GRUPO) // 2)
+    _param(grupo_cont, "w", ANCHO_GRUPO)
+    _param(grupo_cont, "h", ALTO_GRUPO)
+    _param(grupo_cont, "align", "none")
+
+    _crear_titulo(grupo, titulo, grupo_cont)
+
+    # Disposicion en grilla de la cantidad maxima de columnas.
+    n = len(items)
+    col, fila = 0, 0
+    ancho_fila = [0] * ((n // COLUMNAS_GRUPO) + 1)
+    y_acum = MARGEN_GRUPO_Y
+
+    for idx, (valor, peso_norm) in enumerate(items):
+        ancho, alto, _font = _dims_peso(peso_norm)
+        # El ancho de los botones de esta fila se usa para encolumnar.
+        x0 = MARGEN_GRUPO_X
+        if col > 0:
+            x0 = MARGEN_GRUPO_X + ancho_fila[fila] + GAP_BOTONES
+        _crear_boton(grupo, idx, valor, peso_norm, x0, y_acum, grupo_cont)
+
+        # Actualizar ancho acumulado de la fila para la siguiente columna.
+        fin_columna = MARGEN_GRUPO_X + ancho_fila[fila] + ancho
+        ancho_fila[fila] = max(ancho_fila[fila], ancho)
+
+        col += 1
+        if col >= COLUMNAS_GRUPO and idx < n - 1:
+            col = 0
+            fila += 1
+            ancho_fila.append(0)
+            y_acum += alto + GAP_BOTONES
+
+    return grupo_cont
+
+
+# ───────────────────────────────────────────────────────────────
+# Estado visual de los botones
+# ───────────────────────────────────────────────────────────────
+
+def _aplicar_estado(btn, activo):
+    """Pinta el boton segun este seleccionado o no."""
+    if activo:
+        _param(btn, "colorr", 1.0)
+        _param(btn, "colorg", 0.55)
+        _param(btn, "colorb", 0.2)
+        _param(btn, "bgcolorr", 0.9)
+        _param(btn, "bgcolorg", 0.45)
+        _param(btn, "bgcolorb", 0.1)
+        _param(btn, "bgalpha", 0.85)
+    else:
+        _param(btn, "colorr", 0.85)
+        _param(btn, "colorg", 0.85)
+        _param(btn, "colorb", 0.85)
+        _param(btn, "bgcolorr", 0.2)
+        _param(btn, "bgcolorg", 0.2)
+        _param(btn, "bgcolorb", 0.22)
+        _param(btn, "bgalpha", 0.35)
+
+
+def _sincronizar_estados():
+    """Vuelca _SELECCION a los botones existentes (apariencia visual)."""
+    cont = _ROOT.op(CONTENEDOR)
+    if cont is None:
+        return
+    for grupo_cont in cont.children:
+        if not grupo_cont.name.startswith("ui_"):
+            continue
+        grupo = grupo_cont.name[3:]  # quitar 'ui_'
+        for child in grupo_cont.children:
+            if child.name.startswith("w_"):
+                try:
+                    valor = child.fetch("valor")
+                except Exception:
+                    valor = None
+                activo = _SELECCION.get(grupo, {}).get(valor, False)
+                _aplicar_estado(child, activo)
+
+
+# ───────────────────────────────────────────────────────────────
+# API publica (llamadas desde onPulse)
+# ───────────────────────────────────────────────────────────────
+
+def crear_ui():
+    """Genera/regenera toda la nube de elecciones desde las tablas elec_*."""
+    global _SELECCION
+
+    cont = _asegurar_contenedor()
+    _limpiar_grupos(cont)
 
     grupos = _listar_tablas_elec()
     if not grupos:
         print("[elecciones_ui] No hay tablas elec_* en la raiz")
         return
 
-    cx = MARGEN_X
-    cy = MARGEN_Y
-    for grupo_id in grupos:
-        titulo, items = _leer_grupo(grupo_id)
+    offset_x = MARGEN_GRUPO_X
+    for grupo in grupos:
+        titulo, items = _leer_grupo(grupo)
+        items = _normalizar_pesos(items)
         if not items:
             continue
+        _crear_grupo(grupo, titulo, items, offset_x)
+        offset_x += ANCHO_GRUPO + GAP_GRUPOS
 
-        cont = _crear_contenedor("ui_" + grupo_id)
-        if not cont:
-            continue
+    # Re-aplicar estado visual guardado sobre los botones recreados.
+    _sincronizar_estados()
 
-        # Tamaño fijo del contenedor
-        cont.par.posx = cx
-        cont.par.posy = cy
+    # Infraestructura de deteccion + render (una sola vez).
+    pc = _asegurar_panelchop(cont)
+    _asegurar_exec(cont)
+    _asegurar_render(cont)
 
-        # Titulo del grupo
-        titulo_top = cont.op("titulo")
-        if not titulo_top:
-            titulo_top = cont.create(textTOP, "titulo")
-            titulo_top.par.outputresolution = "custom"
-            titulo_top.par.resolutionw = 260
-            titulo_top.par.resolutionh = 30
-            titulo_top.par.fontcolorr = 0.9
-            titulo_top.par.fontcolorg = 0.9
-            titulo_top.par.fontcolorb = 0.9
-        titulo_top.par.text = titulo
-
-        # Palabras
-        max_peso = max((p for _, p in items), default=1.0) or 1.0
-        n = len(items)
-        for idx, (valor, peso) in enumerate(items):
-            proporcion = peso / max_peso
-            tamano = int(TEXTO_MIN + (TEXTO_MAX - TEXTO_MIN) * (proporcion ** 0.7))
-            px, py = _posicion_espiral(idx, n)
-
-            nombre = f"w_{idx:03d}"
-            top = cont.op(nombre)
-            if not top:
-                top = cont.create(textTOP, nombre)
-                top.par.outputresolution = "custom"
-                top.par.resolutionw = 240
-                top.par.resolutionh = tamano + 16
-                top.par.bgalpha = 0
-            top.par.text = valor
-            top.par.fontsizex = tamano
-            top.par.keepfontratio = 1
-            top.par.posx = px - 120  # centrar aprox
-            top.par.posy = py - tamano // 2
-
-            # Estado de seleccion
-            activo = _SELECCION.get(grupo_id, {}).get(valor, False)
-            _aplicar_estado(top, activo)
-
-        print(f"[elecciones_ui] {grupo_id}: {n} items")
-        cx += TAMANO_GRUPO_X + GAP_GRUPOS
+    print("[elecciones_ui] UI generada para %d grupo(s)" % len(grupos))
 
 
-def _aplicar_estado(top, activo):
-    """Visual del estado de una palabra (bold+color si activa)."""
-    if activo:
-        top.par.bold = 1
-        top.par.fontcolorr = 1.0
-        top.par.fontcolorg = 0.85
-        top.par.fontcolorb = 0.4
-    else:
-        top.par.bold = 0
-        top.par.fontcolorr = 0.75
-        top.par.fontcolorg = 0.75
-        top.par.fontcolorb = 0.75
-
-
-# ──────────────────────────────────────────────────────────────────
-# Seleccion con mouse (si hay Mouse CHOP 'mouse1' y osc_out1)
-# ──────────────────────────────────────────────────────────────────
-
-
-def onFrameStart(frame):
-    """Detecta clics sobre palabras y devuelve la seleccion a Python."""
-    mouse = _ROOT.op("mouse1")
-    if not mouse or mouse.numChans < 5:
-        return
-    if not mouse[0].eval() and mouse[0].prevFrameVal > 0.5:
-        pass  # boton soltado
-    if mouse[0].eval() < 0.5 or mouse[0].prevFrameVal < 0.5:
-        return  # solo en el frame en que se presiona
-
-    mx = mouse[1].eval()
-    my = mouse[2].eval()
-    _procesar_click(mx, my)
-
-
-def _procesar_click(mx, my):
-    """Encuentra que palabra contiene el clic (mx,my en px de la ventana)."""
-    cont_padre = _ROOT.op("elecciones_container")
-    if not cont_padre:
-        return
-
-    # Coordenadas del contenedor en pantalla (aproximadas: usar el Transform TOP
-    # que renderiza elecciones_container; por defecto asumimos pos 0,0)
-    base_x = cont_padre.par.posx.eval() if hasattr(cont_padre.par, "posx") else 0
-    base_y = cont_padre.par.posy.eval() if hasattr(cont_padre.par, "posy") else 0
-
-    for comp in cont_padre.children:
-        if not comp.name.startswith("ui_"):
-            continue
-        grupo_id = comp.name.replace("ui_", "", 1)
-        gx = comp.par.posx.eval() if hasattr(comp.par, "posx") else 0
-        gy = comp.par.posy.eval() if hasattr(comp.par, "posy") else 0
-        for top in comp.children:
-            if not top.name.startswith("w_"):
-                continue
-            # Caja del texto: posx, posy, resw, resh
-            tx = gx + top.par.posx.eval()
-            ty = gy + top.par.posy.eval()
-            tw = top.par.resolutionw.eval()
-            th = top.par.resolutionh.eval()
-            if (tx <= mx <= tx + tw) and (ty <= my <= ty + th):
-                valor = top.par.text.eval()
-                _toggle(grupo_id, valor, top)
-                return
-
-
-def _toggle(grupo_id, valor, top):
-    """Cambia el estado de una palabra y avisa a Python."""
+def limpiar_seleccion():
+    """Limpia la seleccion y apaga todos los botones."""
     global _SELECCION
-    estado = _SELECCION.setdefault(grupo_id, {})
-    activo = not estado.get(valor, False)
-    estado[valor] = activo
-    _aplicar_estado(top, activo)
+    _SELECCION = {}
 
-    # Enviar a Python: /flujos/seleccion <grupo> <valor> <1|0>
-    osc_out = _ROOT.op("osc_out1")
-    if osc_out:
-        try:
-            osc_out.sendOSC("/flujos/seleccion", [grupo_id, valor, 1 if activo else 0])
-        except Exception as e:
-            print(f"[elecciones_ui] Error OSC: {e}")
-    print(f"[elecciones_ui] {'+' if activo else '-'} {grupo_id}: {valor}")
+    cont = _ROOT.op(CONTENEDOR)
+    if cont is not None:
+        for grupo_cont in cont.children:
+            if grupo_cont.name.startswith("ui_"):
+                for child in grupo_cont.children:
+                    if child.name.startswith("w_"):
+                        _param(child, "value0", 0)
+                        _aplicar_estado(child, False)
+
+
+# ───────────────────────────────────────────────────────────────
+# NOTA PARA CREAR A MANO (si _asegurar_render no encontró la API):
+#
+# 1) Crear un COMP de tipo "Top Render" (COMP -> Top Render).
+#    En operadores modernos se llama "Top Render COMP"; en versiones viejas
+#    "Top Render TOP" (familia TOP). Apuntar su parametro "Container" /
+#    "Component" a:  /project2/elecciones_container
+#    (si el parametro lista contenedores, elegir elecciones_container).
+# 2) Resolucion: poner el tamanio del lienzo (ej. 1440x900).
+# 3) Conectar su salida TOP a donde quieras (Null -> Out -> pantalla).
+#
+# Con eso el usuario VE la nube y puede hacer clic sin armar Composite.
+# Tambien se puede ver directamente abriendo el Node Viewer de tipo
+# "Control Panel" sobre /project2/elecciones_container (RMB -> View).
