@@ -1,5 +1,9 @@
 Options -Indexes
 
+# Raíz del proyecto Flujos (desde donde api/servir_medio.php resuelve rutas
+# relativas de la DB, ej: n\telegram\...). Ajustar a la ruta real de la instalación.
+SetEnv FLUJOS_ROOT "F:/Cheperico/Flujos"
+
 <FilesMatch "\.(db|sqlite|sqlite3|json)$">
     Require all denied
 </FilesMatch>

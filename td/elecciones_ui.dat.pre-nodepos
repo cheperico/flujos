@@ -1,4 +1,4 @@
-﻿"""
+"""
 elecciones_ui.dat — Rediseño de la UI de "nubes de elecciones" (Rediseño 2026)
 
 PROBLEMA DEL DISEÑO ANTERIOR:
@@ -198,11 +198,7 @@ def _normalizar_pesos(items):
 # ───────────────────────────────────────────────────────────────
 
 def _param(op, nombre, valor):
-    """Establece un parametro si existe. Devuelve True si lo setó, False si no.
-
-    El retorno booleano permite elegir un parametro de fallback cuando el
-    boton no tiene el parametro esperado (p.ej. 'text' en el Button de TD 2025).
-    """
+    """Establece un parametro si existe (robustez ante nombres de version)."""
     try:
         if op is not None and op.par.haspar(nombre):
             op.par[nombre] = valor
@@ -278,10 +274,6 @@ def _asegurar_contenedor():
     _param(cont, "w", ANCHO_LIENZO)
     _param(cont, "h", ALTO_LIENZO)
     _param(cont, "align", "none")
-    # IMPORTANTE: activar display para que el container componga a sus hijos
-    # (grupos y botones Panels) en una textura y no quede solo el frame. Sin
-    # esto el OP Viewer/"Top Render" muestra un unico panel apilado.
-    _param(cont, "display", 1)
     return cont
 
 
@@ -399,9 +391,6 @@ def _asegurar_exec(cont):
 
     # Escribir los callbacks en el DAT interno del execute.
     _escribir_callbacks_exec(exec_d)
-    # Posiciona el Panel Execute DAT en la red para que no quede superpuesto
-    # con el resto de los operadores raiz (container, panelchop, render, null).
-    _ubicar(exec_d, 0, 400)
     return exec_d
 
 
@@ -463,11 +452,7 @@ def _crear_boton(grupo, idx, valor, peso_norm, x0, y0, cont):
 
     # Comportamiento: toggle (on/off) al pulsarlo; el estado queda en value0.
     _param(btn, "buttontype", "toggledown")
-    # Texto visible: en TD 2025 el Button usa un Text COMP interno y el
-    # parametro es 'text'; 'label' es el antiguo (pre-2021). El fallback
-    # aprovecha que _param devuelve True/False segun haya seteado o no.
-    if not _param(btn, "text", valor):
-        _param(btn, "label", valor)
+    _param(btn, "label", valor)
     _param(btn, "x", x0)
     _param(btn, "y", ALTO_GRUPO - y0 - alto)   # y crece hacia arriba en paneles
     _param(btn, "w", ancho)
@@ -538,9 +523,6 @@ def _crear_grupo(grupo, titulo, items, offset_x):
     _param(grupo_cont, "w", ANCHO_GRUPO)
     _param(grupo_cont, "h", ALTO_GRUPO)
     _param(grupo_cont, "align", "none")
-    # Display ON para que los Button COMPs del grupo se compongan dentro del
-    # grupo; si queda apagado, TD solo pinta el primer hijo al apilarse.
-    _param(grupo_cont, "display", 1)
 
     # Posicion en la Network del contenedor: un grupo por fila, escalonado hacia
     # la derecha segun offset_x (evita que todos queden superpuestos en (0,0)).

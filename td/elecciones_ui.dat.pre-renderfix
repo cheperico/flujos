@@ -1,4 +1,4 @@
-﻿"""
+"""
 elecciones_ui.dat — Rediseño de la UI de "nubes de elecciones" (Rediseño 2026)
 
 PROBLEMA DEL DISEÑO ANTERIOR:
@@ -94,61 +94,14 @@ def onPulse(par):
         print("[elecciones_ui] Generando UI de elecciones...")
         crear_ui()
     elif par.name == "Limpiar":
-        _SELECCION.clear()
-    elif par.name == "Ayuda":
-        _imprimir_ayuda_manual()
         limpiar_seleccion()
         print("[elecciones_ui] Seleccion limpiada")
-
-
-def _imprimir_ayuda_manual():
-    """Imprime en el Textport instrucciones paso a paso para crear el render a mano.
-
-    Es la ayuda manual del parametro "Ayuda manual" (PULSE). Asume que el
-    usuario NO conoce TouchDesigner; cada paso dice exactamente que cliquear.
-    """
-    print("=" * 68)
-    print("AYUDA MANUAL - Como mostrar la UI de elecciones en pantalla")
-    print("=" * 68)
-    print("")
-    print("Paso 1: Abrir la red donde vive elecciones_container.")
-    print("        (Doble clic sobre /project2/elecciones_container).")
-    print("")
-    print("Paso 2: Crear un operador 'OP Viewer' (se llama 'OP Viewer TOP').")
-    print("        Clic derecho en un espacio vacio -> Add Operator ->")
-    print("        Top -> OP Viewer. Se crea un cuadrado negro llamado")
-    print("        'opviewer1'.")
-    print("")
-    print("Paso 3: Apuntar el OP Viewer a elecciones_container.")
-    print("        Seleccionar opviewer1 y en el parametro 'Operator'")
-    print("        (pagina Common) escribir: /project2/elecciones_container")
-    print("")
-    print("Paso 4: Conectar la salida a la pantalla.")
-    print("        Arrastrar un cable desde el lado derecho de opviewer1")
-    print("        hasta la entrada del nodo 'out1' (el que muestra la")
-    print("        pantalla principal). Alternativa: crear un Null TOP y")
-    print("        luego ir al proyecto /project1 y cablear ese Null al Out.")
-    print("")
-    print("Si el contenido se ve negro:")
-    print("  - Verificar en /project2/elecciones_container que los grupos")
-    print("    ui_<id> existan (boton 'Generar UI' en los parametros).")
-    print("  - Verificar que elecciones_container este 'desbloqueado':")
-    print("    clic derecho sobre el -> Components -> Allow Editing = ON.")
-    print("  - Probar el boton 'Generar UI' de nuevo desde el Textport:")
-    print("    crear_ui()")
-    print("")
-    print("Para el problema de superposicion de nodos (todos en (0,0)):")
-    print("  - La red usa nodeX/nodeY explicitos (helper _ubicar). Si aun")
-    print("    asi se solapan, seleccionar los nodos y usar T (arrastrar")
-    print("    en el Network Editor) o Ctrl+A -> L (ordenar por layout).")
-    print("=" * 68)
 
 
 def onSetupParameters(scriptOp):
     page = scriptOp.appendCustomPage("Elecciones")
     page.appendPulse("Generar", label="Generar UI")
     page.appendPulse("Limpiar", label="Limpiar seleccion")
-    page.appendPulse("Ayuda", label="Ayuda manual")
 
 
 # ───────────────────────────────────────────────────────────────
@@ -198,11 +151,7 @@ def _normalizar_pesos(items):
 # ───────────────────────────────────────────────────────────────
 
 def _param(op, nombre, valor):
-    """Establece un parametro si existe. Devuelve True si lo setó, False si no.
-
-    El retorno booleano permite elegir un parametro de fallback cuando el
-    boton no tiene el parametro esperado (p.ej. 'text' en el Button de TD 2025).
-    """
+    """Establece un parametro si existe (robustez ante nombres de version)."""
     try:
         if op is not None and op.par.haspar(nombre):
             op.par[nombre] = valor
@@ -236,21 +185,6 @@ def _destruir_demo(comp, prefijos_permitidos):
     return destruidos
 
 
-def _ubicar(op, x, y):
-    """Coloca un operador en un punto (x, y) de la Network con la que se trabaja.
-
-    nodeX/nodeY son la posicion del nodo en el editor (no confundir con el
-    parametro x/y de los paneles, que es posicion de layout dentro del parent).
-    Idempotente: si el op ya tiene una posicion, la actualiza una sola vez.
-    """
-    if op is not None:
-        try:
-            op.nodeX = x
-            op.nodeY = y
-        except Exception:
-            pass
-
-
 def _clase_global(fragmentos):
     """Devuelve la clase global de TD que coincida con algun fragmento."""
     for frag in fragmentos:
@@ -271,17 +205,10 @@ def _asegurar_contenedor():
     # containers creados a mano o por versiones anteriores (demo button/light).
     _destruir_demo(cont, ("ui_",))
 
-    # Posicion en la Network Panel: container arriba a la izquierda de la grilla.
-    _ubicar(cont, 0, -200)
-
     # Tamano del lienzo y layout libre (align none -> los hijos usan x/y).
     _param(cont, "w", ANCHO_LIENZO)
     _param(cont, "h", ALTO_LIENZO)
     _param(cont, "align", "none")
-    # IMPORTANTE: activar display para que el container componga a sus hijos
-    # (grupos y botones Panels) en una textura y no quede solo el frame. Sin
-    # esto el OP Viewer/"Top Render" muestra un unico panel apilado.
-    _param(cont, "display", 1)
     return cont
 
 
@@ -293,20 +220,19 @@ def _asegurar_panelchop(cont):
     _param(pc, "component", cont.path)
     # value0 = estado on/off de cada Button COMP.
     _param(pc, "select", "value0")
-    _ubicar(pc, 0, 0)
     return pc
 
 
 def _asegurar_render(cont):
     """
-    Crea (mejor esfuerzo) un 'OP Viewer TOP' que compone el contenedor del
+    Crea (mejor esfuerzo) el Top Render COMP que compone el contenedor de
     paneles a una textura. El opType y el nombre del parametro de destino
     varian segun la version de TD; por eso se prueban varias alternativas.
     Devuelve el render o None (en ese caso el usuario lo crea a mano).
     """
     render = _ROOT.op("elecciones_render")
     if render is None:
-        cls = _clase_global(["opviewer", "opviewertop"])
+        cls = _clase_global(["tprender", "toprender"])
         if cls is not None:
             try:
                 render = _ROOT.create(cls, "elecciones_render")
@@ -314,12 +240,11 @@ def _asegurar_render(cont):
                 render = None
     if render is not None:
         # El parametro que apunta al contenedor se llama distinto por version.
-        for nombre in ("op", "operator", "opviewer", "masterop", "target", "component"):
+        for nombre in ("container", "component", "cm_target", "target"):
             if _param(render, nombre, cont.path):
                 break
         _param(render, "resolutionw", ANCHO_LIENZO)
         _param(render, "resolutionh", ALTO_LIENZO)
-        _ubicar(render, 0, 200)
     else:
         print("[elecciones_ui] AVISO: no se pudo crear elecciones_render. "
               "Ver la nota manual al final de este .dat para crearlo a mano "
@@ -353,8 +278,6 @@ def _asegurar_display(render):
     else:
         print("[elecciones_ui] AVISO: sin elecciones_display no se ve el panel "
               "en pantalla (ver nota manual al final de este .dat).")
-
-    _ubicar(nul, 0, 300)
     return nul
 
 
@@ -399,9 +322,6 @@ def _asegurar_exec(cont):
 
     # Escribir los callbacks en el DAT interno del execute.
     _escribir_callbacks_exec(exec_d)
-    # Posiciona el Panel Execute DAT en la red para que no quede superpuesto
-    # con el resto de los operadores raiz (container, panelchop, render, null).
-    _ubicar(exec_d, 0, 400)
     return exec_d
 
 
@@ -463,11 +383,7 @@ def _crear_boton(grupo, idx, valor, peso_norm, x0, y0, cont):
 
     # Comportamiento: toggle (on/off) al pulsarlo; el estado queda en value0.
     _param(btn, "buttontype", "toggledown")
-    # Texto visible: en TD 2025 el Button usa un Text COMP interno y el
-    # parametro es 'text'; 'label' es el antiguo (pre-2021). El fallback
-    # aprovecha que _param devuelve True/False segun haya seteado o no.
-    if not _param(btn, "text", valor):
-        _param(btn, "label", valor)
+    _param(btn, "label", valor)
     _param(btn, "x", x0)
     _param(btn, "y", ALTO_GRUPO - y0 - alto)   # y crece hacia arriba en paneles
     _param(btn, "w", ancho)
@@ -487,8 +403,6 @@ def _crear_boton(grupo, idx, valor, peso_norm, x0, y0, cont):
 
     # Aplicar estado visual guardado (seleccionado / no).
     _aplicar_estado(btn, _SELECCION.get(grupo, {}).get(valor, False))
-    # Posicion en la Network interna del grupo: grilla de 3 columnas.
-    _ubicar(btn, (idx % 3) * 120, (idx // 3) * 80)
     return btn
 
 
@@ -511,7 +425,6 @@ def _crear_titulo(grupo, titulo, cont):
     _param(t, "colorg", 0.9)
     _param(t, "colorb", 0.6)
     _param(t, "align", "horizcenter")  # el texto queda centrado en el panel
-    _ubicar(t, 0, -40)
     return t
 
 
@@ -538,13 +451,6 @@ def _crear_grupo(grupo, titulo, items, offset_x):
     _param(grupo_cont, "w", ANCHO_GRUPO)
     _param(grupo_cont, "h", ALTO_GRUPO)
     _param(grupo_cont, "align", "none")
-    # Display ON para que los Button COMPs del grupo se compongan dentro del
-    # grupo; si queda apagado, TD solo pinta el primer hijo al apilarse.
-    _param(grupo_cont, "display", 1)
-
-    # Posicion en la Network del contenedor: un grupo por fila, escalonado hacia
-    # la derecha segun offset_x (evita que todos queden superpuestos en (0,0)).
-    _ubicar(grupo_cont, offset_x * 0.5, 0)
 
     _crear_titulo(grupo, titulo, grupo_cont)
 
@@ -674,11 +580,11 @@ def limpiar_seleccion():
 # ───────────────────────────────────────────────────────────────
 # NOTA PARA CREAR A MANO (si _asegurar_render no encontró la API):
 #
-# 1) Crear un operador "OP Viewer" (se llama OP Viewer TOP; en la lista de
-#    operadores esta en Top -> OP Viewer). Apuntar su parametro "Operator" a
-#    /project2/elecciones_container  (NOTA: el boton "Ayuda manual" del Script
-#    DAT genera usando dinamicamente la clase opViewerTOP, por eso aqui se
-#    describe la via manual que usa el editor grafico y no una clase fija).
+# 1) Crear un COMP de tipo "Top Render" (COMP -> Top Render).
+#    En operadores modernos se llama "Top Render COMP"; en versiones viejas
+#    "Top Render TOP" (familia TOP). Apuntar su parametro "Container" /
+#    "Component" a:  /project2/elecciones_container
+#    (si el parametro lista contenedores, elegir elecciones_container).
 # 2) Resolucion: poner el tamanio del lienzo (ej. 1440x900).
 # 3) Conectar su salida TOP a donde quieras (Null -> Out -> pantalla).
 #

@@ -5,7 +5,8 @@
  *   municipio (string, opcional)
  *   color     (string, opcional)
  *   provincia (string, opcional)
- *   tipo      (string, opcional: image,video,audio — separado por coma)
+ *   tipo      (string, opcional: image,video,audio,text — separado por coma;
+ *              'text' devuelve medios con transcripción)
  *   limite    (int, opcional, default 20)
  */
 header('Content-Type: application/json; charset=utf-8');
@@ -41,8 +42,8 @@ if (count($condiciones)) {
     $where = 'WHERE ' . implode(' AND ', $condiciones);
 }
 
-// Tipos solicitados
-$tipos = ['image', 'video', 'audio'];
+// Tipos solicitados (incluye 'text' = medios con transcripción)
+$tipos = ['image', 'video', 'audio', 'text'];
 if ($tipoStr !== '') {
     $t = explode(',', $tipoStr);
     $t = array_map('trim', $t);
@@ -55,12 +56,17 @@ $resultados = [];
 foreach ($tipos as $tipo) {
     // WHERE dinámico: si hay filtros previos, concatenar con AND
     $whereTipo = ($where ? ' AND' : ' WHERE') . ' m.tipo = :tipo';
+    // 'text': en vez de filtrar por tipo, exigir transcripción no vacía.
+    // Así los textos usan los MISMOS filtros de municipio/color/provincia.
+    if ($tipo === 'text') {
+        $whereTipo = ($where ? ' AND' : ' WHERE') . " m.transcripcion IS NOT NULL AND m.transcripcion != ''";
+    }
     $sql = "SELECT m.id, m.archivo, m.tipo, m.subtipo, m.carpeta,
-                   m.ruta_relativa, m.tamano_bytes,
+                   m.ruta_relativa, m.tamano_bytes, m.duracion_seg,
                    m.fecha, m.hora,
                    m.color_1, m.color_1_hex,
                    m.provincia, m.municipio, m.localidad,
-                   m.descripcion
+                   m.descripcion, m.transcripcion
             FROM medios m
             $where$whereTipo
             ORDER BY RANDOM()
@@ -70,7 +76,9 @@ foreach ($tipos as $tipo) {
     foreach ($params as $k => $v) {
         $stmt->bindValue($k, $v);
     }
-    $stmt->bindValue(':tipo', $tipo);
+    if ($tipo !== 'text') {
+        $stmt->bindValue(':tipo', $tipo);
+    }
     $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
     $stmt->execute();
     $filas = $stmt->fetchAll(PDO::FETCH_ASSOC);

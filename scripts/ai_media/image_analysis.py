@@ -35,35 +35,9 @@ logger = logging.getLogger(__name__)
 # ──────────────────────────────────────────────
 #  LISTA CONTROLADA DE GÉNEROS FOTOGRÁFICOS
 # ──────────────────────────────────────────────
-# El modelo SOLO puede elegir de acá. Si devuelve algo fuera,
-# se reemplaza por "otras" en post-procesamiento.
-GENEROS_FOTOGRAFICOS = [
-    "retrato",
-    "retrato grupal",
-    "paisaje",
-    "nocturna",
-    "macro",
-    "arquitectura",
-    "documento",
-    "callejera",
-    "naturaleza",
-    "abstracto",
-    "deporte",
-    "comida",
-    "objeto",
-    "urbano",
-    "evento",
-    "animales",
-    "otras",
-]
-
-_GENEROS_STR = (
-    "retrato, retrato grupal, paisaje, nocturna, macro, "
-    "arquitectura, documento, "
-    "callejera, naturaleza, abstracto, "
-    "deporte, comida, objeto, urbano, "
-    "evento, animales, otras"
-)
+# ELIMINADA (Ago 2026): el género fotográfico quedó descartado porque no era
+# fácil forzarlo en el prompt. Las keywords son libres y NO se inserta ningún
+# género comodín ("otras") en post-procesamiento. Ver refinar_keywords.py.
 
 # ──────────────────────────────────────────────
 #  MODELO POR DEFECTO
@@ -84,9 +58,8 @@ MODELO_VISION_DEFAULT = "minicpm-v4.6:latest"
 # ──────────────────────────────────────────────
 #  PROMPTS (en inglés, mínimos — validados Ago 2026)
 # ──────────────────────────────────────────────
-# minicpm responde mejor a prompts simples. El género fotográfico quedó
-# PENDIENTE de investigar (cómo forzarlo con minicpm); por ahora las keywords
-# son libres y la primera NO es género.
+# minicpm responde mejor a prompts simples. Las keywords son libres (EN):
+# NO se pide ni se valida género fotográfico (descartado Ago 2026).
 
 PROMPT_KEYWORDS = "Give me exactly 5 keywords for this image, comma-separated."
 
@@ -105,113 +78,8 @@ PROMPT_CLASIFICAR = (
     "Clasificá esta imagen en una de estas categorías: "
     "naturaleza, urbano, retrato, abstracto, documento, evento, paisaje, arquitectura, "
     "objeto, arte, comida, tecnología, deporte, noche, macro, otras. "
-    "Respondé solo con el nombre de la categoría."
+"Respondé solo con el nombre de la categoría."
 )
-
-
-# ──────────────────────────────────────────────
-#  VALIDACIÓN DE GÉNERO
-# ──────────────────────────────────────────────
-
-def _validar_genero(keywords: list[str]) -> list[str]:
-    """
-    Verifica que la primera keyword (el género fotográfico) esté dentro
-    de GENEROS_FOTOGRAFICOS. Si no, intenta mapearla o la reemplaza por "otras".
-
-    También limpia cualquier texto entre paréntesis que el modelo pudiera
-    repetir del prompt (ej: "retrato grupal (varias personas)" → "retrato grupal").
-
-    Si la primera keyword NO es un género pero hay un género válido más
-    adelante en la lista (qwen a veces pone el sujeto primero), lo promueve
-    a la primera posición.
-
-    Args:
-        keywords: Lista de keywords extraídas por el modelo.
-
-    Returns:
-        Lista de keywords con el género validado.
-    """
-    if not keywords:
-        return keywords
-
-    # Limpiar texto entre paréntesis de TODAS las keywords (no solo la primera)
-    keywords = [k[:k.index("(")].strip() if "(" in k else k for k in keywords]
-    keywords = [_limpiar_kw(k) for k in keywords if k.strip()]
-    if not keywords:
-        return keywords
-
-    def _variantes_genero(palabra: str) -> set[str]:
-        """Genera variantes de flexión de género: nocturno ↔ nocturna, urbana ↔ urbano."""
-        p = palabra.strip().lower()
-        variantes = {p}
-        if p.endswith("o") and len(p) > 3:
-            variantes.add(p[:-1] + "a")
-        elif p.endswith("a") and len(p) > 3:
-            variantes.add(p[:-1] + "o")
-        return variantes
-
-    def _es_genero(palabra: str) -> bool:
-        p = palabra.strip().lower()
-        if "(" in p:
-            p = p[:p.index("(")].strip()
-        for valido in GENEROS_FOTOGRAFICOS:
-            v = valido.lower()
-            if p == v:
-                return True
-            # Flexión de género: "nocturno" debe matchear "nocturna"
-            if v in _variantes_genero(p):
-                return True
-            # Búsqueda aproximada: contener o ser contenido (evita falsos
-            # positivos con palabras cortas como "de" o "es")
-            if len(p) >= 4 and (p in v or v in p):
-                return True
-        return False
-
-    # Si la primera no es género válido, buscar un género dentro de la lista
-    genero_idx = None
-    for i, kw in enumerate(keywords):
-        if _es_genero(kw):
-            genero_idx = i
-            break
-
-    genero_final = "otras"
-    if genero_idx is not None:
-        genero_raw = keywords[genero_idx].strip().lower()
-        # 1er pasada: match EXACTO (evita que "retrato grupal" caiga en "retrato")
-        for valido in GENEROS_FOTOGRAFICOS:
-            if genero_raw == valido.lower():
-                genero_final = valido
-                break
-        else:
-            # 2da pasada: match aproximado (con flexión de género)
-            for valido in GENEROS_FOTOGRAFICOS:
-                v = valido.lower()
-                if len(genero_raw) >= 4 and (
-                    genero_raw in v or v in genero_raw
-                    or v in _variantes_genero(genero_raw)
-                ):
-                    genero_final = valido
-                    break
-        # Promover: quitar el género de su posición y ponerlo primero
-        if genero_idx != 0:
-            keywords.pop(genero_idx)
-            keywords.insert(0, genero_final)
-        else:
-            keywords[0] = genero_final
-    else:
-        # No se encontró género → insertar "otras" al INICIO sin perder la
-        # primera keyword descriptiva (antes sobrescribía keywords[0]).
-        logger.warning(
-            "  -> Género no encontrado en keywords: %s, insertado 'otras' al inicio",
-            keywords[:3]
-        )
-        keywords.insert(0, "otras")
-
-    # Recortar a 7 keywords (el prompt pide 5-7, qwen tiende a dar 10+)
-    if len(keywords) > 7:
-        keywords = keywords[:7]
-
-    return keywords
 
 
 def extraer_keywords(
@@ -256,9 +124,8 @@ def extraer_keywords(
         # Fallback: devolver la respuesta completa como única keyword
         return [respuesta.strip()]
 
-    # NOTA (Ago 2026): el género fotográfico quedó pendiente de investigar.
-    # Las keywords ahora son libres (EN) y NO se valida género acá.
-    # El refinamiento (refinar_keywords.py) fuerza "otras" si no hay.
+    # NOTA (Ago 2026): no se valida género fotográfico — descartado. Las
+    # keywords son libres (EN) y no se fuerza ningún comodín.
 
     logger.info("Keywords extraídas de %s: %s", Path(ruta_imagen).name, keywords)
     return keywords
@@ -307,7 +174,6 @@ def extraer_keywords_batch(
             })
         else:
             keywords = _parsear_keywords(item["respuesta"])
-            # NOTA (Ago 2026): género pendiente — sin validación en keywords EN.
             resultados.append({
                 "ruta": ruta_orig,
                 "keywords": keywords,
@@ -384,13 +250,10 @@ def analizar_imagen_completo(
         )
         # Fallback: tratar de parsear keywords y descripción por separado
         keywords = _parsear_keywords(respuesta)
-        keywords = _validar_genero(keywords)
         return {
             "keywords": keywords,
             "description": _descripcion_utilizable(respuesta),
         }
-
-    # NOTA (Ago 2026): género pendiente — sin validación en keywords EN.
 
     logger.info(
         "Análisis completo de %s: %d keywords, %d chars descripción",

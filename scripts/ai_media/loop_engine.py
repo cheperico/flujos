@@ -229,6 +229,7 @@ def armar_spec(
             "t": pos["t_loop"],
             "tipo": "chiche",
             "texto": chich.get("texto", ""),
+            "hora": float(hora),   # útil para reconfigurar en el navegador
         })
 
     return {

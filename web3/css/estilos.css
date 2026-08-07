@@ -248,6 +248,33 @@ html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Inter', 
 }
 
 /* ═══════════════════════════════════════════════════
+   BOTÓN SONIDO
+   ═══════════════════════════════════════════════════ */
+.btn-sonido {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: .6rem;
+  font-weight: 400;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  padding: .3rem .5rem;
+  border-radius: 0;
+  border: 1px solid rgba(var(--tr), var(--tg), var(--tb), .2);
+  background: transparent;
+  color: rgba(var(--tr), var(--tg), var(--tb), .55);
+  cursor: pointer;
+  transition: all .3s ease;
+  width: 100%;
+}
+.btn-sonido:hover {
+  border-color: rgba(var(--tr), var(--tg), var(--tb), .4);
+  color: rgb(var(--tr), var(--tg), var(--tb));
+}
+.btn-sonido.activo {
+  border-color: rgba(var(--ar), var(--ag), var(--ab), .5);
+  color: rgb(var(--ar), var(--ag), var(--ab));
+}
+
+/* ═══════════════════════════════════════════════════
    ZOOM
    ═══════════════════════════════════════════════════ */
 #zoom-ctrl {
@@ -318,4 +345,19 @@ html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Inter', 
 #sidebar-resumen .num {
   font-weight: 500;
   color: rgb(var(--ar), var(--ag), var(--ab));
+}
+
+/* ═══════════════════════════════════════════════════
+   FADE — overlay de transición al presionar Fluir
+   ═══════════════════════════════════════════════════ */
+#fade-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 9999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .7s ease;
 }

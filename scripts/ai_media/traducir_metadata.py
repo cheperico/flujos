@@ -31,8 +31,9 @@ Modos:
     update  → re-traduce TODOS los registros que tienen EN (sobrescribe)
     replace → limpia el ES existente, luego traduce todo de nuevo
 
-Nota: el género fotográfico queda pendiente (decisión del proyecto). Las
-keywords se traducen tal cual; refinar_keywords.py fuerza "otras" si no hay.
+Nota: el género fotográfico fue descartado (Ago 2026). Las keywords se traducen
+tal cual; no se fuerza ningún género comodín (refinar_keywords.py ya no inserta
+"otras").
 """
 
 import argparse
@@ -171,7 +172,7 @@ def traducir_llamada(
         respuesta = cliente.chat(
             model=modelo,
             messages=[{"role": "user", "content": prompt}],
-            options={"num_ctx": 2048, "temperature": 0.1},
+            options={"num_ctx": 1024, "temperature": 0.1},
         ).message.content.strip()
         # La respuesta es "palabras, separadas, por, comas"
         partes = [p.strip().strip("'\"") for p in respuesta.split(",") if p.strip()]
@@ -183,7 +184,7 @@ def traducir_llamada(
         respuesta = cliente.chat(
             model=modelo,
             messages=[{"role": "user", "content": prompt}],
-            options={"num_ctx": 4096, "temperature": 0.1},
+            options={"num_ctx": 2048, "temperature": 0.1},
         ).message.content.strip()
         return (None, respuesta or None, "descriptions")
 
@@ -192,7 +193,7 @@ def traducir_llamada(
     respuesta = cliente.chat(
         model=modelo,
         messages=[{"role": "user", "content": prompt}],
-        options={"num_ctx": 4096, "temperature": 0.1},
+        options={"num_ctx": 2048, "temperature": 0.1},
     ).message.content.strip()
 
     datos = reparar_json(respuesta)

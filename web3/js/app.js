@@ -44,9 +44,25 @@
     var DATOS_TOTAL = 0;
     var DATOS_API = null;
     var TAGS_API = null;
+    var tagsSeleccionados = [];
     var MEDIOS_FILTRADOS = null;
     var MENSAJES_TELEGRAM = null;
     var MENSAJES_TELEGRAM_MUNICIPIO = '';
+
+    // ── SONIDO: botón interruptor + motor de reproducción de audios ──
+    // La batería de audios se distribuye pareja a lo largo del fluir:
+    // 10s de silencio al inicio y al final, y silencio entre audios.
+    var SONIDO = {
+        habilitado: false,    // interruptor general (botón lateral) — arranca apagado
+        items: [],            // audios seleccionados (con duracion_seg)
+        plan: [],             // plan de reproducción [{audio, inicioMs, duracionMs}]
+        reproduciendo: false,
+        elem: null            // elemento <audio> actual
+    };
+    // Constantes del motor (en ms)
+    var SONIDO_SILENCIO_INICIO = 10000;   // 10s mudo al arrancar el fluir
+    var SONIDO_SILENCIO_FINAL  = 10000;   // 10s mudo al terminar el fluir
+    var SONIDO_SILENCIO_ENTRE  = 1500;    // silencio entre audios
 
     var SLIDESHOW = {
         items: [],
@@ -60,6 +76,15 @@
         tamano: 10,
         inicio: 0,
         ultimoInicio: -1
+    };
+
+    // Rotador de textos: muestra UN texto completo durante 30s y luego el siguiente.
+    var TEXTO_ROTADOR = {
+        items: [],
+        index: 0,
+        cont: null,
+        timer: null,
+        duracionMs: 30000
     };
 
     var FLOW = {
@@ -79,9 +104,9 @@
         { id: 'colores',     tipo: 'selector', titulo: 'Colores',     w: 500, h: 220 },
         { id: 'horas',       tipo: 'selector', titulo: 'Horas',       w: 550, h: 260 },
         { id: 'provincias',  tipo: 'selector', titulo: 'Provincias',  w: 350, h: 160 },
-        { id: 'municipios',  tipo: 'selector', titulo: 'Municipios',  w: 420, h: 340 },
+        { id: 'municipios',  tipo: 'selector', titulo: 'Municipios',  w: 520, h: 480 },
         { id: 'tags',        tipo: 'selector', titulo: 'Tags',        w: 500, h: 380 },
-        { id: 'imagenes',    tipo: 'media',    titulo: 'Im\u00e1genes', w: 700, h: 520 },
+        { id: 'imagenes',    tipo: 'media',    titulo: 'Im\u00e1genes', w: 860, h: 620 },
         { id: 'videos',      tipo: 'media',    titulo: 'Videos',      w: 520, h: 380 },
         { id: 'textos',      tipo: 'media',    titulo: 'Textos',      w: 420, h: 300 },
         { id: 'sonidos',     tipo: 'media',    titulo: 'Sonidos',     w: 340, h: 240 },
@@ -268,89 +293,45 @@
         return false;
     }
 
+    var SEP = 8;  // separación mínima entre bloques
+
     function colocarBloques() {
-        // --- MEDIA TERRITORY (contiguo) ---
-        var mediaIds = ['imagenes', 'videos', 'textos', 'sonidos', 'mapa', 'comunicacion'];
-        shuffle(mediaIds);
-        var colocados = [];
+        // ── TODOS los bloques en UNA zona compacta y centrada (más peso al centro).
+        // Empaqueta en filas anchas → poca altura, mancha densa, no vertical.
+        var anchoMax = 1300;
+        var ids = shuffle(
+            ['imagenes', 'videos', 'textos', 'sonidos', 'mapa', 'comunicacion',
+             'colores', 'horas', 'provincias', 'municipios', 'tags']
+        );
 
-        // Primer bloque en posición aleatoria centrada
-        var primero = BLOQUES.filter(function(b){return b.id===mediaIds[0];})[0];
-        primero.mx = Math.round(Math.random() * 500 - 250);
-        primero.my = Math.round(Math.random() * 500 - 250);
-        colocados.push(primero);
-
-        for (var mi = 1; mi < mediaIds.length; mi++) {
-            var b = BLOQUES.filter(function(x){return x.id===mediaIds[mi];})[0];
-            var exito = false;
-            for (var intento = 0; intento < 80; intento++) {
-                var ref = colocados[Math.floor(Math.random() * colocados.length)];
-                var edge = Math.floor(Math.random() * 4);
-                var bx, by;
-
-                // offset aleatorio a lo largo del borde
-                var offX = Math.round((Math.random() - 0.5) * Math.max(ref.w - b.w, 30));
-                var offY = Math.round((Math.random() - 0.5) * Math.max(ref.h - b.h, 30));
-
-                // clamp para que no quede colgando
-                var minOffX = -b.w + 20;
-                var maxOffX = ref.w - 20;
-                var minOffY = -b.h + 20;
-                var maxOffY = ref.h - 20;
-                offX = Math.max(minOffX, Math.min(maxOffX, offX));
-                offY = Math.max(minOffY, Math.min(maxOffY, offY));
-
-                switch (edge) {
-                    case 0: // derecha
-                        bx = ref.mx + ref.w;
-                        by = ref.my + offY;
-                        break;
-                    case 1: // abajo
-                        bx = ref.mx + offX;
-                        by = ref.my + ref.h;
-                        break;
-                    case 2: // izquierda
-                        bx = ref.mx - b.w;
-                        by = ref.my + offY;
-                        break;
-                    case 3: // arriba
-                        bx = ref.mx + offX;
-                        by = ref.my - b.h;
-                        break;
-                }
-
-                b.mx = bx;
-                b.my = by;
-                if (!haySuperposicion(b, ref)) {
-                    colocados.push(b);
-                    exito = true;
-                    break;
-                }
-            }
-            if (!exito) {
-                // Fallback: a la derecha de todos
-                var maxX = -Infinity;
-                colocados.forEach(function(c) {
-                    if (c.mx + c.w > maxX) maxX = c.mx + c.w;
-                });
-                b.mx = maxX + 30;
-                b.my = colocados[0].my + Math.round((Math.random() - 0.5) * 120);
-                colocados.push(b);
-            }
-        }
-
-        // --- SELECTORES (no se superponen con nada) ---
-        var selIds = ['colores', 'horas', 'provincias', 'municipios', 'tags'];
-        shuffle(selIds);
-        var area = { x: -900, y: -900, w: 1800, h: 1800 };
-
-        selIds.forEach(function(id) {
+        var filaX = 0, filaY = 0, filaMaxH = 0, anchoFila = 0;
+        ids.forEach(function(id) {
             var b = BLOQUES.filter(function(x){return x.id===id;})[0];
-            for (var intento = 0; intento < 120; intento++) {
-                b.mx = Math.round(area.x + Math.random() * (area.w - b.w));
-                b.my = Math.round(area.y + Math.random() * (area.h - b.h));
-                if (!haySuperposicion(b)) break;
+            if (anchoFila + b.w > anchoMax && anchoFila > 0) {
+                filaX = 0;
+                filaY += filaMaxH + SEP;
+                filaMaxH = 0;
+                anchoFila = 0;
             }
+            b.mx = filaX;
+            b.my = filaY;
+            filaX += b.w + SEP;
+            anchoFila += b.w + SEP;
+            filaMaxH = Math.max(filaMaxH, b.h);
+        });
+
+        // Centrar: que el centro de la mancha quede en (0,0)
+        var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        BLOQUES.forEach(function(b) {
+            if (b.mx < minX) minX = b.mx;
+            if (b.mx + b.w > maxX) maxX = b.mx + b.w;
+            if (b.my < minY) minY = b.my;
+            if (b.my + b.h > maxY) maxY = b.my + b.h;
+        });
+        var cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+        BLOQUES.forEach(function(b) {
+            b.mx -= Math.round(cx);
+            b.my -= Math.round(cy);
         });
     }
 
@@ -379,7 +360,7 @@
             el.style.transform = 'translate(' + sx + 'px, ' + sy + 'px) scale(' + cam.scale + ')';
             el.style.width  = b.w + 'px';
             el.style.height = b.h + 'px';
-            el.style.display = 'block';
+            el.style.display = ''; // permite el display:flex del CSS .bloque
         });
     }
 
@@ -393,8 +374,10 @@
             case 'imagenes':
             case 'videos':
             case 'sonidos':
-            case 'textos':
                 renderMediosLista(id, cont);
+                break;
+            case 'textos':
+                renderTextos(cont);
                 break;
             case 'comunicacion':
                 renderComunicacion(cont);
@@ -402,6 +385,63 @@
             default:
                 cont.innerHTML = '';
         }
+    }
+
+    function renderTextos(cont) {
+        // Limpiar el rotador anterior
+        if (TEXTO_ROTADOR.timer) { clearTimeout(TEXTO_ROTADOR.timer); TEXTO_ROTADOR.timer = null; }
+
+        // Leer del MISMO pool filtrado que usan los demás medios (municipio,
+        // color, provincia) — viene de api/medios_filtrados.php tipo=text.
+        var base = (MEDIOS_FILTRADOS && MEDIOS_FILTRADOS.resultados && MEDIOS_FILTRADOS.resultados.text)
+                    ? MEDIOS_FILTRADOS.resultados.text : [];
+
+        // Excluir los audios que ya está mostrando el contenedor de sonidos,
+        // para que el texto "de voz" no repita un audio ya disponible.
+        var idsSonidos = [];
+        if (MEDIOS_FILTRADOS && MEDIOS_FILTRADOS.resultados && MEDIOS_FILTRADOS.resultados.audio) {
+            idsSonidos = MEDIOS_FILTRADOS.resultados.audio.map(function(i) { return i.id; });
+        }
+        var excl = {};
+        idsSonidos.forEach(function(i) { excl[i] = true; });
+        var items = base.filter(function(i) { return !excl[i.id]; });
+
+        // Priorizar no-Telegram (igual que en imágenes)
+        var sinTg = items.filter(function(i) { return i.carpeta !== 'telegram'; });
+        var deTg = items.filter(function(i) { return i.carpeta === 'telegram'; });
+        items = sinTg.concat(deTg);
+
+        if (!items.length) {
+            cont.innerHTML = '<div style="opacity:.2;font-size:.6rem;text-align:center;padding:.5rem">—</div>';
+            return;
+        }
+
+        TEXTO_ROTADOR.items = items;
+        TEXTO_ROTADOR.index = 0;
+        TEXTO_ROTADOR.cont = cont;
+
+        mostrarTextoActual();
+    }
+
+    // Muestra el texto actual completo del rotador y programa el siguiente.
+    function mostrarTextoActual() {
+        var t = TEXTO_ROTADOR.cont;
+        if (!t) return;
+        var item = TEXTO_ROTADOR.items[TEXTO_ROTADOR.index];
+        var archivo = item.archivo || '';
+        var html = '<div style="display:flex;flex-direction:column;width:100%;flex:1;min-height:0">'
+                 + '<div style="flex:1;min-height:0;overflow-y:auto;font-size:.58rem;line-height:1.5;opacity:.9">'
+                 + (item.transcripcion || item.descripcion || '') + '</div>'
+                 + '<div style="flex-shrink:0;font-size:.42rem;opacity:.45;margin-top:.15rem;text-align:center">'
+                 + ((TEXTO_ROTADOR.index + 1) + '/' + TEXTO_ROTADOR.items.length + ' · ' + archivo) + '</div>'
+                 + '</div>';
+        t.innerHTML = html;
+
+        // Programar el avance dentro de 30 segundos
+        TEXTO_ROTADOR.timer = setTimeout(function() {
+            TEXTO_ROTADOR.index = (TEXTO_ROTADOR.index + 1) % TEXTO_ROTADOR.items.length;
+            mostrarTextoActual();
+        }, TEXTO_ROTADOR.duracionMs);
     }
 
     function renderMediosLista(id, cont) {
@@ -422,33 +462,52 @@
                 return;
             }
 
-            SLIDESHOW.items = items;
+            // Priorizar imágenes que NO son de Telegram
+            var sinTelegram = items.filter(function(i) { return i.carpeta !== 'telegram'; });
+            var deTelegram = items.filter(function(i) { return i.carpeta === 'telegram'; });
+            var priorizadas = sinTelegram.concat(deTelegram);
+            if (!priorizadas.length) {
+                cont.innerHTML = '<div style="opacity:.2;font-size:.6rem;text-align:center;padding:.5rem">—</div>';
+                return;
+            }
+
+            SLIDESHOW.items = priorizadas;
             SLIDESHOW.index = 0;
             SLIDESHOW.cont = cont;
 
-            var primeraUrl = 'api/servir_medio.php?id=' + items[0].id;
-            var desc0 = items[0].descripcion || '';
-            if (desc0.length > 120) desc0 = desc0.slice(0, 117) + '...';
-            var html = '<div class="slideshow-wrap" style="display:flex;flex-direction:column;width:100%;flex:1;min-height:0;position:relative;overflow:hidden">'
-                     + '<div class="slide-img-area" style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.1)">'
+            var primeraUrl = 'api/servir_medio.php?id=' + priorizadas[0].id;
+            var desc0 = priorizadas[0].descripcion || priorizadas[0].archivo || '';
+            var html = '<div class="slideshow-wrap" style="display:flex;flex-direction:column;width:100%;height:100%;position:relative;overflow:hidden">'
+                     + '<div class="slide-img-area" style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden">'
                      + '<img id="slide-actual" src="' + primeraUrl + '"'
-                     + ' style="width:100%;height:100%;object-fit:cover;transition:opacity .6s ease">'
+                     + ' style="width:100%;height:100%;object-fit:contain;transition:opacity .6s ease">'
                      + '</div>'
-                     + '<div id="slide-desc" style="padding:.2rem .4rem;font-size:.5rem;opacity:.65;line-height:1.3;text-align:center;border-top:1px solid rgba(var(--tr),var(--tg),var(--tb),.06);flex-shrink:0">' + desc0 + '</div>'
-                     + '<div class="slide-counter" style="position:absolute;top:.3rem;right:.4rem;font-size:.45rem;opacity:.5;background:rgba(0,0,0,.4);padding:.05rem .3rem;border-radius:2px;pointer-events:none">1/' + items.length + '</div>'
+                     + '<div id="slide-desc" title="' + (desc0 || '') + '"'
+                     + ' style="flex-shrink:0;max-height:3.4rem;overflow-y:auto;padding:.3rem .5rem .35rem;font-size:.55rem;opacity:.85;line-height:1.35;text-align:center;border-top:1px solid rgba(var(--tr),var(--tg),var(--tb),.15)">'
+                     + desc0 + '</div>'
+                     + '<div class="slide-counter" style="position:absolute;top:.3rem;right:.4rem;font-size:.45rem;opacity:.5;background:rgba(0,0,0,.35);padding:.05rem .3rem;border-radius:2px;pointer-events:none">1/' + priorizadas.length + '</div>'
                      + '</div>';
             cont.innerHTML = html;
         } else if (tipo === 'audio') {
-            // Sonidos: reproductor de audio (máximo 5)
-            var html = '<div style="display:flex;flex-direction:column;gap:.2rem;width:100%">';
-            items.slice(0, 5).forEach(function(item) {
+            // Sonidos: lista de audios del plan de reproducción (autoplay).
+            SONIDO.items = items.slice();
+            // Planificar la batería automáticamente cuando llegan los audios
+            if (FLOW.activo) planificarAudios();
+            var html = '<div style="display:flex;flex-direction:column;gap:.15rem;width:100%">';
+            html += '<div style="font-size:.45rem;opacity:.45;line-height:1.2;padding:.1rem 0">'
+                  + 'Autoplay · silencio 10s al inicio y al final del fluir</div>';
+            items.slice(0, 8).forEach(function(item) {
                 var desc = item.descripcion || '';
-                if (desc.length > 50) desc = desc.slice(0, 47) + '...';
-                html += '<div style="display:flex;flex-direction:column;gap:.05rem;padding:.1rem 0">'
-                      + (desc ? '<span style="font-size:.5rem;opacity:.5;line-height:1.2">' + desc + '</span>' : '')
-                       + '<audio controls style="width:100%;height:24px" preload="metadata">'
-                      + '<source src="api/servir_medio.php?id=' + item.id + '">'
-                      + '</audio>'
+                var dur = item.duracion_seg ? ' · ' + item.duracion_seg.toFixed(1) + 's' : '';
+                var corto = desc.length > 40 ? desc.slice(0, 37) + '...' : desc;
+                html += '<div style="display:flex;gap:.3rem;align-items:center;padding:.12rem 0;'
+                      + 'border-bottom:1px solid rgba(var(--tr),var(--tg),var(--tb),.06)">'
+                      + '<span data-role="audio-num" style="flex-shrink:0;font-size:.45rem;opacity:.5;width:1.1rem;text-align:center"></span>'
+                      + '<div style="flex:1;min-width:0">'
+                      + '<div style="font-size:.5rem;opacity:.75;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
+                      + (corto || (item.archivo || 'audio')) + '</div>'
+                      + '<div style="font-size:.42rem;opacity:.4">autoplay' + dur + '</div>'
+                      + '</div>'
                       + '</div>';
             });
             html += '</div>';
@@ -470,17 +529,51 @@
     //  TELEGRAM — bloque Comunicación
     // ═══════════════════════════════════════════════════════
 
+    // Ensambla la lista plana de mensajes a partir de los paquetes por lugar.
+    // Recorre los paquetes en el orden de selección: lugar1 completo, luego lugar2, etc.
+    function listaPlanaTelegram() {
+        var plana = [];
+        (MENSAJES_TELEGRAM && MENSAJES_TELEGRAM.paquetes || []).forEach(function(paq) {
+            (paq.mensajes || []).forEach(function(m) {
+                plana.push({ lugar: paq.lugar, m: m });
+            });
+        });
+        return plana;
+    }
+
+    // Hora local (0..24) de un date_utc de Telegram. El date termina en Z o con
+    // offset; le restamos la zona del viaje (Argentina, UTC-3) para que la hora
+    // coincida con la que usa el loop (interpHour).
+    function horaMensaje(m) {
+        var iso = m.date_utc || m.date || '';
+        var hh = argsHora(iso);
+        return hh;
+    }
+    // Extrae la fracción de hora (local) de una cadena ISO.
+    function argsHora(iso) {
+        var m = /T(\d{2}):(\d{2})/.exec(iso);
+        if (!m) return null;
+        var hora = parseInt(m[1], 10);
+        var min = parseInt(m[2], 10);
+        // Z o +00:00 → hora UTC; convertir a Argentina (UTC-3).
+        if (/Z$|(\+00:00)$/.test(iso)) hora -= 3;
+        if (hora < 0) hora += 24;
+        return hora + min / 60;
+    }
+
     function renderComunicacion(cont, inicio, cantidad) {
-        if (!MENSAJES_TELEGRAM || !MENSAJES_TELEGRAM.mensajes || !MENSAJES_TELEGRAM.mensajes.length) {
+        var plana = listaPlanaTelegram();
+        if (!plana.length) {
             cont.innerHTML = '';
             return;
         }
-        var todos = MENSAJES_TELEGRAM.mensajes;
         if (inicio === undefined) inicio = 0;
-        if (cantidad === undefined) cantidad = todos.length;
-        var ventana = todos.slice(inicio, inicio + cantidad);
+        if (cantidad === undefined) cantidad = VENTANA_CHAT.tamano;
+        var ventana = plana.slice(inicio, inicio + cantidad);
         var html = '<div class="tg-scroll" style="display:flex;flex-direction:column;gap:.1rem;width:100%;flex:1;min-height:0;overflow-y:auto;padding:.2rem .3rem">';
-        ventana.forEach(function(m) {
+        var lugarPrevio = null;
+        ventana.forEach(function(item) {
+            var m = item.m;
             var fecha = m.date_utc || '';
             var hora = fecha.length > 16 ? fecha.slice(11, 16) : '';
             var fechaCorta = fecha.length > 10 ? fecha.slice(5, 10) : '';
@@ -498,6 +591,13 @@
                 else if (m.message_type === 'voice') icono = '\uD83C\uDFA4 ';
                 else icono = '\uD83D\uDCCE ';
             }
+            // Separador de paquete: cuando cambia de lugar
+            if (item.lugar !== lugarPrevio) {
+                html += '<div style="margin:.25rem 0 .1rem;font-size:.48rem;letter-spacing:.08em;text-transform:uppercase;'
+                      + 'opacity:.5;color:rgb(var(--ar),var(--ag),var(--ab));border-top:1px solid rgba(var(--tr),var(--tg),var(--tb),.12);padding-top:.15rem;font-weight:500">'
+                      + (item.lugar || '—') + '</div>';
+                lugarPrevio = item.lugar;
+            }
             html += '<div class="tg-msg" style="font-size:.5rem;line-height:1.3;border-bottom:1px solid rgba(var(--tr),var(--tg),var(--tb),.08);padding:.1rem 0">'
                   + '<span style="opacity:.5;font-size:.45rem">' + fechaCorta + ' ' + hora + '</span> '
                   + '<strong style="opacity:.85">' + nombre + '</strong> '
@@ -508,7 +608,7 @@
                     html += '<div style="display:flex;gap:.15rem;margin-top:.1rem;flex-wrap:wrap">';
                     fotosIds.forEach(function(fid) {
                         html += '<img src="api/servir_medio.php?id=' + fid + '&thumb=1"'
-                              + ' style="width:auto;height:1.4rem;max-width:2.5rem;object-fit:cover;border-radius:2px;border:1px solid rgba(var(--tr),var(--tg),var(--tb),.12);cursor:pointer"'
+                              + ' style="width:auto;height:2.8rem;max-width:5rem;object-fit:cover;border-radius:2px;border:1px solid rgba(var(--tr),var(--tg),var(--tb),.12);cursor:pointer"'
                               + ' onclick="window.open(\'api/servir_medio.php?id=' + fid + '\',\'_blank\')"'
                               + ' loading="lazy">';
                     });
@@ -521,24 +621,29 @@
         cont.innerHTML = html;
     }
 
-    function cargarMensajesTelegram(municipio) {
-        if (!municipio) {
+    function cargarMensajesTelegram(municipios) {
+        if (!municipios || !municipios.length) {
             MENSAJES_TELEGRAM = null;
             renderComunicacionBlock();
             return;
         }
-        MENSAJES_TELEGRAM_MUNICIPIO = municipio;
-        return fetch('api/mensajes_telegram.php?municipio=' + encodeURIComponent(municipio) + '&limite=200')
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                MENSAJES_TELEGRAM = data;
-                renderComunicacionBlock();
-            })
-            .catch(function(e) {
-                console.warn('Error cargando mensajes Telegram', e);
-                MENSAJES_TELEGRAM = null;
-                renderComunicacionBlock();
-            });
+        // Cargar en paralelo todos los municipios elegidos; cada uno es un paquete.
+        var promesas = municipios.map(function(m) {
+            return fetch('api/mensajes_telegram.php?municipio=' + encodeURIComponent(m) + '&limite=200')
+                .then(function(r) { return r.json(); })
+                .then(function(data) { return { lugar: m, mensajes: data.mensajes || [] }; })
+                .catch(function(e) {
+                    console.warn('Error carga Telegram ' + m, e);
+                    return { lugar: m, mensajes: [] };
+                });
+        });
+        return Promise.all(promesas).then(function(paquetes) {
+            paquetes = paquetes.filter(function(p) { return p.mensajes.length > 0; });
+            MENSAJES_TELEGRAM = { paquetes: paquetes };
+            VENTANA_CHAT.inicio = 0;
+            VENTANA_CHAT.ultimoInicio = -1;
+            renderComunicacionBlock();
+        });
     }
 
     function renderComunicacionBlock() {
@@ -549,14 +654,36 @@
         renderComunicacion(cont, VENTANA_CHAT.inicio, VENTANA_CHAT.tamano);
     }
 
-    function actualizarVentanaChat(elapsed) {
+    function actualizarVentanaChat(horaActual) {
         if (!FLOW.activo) return;
-        if (!MENSAJES_TELEGRAM || !MENSAJES_TELEGRAM.mensajes || !MENSAJES_TELEGRAM.mensajes.length) return;
+        var plana = listaPlanaTelegram();
+        if (!plana.length) return;
 
-        var total = MENSAJES_TELEGRAM.mensajes.length;
-        var progreso = Math.min(1, elapsed / FLOW.duracionMs);
-        var maxInicio = Math.max(0, total - VENTANA_CHAT.tamano);
-        var nuevoInicio = Math.round(progreso * maxInicio);
+        // Hora de referencia del loop (0..24), normalizada.
+        var h = ((horaActual % 24) + 24) % 24;
+
+        // Encontrar el mensaje cuya hora real de llegada (local) está más cerca
+        // de la hora que corre en el loop, para que la ventana "siga" el día.
+        // Si no hay horas parseables, caemos al avance lineal por proporción.
+        var mejor = -1, mejorDif = Infinity;
+        for (var i = 0; i < plana.length; i++) {
+            var hh = horaMensaje(plana[i].m);
+            if (hh === null) continue;
+            var dif = Math.abs(hh - h);
+            if (dif > 12) dif = 24 - dif;   // circular: 23:00 y 01:00 están cerca
+            if (dif < mejorDif) { mejorDif = dif; mejor = i; }
+        }
+
+        var total = plana.length;
+        var tamano = VENTANA_CHAT.tamano;
+        var maxInicio = Math.max(0, total - tamano);
+        var nuevoInicio;
+        if (mejor === -1) {
+            // Sin horas: avance lineal proporcional a la hora del día.
+            nuevoInicio = Math.round(Math.min(1, Math.max(0, h / 24)) * maxInicio);
+        } else {
+            nuevoInicio = Math.min(mejor, maxInicio);
+        }
 
         if (nuevoInicio === VENTANA_CHAT.ultimoInicio) return; // sin cambios
 
@@ -589,9 +716,9 @@
             // Actualizar descripción
             var descEl = document.getElementById('slide-desc');
             if (descEl) {
-                var txt = item.descripcion || '';
-                if (txt.length > 120) txt = txt.slice(0, 117) + '...';
+                var txt = item.descripcion || item.archivo || '';
                 descEl.textContent = txt;
+                descEl.title = txt;
             }
         }, 300);
 
@@ -772,14 +899,14 @@
     // ═══════════════════════════════════════════════════════
 
     function renderChipsMunicipios(cont) {
-        var html = '<div style="display:flex;flex-wrap:wrap;gap:.3rem;align-items:center;width:100%">';
+        var html = '<div style="display:flex;flex-wrap:wrap;gap:.2rem .35rem;align-items:center;align-content:flex-start;width:100%">';
         MUNICIPIOS.forEach(function(m) {
             var activo = municipiosSeleccionados.indexOf(m) !== -1 ? ' activo' : '';
             html += '<button class="chip' + activo + '" data-accion="toggle-municipio" data-valor="' + m + '">'
                   + m
                   + '</button>';
         });
-        html += '<span class="info-filtro" id="info-municipios">Todos</span>';
+        html += '<span class="info-filtro" id="info-municipios" style="flex-basis:100%">Todos</span>';
         html += '</div>';
         cont.innerHTML = html;
         cont.querySelectorAll('[data-accion="toggle-municipio"]').forEach(function(btn) {
@@ -831,12 +958,40 @@
             var peso = t.peso || 0.5;
             var size = 0.45 + peso * 0.4;
             var opacidad = 0.5 + peso * 0.5;
-            html += '<span class="tag-item" style="font-size:' + size.toFixed(2) + 'rem;opacity:' + opacidad.toFixed(2) + ';cursor:default">'
+            var activo = tagsSeleccionados.indexOf(t.tag) !== -1 ? ' activo' : '';
+            html += '<button type="button" class="tag-item chip' + activo + '"'
+                  + ' data-accion="toggle-tag" data-valor="' + t.tag + '"'
+                  + ' style="font-size:' + size.toFixed(2) + 'rem;opacity:' + opacidad.toFixed(2) + ';cursor:pointer;border:none;background:transparent;font-family:inherit;letter-spacing:.02em;line-height:1.2;padding:.05rem .15rem;text-align:left">'
                   + t.tag
-                  + '</span>';
+                  + '</button>';
         });
+        html += '<span class="info-filtro" id="info-tags" style="flex-basis:100%">Ninguno</span>';
         html += '</div>';
         cont.innerHTML = html;
+        cont.querySelectorAll('[data-accion="toggle-tag"]').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                toggleTag(this.dataset.valor);
+            });
+        });
+        actualizarInfoTags();
+    }
+
+    function toggleTag(nombre) {
+        var idx = tagsSeleccionados.indexOf(nombre);
+        if (idx === -1) tagsSeleccionados.push(nombre);
+        else tagsSeleccionados.splice(idx, 1);
+        document.querySelectorAll('#bloque-tags [data-accion="toggle-tag"]').forEach(function(btn) {
+            if (btn.dataset.valor === nombre) btn.classList.toggle('activo');
+        });
+        actualizarInfoTags();
+    }
+
+    function actualizarInfoTags() {
+        var info = document.getElementById('info-tags');
+        if (!info) return;
+        if (!tagsSeleccionados.length) info.textContent = 'Ninguno';
+        else if (tagsSeleccionados.length === 1) info.textContent = tagsSeleccionados[0];
+        else info.textContent = tagsSeleccionados.length + ' tags';
     }
 
     // ═══════════════════════════════════════════════════════
@@ -857,7 +1012,7 @@
             return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
         }).join('&');
         if (qs) qs += '&';
-        qs += 'limite=20&tipo=image,audio';  // 20 imágenes para slideshow, 20 audios
+        qs += 'limite=20&tipo=image,audio,text';  // imágenes slideshow, audios y textos
 
         return fetch('api/medios_filtrados.php?' + qs)
             .then(function(r) { return r.json(); })
@@ -884,6 +1039,112 @@
         });
     }
 
+    // ── MOTOR DE AUTOPLAY (sonidos) ─────────────────────────────
+    // Distribuye los audios de forma pareja a lo largo del fluir, dejando
+    // 10s mudo al inicio y al final y un silencio corto entre audios.
+    // Si la suma (audios + silencios) supera la duración del fluir, se
+    // recortan audios para que nunca excedan ese total.
+
+    // Pausa y limpia el elemento en reproducción.
+    function detenerAudios() {
+        if (SONIDO.elem) {
+            try { SONIDO.elem.pause(); } catch (e) {}
+            try { SONIDO.elem.src = ''; } catch (e) {}
+            SONIDO.elem = null;
+        }
+        SONIDO.reproduciendo = false;
+        SONIDO.actualPlan = null;
+    }
+
+    // Crea (o reutiliza) un <audio> oculto para reproducir.
+    function obtenerElementoAudio() {
+        if (!SONIDO.elem) {
+            SONIDO.elem = new Audio();
+            SONIDO.elem.preload = 'auto';
+        }
+        return SONIDO.elem;
+    }
+
+    // Reproduce el audio objetivo; se reanuda si es el mismo que ya sonaba
+    // (sin reiniciar), o lo carga con el offset correcto si cambia de audio.
+    function reproducirAudioObjetivo(objetivo) {
+        if (!SONIDO.habilitado || !objetivo) { detenerAudios(); return; }
+        var url = 'api/servir_medio.php?id=' + objetivo.audio.id;
+
+        if (SONIDO.actualPlan === objetivo && SONIDO.reproduciendo) {
+            return; // ya estamos sonando justo este tramo → no reiniciar
+        }
+        var el = obtenerElementoAudio();
+        el.src = url;
+        el.currentTime = 0;
+        el.play().then(function() {
+            SONIDO.reproduciendo = true;
+            SONIDO.actualPlan = objetivo;
+        }).catch(function() {
+            // autoplay bloqueado por el navegador → simplemente silencioso
+        });
+    }
+
+    // En cada frame del fluire, decide qué audio debe sonar según elapsedMs,
+    // respetando los silencios de inicio/fin y el plan distribuido.
+    function actualizarAudio(elapsedMs) {
+        if (!SONIDO.habilitado) { detenerAudios(); return; }
+
+        var tEn = elapsedMs - SONIDO_SILENCIO_INICIO;   // tiempo dentro de la ventana útil
+        var fin = FLOW.duracionMs - SONIDO_SILENCIO_FINAL;
+        if (tEn < 0 || tEn >= fin || !SONIDO.plan.length) {
+            detenerAudios();
+            return;
+        }
+
+        // Encontrar el audio cuyo tramo cubre tEn
+        var objetivo = null;
+        for (var i = 0; i < SONIDO.plan.length; i++) {
+            var s = SONIDO.plan[i];
+            if (tEn >= s.inicio && tEn < s.inicio + s.dur) { objetivo = s; break; }
+        }
+        if (!objetivo) {
+            detenerAudios();
+            return;
+        }
+        reproducirAudioObjetivo(objetivo);
+    }
+
+    // Construye el plan de reproducción desde la batería seleccionada.
+    function planificarAudios() {
+        var durTotal = FLOW.duracionMs;
+        var util = durTotal - SONIDO_SILENCIO_INICIO - SONIDO_SILENCIO_FINAL;
+        if (util < 0) util = 0;
+
+        var plan = [];
+        var acum = 0;
+
+        // audios con duración conocida; si ninguno la tiene, usar 4s por defecto
+        var disponibles = SONIDO.items.filter(function(i){ return i.duracion_seg; });
+        if (!disponibles.length) disponibles = SONIDO.items;
+        if (!disponibles.length) { SONIDO.plan = plan; return plan; }
+
+        var numero = Math.min(disponibles.length, Math.max(1, Math.floor(util / 5000)));
+        disponibles = disponibles.slice(0, numero);
+
+        disponibles.forEach(function(a, idx) {
+            var durA = a.duracion_seg ? a.duracion_seg * 1000 : 4000;
+            // silencio entre audios (el primero no lleva silencio previo)
+            if (idx > 0 && acum + SONIDO_SILENCIO_ENTRE <= util) {
+                acum += SONIDO_SILENCIO_ENTRE;
+            }
+            // nunca superar el tiempo útil
+            if (acum + durA > util) {
+                if (acum >= util) return;
+                durA = util - acum;
+            }
+            plan.push({ audio: a, inicio: acum, dur: durA });
+            acum += durA;
+        });
+        SONIDO.plan = plan;
+        return plan;
+    }
+
     function iniciarFlow() {
         // Congelar las horas seleccionadas como el ciclo
         FLOW.horas = horasSeleccionadas.slice();
@@ -902,9 +1163,11 @@
         actualizarBotonFluir();
         // Cargar medios filtrados (no bloquear el flow)
         cargarMediosFiltrados();
-        // Cargar mensajes Telegram si hay un municipio seleccionado
-        if (municipiosSeleccionados.length === 1) {
-            cargarMensajesTelegram(municipiosSeleccionados[0]);
+        // Preparar la batería de audios para autoplay (si ya hay cargados)
+        if (SONIDO.items.length) planificarAudios();
+        // Cargar mensajes Telegram si hay municipios seleccionados
+        if (municipiosSeleccionados.length > 0) {
+            cargarMensajesTelegram(municipiosSeleccionados.slice());
         } else {
             MENSAJES_TELEGRAM = null;
             renderComunicacionBlock();
@@ -913,6 +1176,7 @@
 
     function detenerFlow() {
         FLOW.activo = false;
+        detenerAudios();
         document.getElementById('btn-fluir').classList.remove('activo');
         document.getElementById('btn-fluir').textContent = 'Fluir';
     }
@@ -924,6 +1188,9 @@
             return;
         }
 
+        // Autoplay de sonidos sincronizado con el tiempo del fluir
+        actualizarAudio(elapsed);
+
         var horas = FLOW.horas;
         var progreso = elapsed / FLOW.duracionMs;            // 0..1
         var pos = progreso * horas.length;                   // 0..N
@@ -933,18 +1200,18 @@
         var h1 = horas[idx];
         var h2 = horas[(idx + 1) % horas.length];
 
-        // Diferencia con wrapping (ej: 22 → 02 debe ir por 23,0,1)
+        // Siempre avanzar hacia el día (sentido horario), con wrapping de
+        // medianoche. Ej 5→17 sube por 6,7,...; 17→5 continúa 18,19,...23,0,...5.
+        // Se evita tomar el "camino corto" hacia atrás (17→16→...→5).
         var diff = h2 - h1;
-        if (diff > 12) diff -= 24;
-        if (diff < -12) diff += 24;
+        if (diff <= 0) diff += 24;   // cruzar medianoche y seguir hacia adelante
         var interpHour = h1 + diff * t;
-        if (interpHour < 0) interpHour += 24;
         if (interpHour >= 24) interpHour -= 24;
 
         paletaTarget = interpolar(interpHour);
 
-        // Scroll de Telegram durante el flow
-        actualizarVentanaChat(elapsed);
+        // Scroll de Telegram durante el flow (sincronizado con la hora que corre)
+        actualizarVentanaChat(interpHour);
 
         // Avance del slideshow de imágenes cada ~4s
         if (elapsed - SLIDESHOW.ultimoAvance > SLIDESHOW.intervaloMs) {
@@ -1307,12 +1574,93 @@
             this.textContent = 'Fluir';
             this.classList.remove('activo');
         } else {
-            iniciarFlow();
+            iniciarFlowConFade();
         }
     });
+
+    // Botón sonido: activa/desactiva el autoplay de audios
+    function actualizarBotonSonido() {
+        var btn = document.getElementById('btn-sonido');
+        if (!btn) return;
+        if (SONIDO.habilitado) {
+            btn.textContent = '🔊 Sonido';
+            btn.classList.remove('activo');
+        } else {
+            btn.textContent = '🔇 Silencio';
+            btn.classList.add('activo');
+        }
+    }
+    var btnSonido = document.getElementById('btn-sonido');
+    if (btnSonido) {
+        btnSonido.addEventListener('click', function() {
+            SONIDO.habilitado = !SONIDO.habilitado;
+            if (!SONIDO.habilitado) detenerAudios();
+            actualizarBotonSonido();
+        });
+        actualizarBotonSonido();
+    }
     }
 
-    // Arrancar: cargar datos de la API y luego inicializar
-    cargarDatos().then(inicializar);
+    // ── VISUALIZACIÓN ALEATORIA + FADE ──────────────────────────
+    // Selección aleatoria de algunas horas y municipios al arrancar y
+    // al presionar "Fluir", con un fade de pantalla hacia la nueva config.
+
+    function aleatoriosDesde(arr, n) {
+        var copia = arr.slice();
+        var res = [];
+        for (var i = 0; i < n && copia.length; i++) {
+            res.push(copia.splice(Math.floor(Math.random() * copia.length), 1)[0]);
+        }
+        return res;
+    }
+
+    // Elige horas y municipios al azar y los refleja en los chips.
+    function aplicarSeleccionAleatoria() {
+        horasSeleccionadas = aleatoriosDesde(HORAS, 3 + Math.floor(Math.random() * 2)); // 3..4 horas
+        if (horasSeleccionadas.length < 2) horasSeleccionadas = HORAS.slice(0, 2);
+        var nMuni = 2 + Math.floor(Math.random() * 3); // 2..4 municipios
+        municipiosSeleccionados = aleatoriosDesde(MUNICIPIOS, nMuni);
+        // La hora actual maneja la paleta
+        horaActual = horasSeleccionadas[Math.floor(Math.random() * horasSeleccionadas.length)];
+        paletaTarget = interpolar(horaActual);
+        // Reflejar en los chips selectores
+        rerenderBloque('horas');
+        rerenderBloque('municipios');
+        // Cargar medios y mensajes según la nueva selección
+        cargarMediosFiltrados();
+        if (municipiosSeleccionados.length > 0) {
+            cargarMensajesTelegram(municipiosSeleccionados.slice());
+        }
+    }
+
+    // Crea el overlay de fade si no existe.
+    function obtenerOverlay() {
+        var overlay = document.getElementById('fade-overlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'fade-overlay';
+            document.body.appendChild(overlay);
+        }
+        overlay.style.background = 'rgb(' + paleta.bg.join(',') + ')';
+        return overlay;
+    }
+
+    // Al presionar Fluir: fade a una nueva configuración aleatoria y arranca.
+    function iniciarFlowConFade() {
+        var overlay = obtenerOverlay();
+        overlay.style.opacity = '1'; // fade out
+        setTimeout(function() {
+            aplicarSeleccionAleatoria();
+            iniciarFlow();
+            // fade in hacia la nueva configuración
+            requestAnimationFrame(function() {
+                overlay.style.opacity = '0';
+            });
+        }, 400);
+    }
+
+    // Arrancar: cargar datos de la API, inicializar y preseleccionar una
+    // visualización aleatoria (algunas horas y municipios).
+    cargarDatos().then(inicializar).then(function() { aplicarSeleccionAleatoria(); });
 
 })();

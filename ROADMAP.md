@@ -45,7 +45,7 @@ Etapa 5: INSTALACIÓN          →  TouchDesigner + motor de deriva
 | Item | Prioridad | Estado | Ejecuta vía |
 |---|---|---|---|
 | Colores dominantes (reprocesar) | Alta | ✅ | `improve-db --steps colors --mode` |
-| Etiquetado por keywords con IA (17 géneros) | Alta | ✅ | `improve-db --steps keywords --mode` |
+| Etiquetado por keywords con IA (keywords libres) | Alta | ✅ | `improve-db --steps keywords --mode` |
 | Descripción de imágenes con IA | Alta | ✅ | `improve-db --steps descriptions --mode` |
 | Transcripción de audios/videos con timestamp | Alta | ✅ | `improve-db --steps transcribe --mode` |
 | Keypoints (segmentos de transcripción) | Alta | ✅ | `improve-db --steps keypoints --mode` |
@@ -54,7 +54,7 @@ Etapa 5: INSTALACIÓN          →  TouchDesigner + motor de deriva
 | Pipeline unificado (10 pasos) con skip/update/replace | Alta | ✅ | `improve_db.py` + flujos.py TUI |
 | Etiquetado combinado (keywords + descripción en 1 llamada de visión) | Media | ✅ | `improve-db --steps combinado --mode` |
 | Pipeline IA EN → ES (visión genera EN, traducción ES con qwen2.5:3b) | Alta | ✅ | `improve_db.py` + `traducir_metadata.py` |
-| Refinar/unificar keywords (sinónimos, embeddings) | Media | ✅ | `refinar_keywords.py` |
+| Refinar/unificar keywords (sinónimos) | Media | ✅ | `refinar_keywords.py` |
 | Audio tagging (sonidos ambientales, sherpa-onnx local) | Media | ✅ | `audio_tagging.py` |
 | Verificación de Ollama antes de pasos IA | Alta | ✅ | `_verificar_ollama()` en flujos.py |
 | Threading en llamadas Ollama (2 workers) | Media | ✅ | `ThreadPoolExecutor` en improve_db.py |

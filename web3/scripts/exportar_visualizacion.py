@@ -13,6 +13,24 @@ BASE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 FLUJOS_DB = os.path.join(BASE, 'db', 'flujos.db')
 VIZ_DB = os.path.join(BASE, 'web3', 'db', 'visualizacion.db')
 
+
+def resolver_ruta_absoluta(ruta: str) -> str:
+    """
+    Convierte una ruta a absoluta. Algunas filas guardan rutas relativas al
+    proyecto (ej: 'n\\telegram\\audio_1.ogg', o 'telegram/...'). Apache/PHP las
+    aborta con file_exists() porque busca relativo al cwd del servidor, no a la
+    raíz de Flujos. Aquí se resuelven contra BASE (raíz del proyecto).
+    """
+    if not ruta:
+        return ruta
+    # Ya es absoluta en Windows (C:\ o \\): dejarla como está.
+    if len(ruta) >= 3 and ruta[1:3] == ':\\':
+        return ruta
+    if ruta.startswith('\\\\') or ruta.startswith('/'):
+        return ruta
+    # Relativa a la raíz del proyecto → unir con BASE y normalizar slashes.
+    return os.path.normpath(os.path.join(BASE, ruta))
+
 def main():
     print(f"Leyendo {FLUJOS_DB}...")
     src = sqlite3.connect(FLUJOS_DB)
@@ -20,9 +38,27 @@ def main():
 
     # Obtener metadata tags de media_metadata
     meta = {}
-    cur = src.execute("SELECT media_id, key, value FROM media_metadata WHERE key IN ('dia_semana','weather_label','ia_description')")
+    cur = src.execute("SELECT media_id, key, value FROM media_metadata WHERE key IN ('dia_semana','weather_label','ia_description','whisper_segments','ia_keywords')")
     for r in cur:
         meta.setdefault(r['media_id'], {})[r['key']] = r['value']
+
+    # Transcripción: concatenar los textos de whisper_segments
+    def extraer_transcripcion(valor):
+        if not valor:
+            return None
+        try:
+            segs = json.loads(valor)
+            if not isinstance(segs, list):
+                return None
+            textos = [str(s.get('texto', '')).strip() for s in segs if isinstance(s, dict) and s.get('texto')]
+            if not textos:
+                return None
+            txt = ' '.join(textos).strip()
+            if len(txt) > 600:
+                txt = txt[:597] + '...'
+            return txt
+        except Exception:
+            return None
 
     # Obtener embeddings 2D (si existen)
     embs = {}
@@ -91,6 +127,8 @@ def main():
             dia_semana TEXT,
             clima TEXT,
             descripcion TEXT,
+            keywords TEXT,
+            transcripcion TEXT,
             embedding_x REAL,
             embedding_y REAL,
             cluster REAL
@@ -133,8 +171,8 @@ def main():
             color_1, color_1_hex,
             color_2, color_2_hex,
             color_3, color_3_hex,
-            dia_semana, clima, descripcion
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            dia_semana, clima, descripcion, keywords, transcripcion
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
 
     count = 0
@@ -155,6 +193,7 @@ def main():
         dia_sem = m.get('dia_semana')
         clima = m.get('weather_label')
         desc = m.get('ia_description')
+        keywords = m.get('ia_keywords')
 
         vals = (
             r['id'],
@@ -162,7 +201,7 @@ def main():
             r['carpeta'],
             r['type'],
             r['subtype'],
-            r['filepath_absoluto'],
+            resolver_ruta_absoluta(r['filepath_absoluto']),
             r['filepath_relativo'],
             r['size_bytes'],
             fecha, hora, mes, anio,
@@ -173,7 +212,7 @@ def main():
             r['color_1_name_basic'], r['color_1_hex'],
             r['color_2_name_basic'], r['color_2_hex'],
             r['color_3_name_basic'], r['color_3_hex'],
-            dia_sem, clima, desc
+            dia_sem, clima, desc, keywords, extraer_transcripcion(m.get('whisper_segments'))
         )
         try:
             dst.execute(insert_sql, vals)

@@ -23,12 +23,18 @@ keywords limpias y consistentes, así que la unificación por embeddings no
 aportaba y podía meter errores.)
 
 Después de refinar, reescribe `media_metadata.ia_keywords` con los valores
-canónicos, deduplicando y manteniendo el género fotográfico en primer lugar.
+canónicos, deduplicados. (El género fotográfico se eliminó: las keywords son
+libres y NO se fuerza ningún género comodín, por lo que "otras"/"otro" ya no
+se insertan.)
+
+Con `--clave ia_keywords_transcripcion` refina la otra familia de keywords
+(generadas desde transcripciones de audio/video en keywords_transcripciones.py).
 
 Uso:
     python scripts/ai_media/refinar_keywords.py                 # léxico + diccionario
     python scripts/ai_media/refinar_keywords.py --dry-run       # previsualizar sin escribir
     python scripts/ai_media/refinar_keywords.py --mode update   # reprocesa todos
+    python scripts/ai_media/refinar_keywords.py --clave ia_keywords_transcripcion
 
 Modos (igual que el resto del pipeline):
     skip    → solo registros con ia_keywords ya presentes (default)
@@ -66,7 +72,8 @@ SINONIMOS: dict[str, list[str]] = {
     "bicicleta": ["bici", "bicicletas", "bike", "bicycle", "bicycles", "bici de montaña", "mtb", "mountain bike", "cycling"],
     "motocicleta": ["moto", "motocicletas", "moto de enduro", "motomel", "motorcycle"],
     "automóvil": ["auto", "autos", "coche", "coches", "camioneta", "camionetas", "vehículo", "vehiculo", "car", "vehicle"],
-    "ruta": ["carretera", "caminos", "camino", "autopista", "autovía", "ruta nacional", "ruta 9", "road", "highway"],
+    "ruta": ["carretera", "ruta nacional", "ruta 9", "road"],
+    "autopista": ["autovía", "autovia", "doble carril", "highway", "freeway", "motorway"],
     "montaña": ["montañas", "cerro", "cerros", "sierra", "sierras", "cordillera", "cordilleras", "mountain", "mountains"],
     "atardecer": ["puesta de sol", "ocaso", "anochecer", "atardeceres", "sunset"],
     "amanecer": ["salida del sol", "alba", "aurora", "amaneceres", "sunrise"],
@@ -77,7 +84,7 @@ SINONIMOS: dict[str, list[str]] = {
     "animales": ["animal", "vaca", "vacas", "caballo", "caballos", "perro", "perros",
                  "gato", "gatos", "oveja", "ovejas", "burro", "burros", "ganado", "animals"],
     "comida": ["gastronomía", "comidas", "plato", "platos", "almuerzo", "cena", "desayuno", "asado", "food"],
-    "personas": ["persona", "gente", "hombres", "mujeres",
+    "personas": ["persona", "hombres", "mujeres",
                  "caminante", "caminantes", "viajero", "viajeros", "baqueano", "people"],
     "deporte": ["deportes", "competición", "carrera", "sport"],
     "ciclismo": ["ciclista", "ciclistas", "cycling", "cyclist", "cyclists", "pedaleando"],
@@ -146,59 +153,6 @@ PATRONES_BASURA = [
     r"^\d+\s*[a-z]",
 ]
 
-# Mezcla de géneros en una sola keyword (ej: "retrato grupal paisaje") — es ruido
-def _tiene_mezcla_generos(palabra: str) -> bool:
-    """Detecta si una keyword contiene 2+ géneros distintos (ruido del modelo).
-
-    Ej: "retrato grupal paisaje" → sí (retrato grupal + paisaje).
-        "retrato grupal" → no (solo 1 género; "retrato" es subcadena de "retrato grupal").
-    """
-    p = palabra.lower()
-    encontrados = set()
-    for g in sorted(GENEROS_FOTOGRAFICOS, key=len, reverse=True):
-        if g.lower() in p:
-            encontrados.add(g)
-    # Quitar géneros que son subcadena de otro ya encontrado (ej: "retrato" ⊂ "retrato grupal")
-    a_quitar = set()
-    for g1 in encontrados:
-        for g2 in encontrados:
-            if g1 != g2 and g1.lower() in g2.lower():
-                a_quitar.add(g1)
-    encontrados -= a_quitar
-    return len(encontrados) >= 2
-
-# Géneros fotográficos válidos (mismo set que image_analysis.py)
-GENEROS_FOTOGRAFICOS = [
-    "retrato", "retrato grupal", "paisaje", "nocturna", "macro",
-    "arquitectura", "documento", "callejera", "naturaleza", "abstracto",
-    "deporte", "comida", "objeto", "urbano", "evento", "animales", "otras",
-]
-
-# Mapeo de variantes de género → género canónico
-VARIANTES_GENERO = {
-    "nocturno": "nocturna",
-    "nocturnas": "nocturna",
-    "arquitectónico": "arquitectura",
-    "street": "callejera",
-    "street photography": "callejera",
-    "documental": "documento",
-    "fotografía documental": "documento",
-    "bodegón": "objeto",
-    "producto": "objeto",
-    "paisajes": "paisaje",
-    "macros": "macro",
-    "retratos": "retrato",
-    "urbanas": "urbano",
-    "urbanos": "urbano",
-    "animal": "animales",
-    "fiesta": "evento",
-    "concierto": "evento",
-    "comidas": "comida",
-    "gastronomía": "comida",
-    "deportes": "deporte",
-}
-
-
 def normalizar_palabra(palabra: str) -> str:
     """Capa léxica: limpia una keyword individual."""
     p = palabra.strip().lower().strip("'\",.;:!?¿¡()[]").strip()
@@ -242,8 +196,6 @@ def es_basura(palabra: str) -> bool:
         return True
     if p in STOPWORDS:
         return True
-    if _tiene_mezcla_generos(p):
-        return True
     if _es_frase_basura(p):
         return True
     return False
@@ -277,94 +229,47 @@ def aplicar_sinonimos(palabra: str) -> str:
     return palabra
 
 
-def es_genero(palabra: str) -> str | None:
-    """
-    Devuelve el género fotográfico canónico si la palabra es un género válido
-    (o variante conocida). None si no es género.
-    """
-    p = palabra.strip().lower()
-    # Exacto
-    for g in GENEROS_FOTOGRAFICOS:
-        if p == g.lower():
-            return g
-    # Variante conocida
-    if p in VARIANTES_GENERO:
-        return VARIANTES_GENERO[p]
-    # Contenido aproximado (evita falsos positivos con palabras cortas)
-    for g in GENEROS_FOTOGRAFICOS:
-        if len(p) >= 4 and (p in g or g in p):
-            return g
-    return None
-
-
 def refinar_lista_keywords(keywords: list[str]) -> list[str]:
     """
     Aplica capas léxica + diccionario a una lista de keywords.
-    Conserva el género (primer elemento) si es válido, y garantiza que
-    el resultado SIEMPRE tenga un género al inicio (default 'otras').
+    Las keywords son libres: NO se fuerza ningún género comodín (se eliminó el
+    concepto de género fotográfico y con él la inserción de "otras").
 
     Args:
         keywords: Lista de keywords extraídas por el modelo.
 
     Returns:
-        Lista de keywords refinadas con género validado al inicio.
+        Lista de keywords refinadas y deduplicadas.
     """
     if not keywords:
-        return ["otras"]
+        return []
 
     # Normalizar todas
     norm = [normalizar_palabra(k) for k in keywords]
     # Filtrar basura
     norm = [n for n in norm if n and not es_basura(n)]
 
-    # Buscar género: primero en posición 0, luego en cualquier posición
-    genero: str | None = None
-    resto: list[str] = []
-    # 1er intento: la primera keyword normalizada
-    if norm:
-        g = es_genero(norm[0])
-        if g:
-            genero = g
-            resto = norm[1:]
-        else:
-            # El género puede estar en cualquier posición (qwen a veces pone el sujeto primero).
-            # IMPORTANTE: conservar TODAS las keywords (incluida la posición 0,
-            # que no es género pero sí puede ser una keyword válida).
-            resto = list(norm)
-            for i, kw in enumerate(resto):
-                g = es_genero(kw)
-                if g:
-                    genero = g
-                    resto.pop(i)
-                    break
-
-    # Si no hay género → "otras"
-    if genero is None:
-        genero = "otras"
-
-    # Singularizar y aplicar sinónimos al resto
-    # (los géneros duplicados del resto se descartan — el género principal ya se eligió)
-    resto = [r for r in resto if es_genero(r) is None]
-    resto = [singularizar(r) for r in resto]
-    resto = [aplicar_sinonimos(r) for r in resto]
-    resto = [r for r in resto if r and not es_basura(r)]
+    # Singularizar y aplicar sinónimos
+    norm = [singularizar(r) for r in norm]
+    norm = [aplicar_sinonimos(r) for r in norm]
+    norm = [r for r in norm if r and not es_basura(r)]
 
     # Quitar duplicados preservando orden
     vistos = set()
-    resto_uniq = []
-    for r in resto:
-        if r not in vistos and r != genero:
+    uniq = []
+    for r in norm:
+        if r not in vistos:
             vistos.add(r)
-            resto_uniq.append(r)
+            uniq.append(r)
 
-    # Reconstruir: género primero, luego el resto (máx 6 = total 7)
-    return [genero] + resto_uniq[:6]
+    # Máx 7 keywords (el prompt pide 5, dejar margen)
+    return uniq[:7]
 
 
-def obtener_keywords_db(conn: sqlite3.Connection) -> dict[int, list[str]]:
-    """Lee todos los ia_keywords de la DB. Devuelve {media_id: [keywords]}."""
+def obtener_keywords_db(conn: sqlite3.Connection, clave: str = "ia_keywords") -> dict[int, list[str]]:
+    """Lee todas las keywords de la clave dada en la DB. Devuelve {media_id: [keywords]}."""
     filas = conn.execute(
-        "SELECT media_id, value FROM media_metadata WHERE key = 'ia_keywords'"
+        "SELECT media_id, value FROM media_metadata WHERE key = ?", (clave,)
     ).fetchall()
     resultado: dict[int, list[str]] = {}
     for mid, valor in filas:
@@ -392,6 +297,9 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--db", default=None, help="Ruta a la base de datos (default: db/flujos.db)")
     parser.add_argument("--mode", default="skip", choices=["skip", "update", "replace"],
                         help="skip: solo los que tienen keywords (default) | update: todos | replace: igual que update")
+    parser.add_argument("--clave", default="ia_keywords",
+                        help="Clave de media_metadata a refinar (default: ia_keywords). "
+                             "Ej: ia_keywords_transcripcion")
     parser.add_argument("--dry-run", action="store_true", help="Previsualizar cambios sin escribir")
     parser.add_argument("--verbose", action="store_true", help="Log detallado")
 
@@ -439,13 +347,13 @@ def _ejecutar(conn, args) -> None:
     re-indentar el cuerpo (mismo nivel de indentación de función).
     """
     # Leer keywords
-    datos = obtener_keywords_db(conn)
+    datos = obtener_keywords_db(conn, args.clave)
     if not datos:
-        print("  No hay ia_keywords en la DB. Nada que refinar.")
+        print(f"  No hay '{args.clave}' en la DB. Nada que refinar.")
         conn.close()
         return
 
-    log.info("  Registros con ia_keywords: %d", len(datos))
+    log.info("  Registros con %s: %d", args.clave, len(datos))
 
     # --- Paso 1: extraer todas las keywords únicas y sus frecuencias ---
     todas = []
@@ -497,8 +405,8 @@ def _ejecutar(conn, args) -> None:
             for mid, nueva in refinadas.items():
                 valor_nuevo = ", ".join(nueva)
                 conn.execute(
-                    "UPDATE media_metadata SET value = ? WHERE media_id = ? AND key = 'ia_keywords'",
-                    (valor_nuevo, mid),
+                    "UPDATE media_metadata SET value = ? WHERE media_id = ? AND key = ?",
+                    (valor_nuevo, mid, args.clave),
                 )
                 cp.contar()
             cp.finalizar()

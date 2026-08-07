@@ -229,6 +229,7 @@ def opcion_ingesta(db_path: str | None = None):
         print("  2) Ingerir track GPS (GPX)")
         print("  3) Deshacer ingesta")
         print("  4) Importar chat de Telegram")
+        print("  5) Ingerir textos (.md)")
         print("  0) Volver\n")
 
         opc = input("  Opcion: ").strip()
@@ -303,6 +304,9 @@ def opcion_ingesta(db_path: str | None = None):
         elif opc == "4":
             opcion_importar_telegram(db_path)
 
+        elif opc == "5":
+            opcion_ingestar_textos(db_path)
+
         elif opc == "0":
             break
         else:
@@ -370,6 +374,47 @@ def opcion_importar_telegram(db_path: str | None = None):
     if db_path:
         args.extend(["--db", db_path])
     import_telegram.main(args)
+    pausa()
+
+
+def opcion_ingestar_textos(db_path: str | None = None):
+    """Menu: ingerir textos desde archivos .md de una carpeta."""
+    limpiar_pantalla()
+    print("=== INGERIR TEXTOS ===\n")
+
+    root = input("  Carpeta de textos (default: textos): ").strip() or "textos"
+    if not os.path.isdir(root):
+        print(f"  Error: la carpeta '{root}' no existe.")
+        pausa()
+        return
+
+    print("\n  Modo de ingesta:")
+    print("    s) skip — solo textos nuevos")
+    print("    u) update — actualiza existentes")
+    print("    r) replace — limpia y reingresa todo")
+    modo = input("  Modo [s]: ").strip().lower() or "s"
+    mapa_modo = {"s": "skip", "u": "update", "r": "replace"}
+    modo_str = mapa_modo.get(modo, "skip")
+
+    dry_run = input("  ?Solo previsualizar (dry-run)? (s/N): ").strip().lower() == "s"
+    custom_db = input(f"  ?Usar otra DB? (default: {leer_db(db_path)}) [Enter para default]: ").strip()
+
+    print(f"\n  Resumen: root={root}  modo={modo_str}  dry_run={'SI' if dry_run else 'NO'}")
+    confirm = input("  ?Ejecutar ingesta? (s/N): ").strip().lower()
+    if confirm != "s":
+        print("  Cancelado.")
+        pausa()
+        return
+
+    from scripts import ingest_textos
+    args = ["--root", root, "--mode", modo_str]
+    if dry_run:
+        args.append("--dry-run")
+    if custom_db:
+        args.extend(["--db", custom_db])
+    elif db_path:
+        args.extend(["--db", db_path])
+    ingest_textos.main(args)
     pausa()
 
 
@@ -2155,6 +2200,10 @@ def main():
     elif comando in ("import-telegram", "tg"):
         from scripts import import_telegram
         import_telegram.main(resto)
+
+    elif comando in ("ingest-textos", "textos"):
+        from scripts import ingest_textos
+        ingest_textos.main(resto)
 
     else:
         print(f"Comando desconocido: {comando}")

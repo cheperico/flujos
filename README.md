@@ -208,7 +208,7 @@ Todas las operaciones que modifican la DB preguntan el modo
 | Script | Propósito |
 |--------|-----------|
 | `ollama_client.py` | Cliente Ollama compartido (visión + texto + embeddings) |
-| `image_analysis.py` | Keywords + descripción de imágenes vía Ollama (17 géneros) |
+| `image_analysis.py` | Keywords + descripción de imágenes vía Ollama (keywords libres, sin género) |
 | `video_analysis.py` | Análisis de videos (keyframes + descripción) |
 | `analyze_video.py` | Scene-change detection + análisis visual |
 | `tag_images.py` | Etiquetar imágenes (modo DB o sidecar) |
@@ -217,7 +217,7 @@ Todas las operaciones que modifican la DB preguntan el modo
 | `batch_selector.py` | Selección de mejor imagen de tanda con IA |
 | `clustering.py` | Agrupamiento por tags o embeddings |
 | `generate_embeddings.py` | Embeddings vectoriales (nomic-embed-text) |
-| `refinar_keywords.py` | Refina y unifica keywords IA (léxico + sinónimos + embeddings) |
+| `refinar_keywords.py` | Refina y unifica keywords IA (léxico + sinónimos, sin género) |
 | `traducir_metadata.py` | Traduce metadata de IA EN → ES sobre la DB (keywords/descripciones) |
 | `keywords_transcripciones.py` | Keywords del sentido de transcripciones (qwen2.5:3b) → `ia_keywords_transcripcion` |
 | `audio_tagging.py` | Sonidos ambientales (sherpa-onnx CED-mini, local) → `ia_keywords_sonido` |
@@ -294,7 +294,7 @@ Metadatos variables en formato clave-valor:
 
 | Clave | Valor | Escrito por |
 |-------|-------|-------------|
-| `ia_keywords` | JSON array de 5-7 palabras clave (incluye género) | improve-db keywords |
+| `ia_keywords` | JSON array de 5-7 palabras clave libres (sin género comodín) | improve-db keywords |
 | `ia_description` | Texto: descripción breve generada por IA | improve-db descriptions |
 | `transcript` | Texto: transcripción completa de audio/video | improve-db transcribe |
 | `dia_semana` | lunes\|martes\|...\|domingo | dia_semana.py |

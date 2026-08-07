@@ -122,7 +122,9 @@ ciclo de 5 minutos de duración.
 ### Inmediatos
 - Conectar API de medios a los bloques de imágenes, videos, textos, sonidos
 - Implementar el mapa (Folium? Leaflet? Canvas?)
-- Poblar la nube de tags con datos reales de `ia_keywords` de la DB
+- ~~Poblar la nube de tags con datos reales de `ia_keywords` de la DB~~ → ✅ resuelto:
+  `web3/api/tags.php` arma la nube desde la columna `keywords` del snapshot
+  (exportada por `exportar_visualizacion.py` desde `ia_keywords`).
 - Que la selección de colores/provincias/municipios filtre el contenido
   de los bloques de medios
 

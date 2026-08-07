@@ -20,6 +20,27 @@ if (!$row || !$row['ruta_absoluta']) {
 }
 
 $path = $row['ruta_absoluta'];
+
+// Fallback: DBs viejas guardan rutas relativas a la raíz del proyecto Flujos
+// (ej: 'n\telegram\audio_1.ogg'). file_exists() las buscaría en el cwd del
+// servidor web y fallaría. Resolver contra FLUJOS_ROOT (variable de entorno
+// o .htaccess) o contra la raíz de esta instalación web.
+if (!file_exists($path)) {
+    $rel = $path;
+    $raices = [
+        getenv('FLUJOS_ROOT') ? rtrim(getenv('FLUJOS_ROOT'), '/\\') : null,
+        __DIR__ . '/../..',   // raíz de web3 (htdocs/web3)
+    ];
+    foreach ($raices as $raiz) {
+        if (!$raiz) continue;
+        $candidata = $raiz . DIRECTORY_SEPARATOR . $rel;
+        if (file_exists($candidata)) {
+            $path = $candidata;
+            break;
+        }
+    }
+}
+
 if (!file_exists($path)) {
     http_response_code(404);
     echo "Archivo no existe en disco";

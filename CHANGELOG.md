@@ -33,6 +33,19 @@ Las versiones corresponden a entregas funcionales, no a releases semánticas.
 
 ---
 
+## [Entrega 20] — 2026-08-05
+
+### Cambiado
+- **Eliminado el género fotográfico de las keywords** (era el comodín "otras"): la auditoría mostró que el 77% de los medios (544/702) tenía "otras" como primera keyword porque la visión ya no pide género (prompts con keywords libres desde Ago 2026) pero `refinar_keywords.py` seguía forzándolo en post-proceso. Se eliminó la lógica completa de género:
+  - `image_analysis.py`: eliminados `GENEROS_FOTOGRAFICOS`, `_GENEROS_STR` y `_validar_genero()` (y su llamada en el fallback de `analizar_imagen_completo`). Verificado: `PROMPT_KEYWORDS`/`PROMPT_COMBINADO` ya no pedían género; `PROMPT_CLASIFICAR` conserva categorías (utilidad CLI `clasificar_imagen`, aparte del pipeline).
+  - `refinar_keywords.py`: eliminados `GENEROS_FOTOGRAFICOS`, `VARIANTES_GENERO`, `es_genero()` y `_tiene_mezcla_generos()`; `refinar_lista_keywords()` ya no busca género ni inserta "otras" al inicio — ahora solo normaliza, singulariza, aplica sinónimos, deduplica y recorta a máx 7.
+- **Limpieza de la DB**: se confirmó que "otras" fue insertada COMO EXTRA (no reemplazó ningún keyword válido: 0 casos con ES vacío teniendo EN). Se borró el token "otras" de los 544 registros `ia_keywords` **sin re-traducir** (no se perdió información). Backup previo en `db/backups/`.
+- **Docs**: README.md (image_analysis "17 géneros" → "keywords libres"; `ia_keywords` sin género), ROADMAP.md ("17 géneros" → "libres"; refinar sin embeddings), notas de código en image_analysis/refinar/traducir.
+- **`refinar_keywords.py`** gana `--clave` para procesar `ia_keywords_transcripcion` (keywords de audios/videos salidas de `keywords_transcripciones.py`), y en `SINONIMOS` se dieron grupos propios a `camino` y `gente` (dejaron de colapsar a `ruta`/`personas`) y a `autopista` (unifica `autovía`/`highway`/`freeway`/`motorway`, ya no colapsa a `ruta` — en el dominio es "ruta más ancha, más tráfico", significado distinto). Pasada real sobre `ia_keywords_transcripcion` (140 registros, 109 actualizados) + restauración del único caso que la pasada previa había unificado (`autopista→ruta` en media 780). El diccionario quedó idempotente: re-correr no re-convierte `autopista`.
+- **Nube de tags web3 corregida** (`web3/api/tags.php`): ya NO tokeniza las descripciones (`ia_description`) en bruto — eso inyectaba ruido de redacción de la IA (`sugiere` ×1191, `indica` ×675, `entorno`, `general`) y recortaba frases compuestas ("entorno rural" → "entorno") al contar palabras sueltas. Ahora cuenta las **keywords completas** (`ia_keywords`), respetando "entorno rural"/"general mendoza" y filtrando con `KEYWORDS_A_IGNORAR` (mismo criterio que `puente_td.py`/`elecciones.py`). Requiere columna `keywords` en `visualizacion.db` → agregada a `web3/scripts/exportar_visualizacion.py` (lee `ia_keywords`). Snapshot re-exportado (1522 medios, 702 con keywords); verificado con PHP: nube = `bicicleta` (290), `ciclismo` (259), `ruta` (128), sin el ruido.
+
+---
+
 ## [Entrega 17] — 2026-08-03
 
 ### Cambiado
