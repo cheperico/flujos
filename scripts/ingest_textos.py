@@ -46,8 +46,20 @@ log = logging.getLogger("ingest_textos")
 # ---------------------------------------------------------------------------
 
 def _strip_comentarios_html(texto: str) -> str:
-    """Elimina los comentarios HTML (<!-- ... -->) del texto."""
-    return re.sub(r"<!--.*?-->", "", texto, flags=re.DOTALL)
+    """
+    Elimina los comentarios HTML (<!-- ... -->) del texto.
+
+    Si el bloque comienza al inicio del archivo (caso plantilla/documentación),
+    se toma hasta el ÚLTIMO cierre `-->` para tolerar que la propia
+    documentación mencione la sintaxis de comentario.
+    """
+    sin_comentarios = re.sub(r"<!--.*?-->", "", texto, flags=re.DOTALL)
+    # Caso especial: archivo que empieza con un bloque de documentación que
+    # menciona `<!-- ... -->` en su interior -> quitar hasta el último `-->`.
+    if texto.lstrip().startswith("<!--") and "-->" in texto:
+        ultimo = texto.rfind("-->")
+        sin_comentarios = texto[ultimo + 3:]
+    return sin_comentarios
 
 
 def parsear_frontmatter(texto: str) -> tuple[dict, str]:
@@ -139,15 +151,94 @@ def parsear_fecha(fecha: str) -> str | None:
 # Lectura de archivos
 # ---------------------------------------------------------------------------
 
+_CLAVES_METADATA = {"autor", "fecha", "tags", "ubicacion"}
+
+
+def _separar_metadata_texto(contenido: str) -> tuple[dict, str]:
+    """
+    Separa la metadata de un texto (líneas `clave: valor` al inicio de la
+    sección, antes de la primera línea en blanco) del contenido propiamente
+    dicho. Devuelve (metadata, contenido_sin_metadata).
+
+    Solo se reconoce un conjunto fijo de claves (autor, fecha, tags, ubicacion);
+    las líneas de prosa que lleven `:` NO se interpretan como metadata.
+    Las claves sin valor (ej: `fecha:`) se guardan con valor None.
+    """
+    lineas = contenido.splitlines()
+    meta: dict = {}
+    i = 0
+    while i < len(lineas):
+        ln = lineas[i]
+        m = re.match(r"^([A-Za-z_][\w]*)\s*:\s*(.*)$", ln)
+        if m and m.group(1).strip().lower() in _CLAVES_METADATA:
+            clave = m.group(1).strip().lower()
+            valor = m.group(2).strip()
+            meta[clave] = valor or None
+            i += 1
+        elif not ln.strip():
+            i += 1  # salta la línea en blanco que separa metadata de contenido
+            break
+        else:
+            break
+    cuerpo = "\n".join(lineas[i:]).strip()
+    return meta, cuerpo
+
+
+def _unir_tags(*grupos) -> str | None:
+    """Une y deduplica tags de varias fuentes (colección + texto)."""
+    vistos: list[str] = []
+    for grupo in grupos:
+        if not grupo:
+            continue
+        for t in re.split(r"[,;\n]+", grupo):
+            t = t.strip()
+            if t and t not in vistos:
+                vistos.append(t)
+    return ", ".join(vistos) if vistos else None
+
+
+_RE_COORDENADAS = re.compile(r"^-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?$")
+
+
+def _parsear_ubicacion(valor: str | None) -> tuple[str | None, float | None, float | None]:
+    """
+    Parsea el valor del campo `ubicacion` de un texto.
+
+    Devuelve (texto_ubicacion, lat, lon):
+    - Si el valor es una coordenada 'lat, lon' (ej: -34.627328, -58.728783),
+      devuelve el texto original + lat/lon numéricos.
+    - Si es un nombre de lugar (ej: 'Moreno', 'Santiago del Estero'), devuelve
+      el texto tal cual y lat/lon None.
+    """
+    if not valor:
+        return None, None, None
+    v = valor.strip()
+    if _RE_COORDENADAS.match(v):
+        partes = v.split(",")
+        lat = float(partes[0].strip())
+        lon = float(partes[1].strip())
+        return v, lat, lon
+    return v, None, None
+
+
 def _leer_textos(carpeta_root: str) -> list[dict]:
     """
     Lee todos los .md de la carpeta y los descompone en textos individuales.
     Devuelve una lista de dicts con los campos listos para insertar.
+
+    El archivo .md es un CONTENEDOR (equivalente a una carpeta para imágenes):
+    cada subtítulo `##` es un TEXTO (un medio, su propio id). La metadata
+    (autor, fecha, tags, ubicacion) es POR TEXTO: se lee de las líneas
+    `clave: valor` al inicio de cada sección, no del frontmatter.
     """
     textos: list[dict] = []
 
     for filename in sorted(os.listdir(carpeta_root)):
         if not filename.lower().endswith(".md"):
+            continue
+        # Archivos de ejemplo/ocultos (prefijo `_`) NO se ingieren
+        if filename.startswith("_"):
+            log.info("  Ignorado (ejemplo/oculto): %s", filename)
             continue
 
         ruta_absoluta = os.path.join(carpeta_root, filename)
@@ -164,39 +255,61 @@ def _leer_textos(carpeta_root: str) -> list[dict]:
         contenido_limpio = _strip_comentarios_html(contenido_raw)
         campos, cuerpo = parsear_frontmatter(contenido_limpio)
 
+        # Si tras quitar comentarios y frontmatter no queda cuerpo, es un archivo
+        # de solo documentación/plantilla -> se salta (no genera texto fantasma).
+        if not cuerpo.strip():
+            continue
+
+        # Metadata de la COLECCIÓN (del .md, NO de cada texto):
+        # titulo (control/origen), compilador (quien armó el archivo, opcional),
+        # tags (opcionales, se heredan a todos los textos del archivo).
         titulo_coleccion = str(campos.get("titulo", "")).strip() or os.path.splitext(filename)[0]
-        autor = str(campos.get("autor", "")).strip() or None
-        fecha_raw = str(campos.get("fecha", "")).strip() or None
-        fecha_iso = parsear_fecha(fecha_raw) if fecha_raw else None
-        tags = str(campos.get("tags", "")).strip() or None
-        ubicacion = str(campos.get("ubicacion", "")).strip() or None
+        compilador = str(campos.get("compilador", "")).strip() or None
+        tags_coleccion = str(campos.get("tags", "")).strip() or None
 
         secciones = separar_textos(cuerpo)
         if not secciones:
             secciones = [("", cuerpo.strip())]
 
         for indice, (subtitulo, contenido) in enumerate(secciones):
+            # Metadata del TEXTO: líneas `clave: valor` al inicio de la sección
+            meta, cuerpo_texto = _separar_metadata_texto(contenido)
+
             titulo_final = subtitulo or titulo_coleccion
-            # Identidad del fragmento: subtítulo + contenido (para detectar cambios)
-            identidad = f"{titulo_final}\n{contenido}".strip()
+            autor = str(meta.get("autor", "")).strip() or None
+            fecha_raw = str(meta.get("fecha", "")).strip() or None
+            fecha_iso = parsear_fecha(fecha_raw) if fecha_raw else None
+            tags_texto = str(meta.get("tags", "")).strip() or None
+            ubicacion_raw = str(meta.get("ubicacion", "")).strip() or None
+            # ubcion es un texto de lugar o una coordenada 'lat, lon'
+            ubicacion, lat, lon = _parsear_ubicacion(ubicacion_raw)
+            # Tags del texto + tags heredadas de la colección
+            tags = _unir_tags(tags_coleccion, tags_texto)
+
+            # Identidad del fragmento: título + metadata + contenido (para detectar cambios)
+            meta_repr = ", ".join(f"{k}={v}" for k, v in sorted(meta.items()))
+            identidad = f"{titulo_final}\n{meta_repr}\n{cuerpo_texto}".strip()
 
             textos.append({
                 "titulo": titulo_final,
                 "titulo_coleccion": titulo_coleccion,
                 "subtitulo": subtitulo,
-                "contenido": contenido,
+                "contenido": cuerpo_texto,
                 "autor": autor,
                 "fecha_iso": fecha_iso,
                 "tags": tags,
                 "ubicacion": ubicacion,
+                "latitude": lat,
+                "longitude": lon,
+                "compilador": compilador,
                 "indice": indice,
                 "filename_original": titulo_final,
                 "filepath_absoluto": ruta_absoluta,
                 "filepath_relativo": relpath,
                 "carpeta": os.path.basename(os.path.normpath(carpeta_root)),
                 "file_hash": sha256_texto(identidad),
-                "content_hash": sha256_texto(contenido or ""),
-                "size_bytes": len(contenido or ""),
+                "content_hash": sha256_texto(cuerpo_texto or ""),
+                "size_bytes": len(cuerpo_texto or ""),
             })
 
     return textos
@@ -218,8 +331,8 @@ def _insertar(conn: sqlite3.Connection, texto: dict) -> int:
         INSERT INTO media (
             filename_original, filepath_absoluto, filepath_relativo, carpeta,
             type, subtype, size_bytes, file_hash, content_hash,
-            timestamp_original, timestamp_utc, author
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            timestamp_original, timestamp_utc, author, latitude, longitude
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         texto["filename_original"],
         texto["filepath_absoluto"],
@@ -233,6 +346,8 @@ def _insertar(conn: sqlite3.Connection, texto: dict) -> int:
         texto["fecha_iso"],
         texto["fecha_iso"],
         texto["autor"],
+        texto.get("latitude"),
+        texto.get("longitude"),
     ))
     media_id = cursor.lastrowid
     _insertar_metadata(conn, media_id, texto)
@@ -244,7 +359,7 @@ def _actualizar(conn: sqlite3.Connection, media_id: int, texto: dict):
     conn.execute("""
         UPDATE media SET
             file_hash = ?, content_hash = ?, size_bytes = ?, author = ?,
-            timestamp_original = ?, timestamp_utc = ?
+            timestamp_original = ?, timestamp_utc = ?, latitude = ?, longitude = ?
         WHERE id = ?
     """, (
         texto["file_hash"],
@@ -253,6 +368,8 @@ def _actualizar(conn: sqlite3.Connection, media_id: int, texto: dict):
         texto["autor"],
         texto["fecha_iso"],
         texto["fecha_iso"],
+        texto.get("latitude"),
+        texto.get("longitude"),
         media_id,
     ))
     _insertar_metadata(conn, media_id, texto)
@@ -272,6 +389,10 @@ def _insertar_metadata(conn: sqlite3.Connection, media_id: int, texto: dict):
         pares["texto_tags"] = texto["tags"]
     if texto.get("ubicacion"):
         pares["texto_ubicacion"] = texto["ubicacion"]
+    if texto.get("compilador"):
+        # Metadata del archivo .md que armó la colección (no se usa aún,
+        # solo se guarda como seguimiento de origen).
+        pares["compilador"] = texto["compilador"]
 
     for clave, valor in pares.items():
         conn.execute(
@@ -353,7 +474,7 @@ Ejemplos:
 
     textos = _leer_textos(root)
     if not textos:
-        log.warning("No se encontraron archivos .md en %s", root)
+        log.warning("No se generaron textos desde %s (¿solo documentación/plantilla?)", root)
 
     stats = {
         "textos": len(textos),

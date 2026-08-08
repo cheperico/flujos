@@ -50,7 +50,8 @@ referenciados en **Dónde está la información** (al final) — consultar bajo 
 │   │   gradiente.py, astronomia.py, limpiar_tandas.py, fetch_weather.py,
 │   │   dia_semana.py, color_utils.py, ingest_gpx.py, import_telegram.py,
 │   │   puente_td.py, exportar_csv.py, mover_media.py, elecciones.py,
-│   │   mapa_ruta.py, consolidar_medios.py, fix_gps_sign.py, mover_descartadas.py
+│   │   mapa_ruta.py, consolidar_medios.py, fix_gps_sign.py, mover_descartadas.py,
+│   │   ingest_textos.py
 │   ├── check_db.py, check_gps.py, check_db_data.py, test_gradiente.py
 │   └── ai_media/
 │       ├── ollama_client.py, image_analysis.py, transcribe.py, transcribe_media.py,
@@ -134,6 +135,8 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 | | | | `telegram_messages` | message_id, type, message_type, es_sistema, from_name, from_id, text, date_unixtime, date_utc, edited_unixtime, reply_to_message_id, reactions, hashtags, action, members |
 | | | | `telegram_media` | media_type, file_relative_path, mime_type, file_size, width, height, duration_seconds, media_id |
 | | | | `media` | telegram_message_id (FK), columna agregada vía ALTER TABLE |
+| **TEXTOS** | `ingest_textos.py` | Ingiere textos `.md` de la carpeta `textos/` como medios type='text' (cada subtítulo `##` = un texto; sin subtítulos = un solo texto; plantilla en `textos/textos.md`) | `media` | filename_original, filepath_absoluto, filepath_relativo, carpeta, type='text', subtype='md', size_bytes, file_hash (SHA-256 del FRAGMENTO, único por texto), content_hash, timestamp_original, timestamp_utc, author |
+| | | | `media_metadata` | keys: `texto_completo`, `titulo_seccion`, `indice_seccion`, `origen_seccion` (archivo::índice, clave estable de identidad), `texto_tags`, `texto_ubicacion` |
 
 > **Nota**: todas las operaciones que modifican la DB soportan `--mode skip|update|replace`.
 > - `skip`: solo procesa registros donde el dato es NULL
@@ -161,8 +164,10 @@ Detalle de args CLI de cada script en su **docstring** (o `python script.py --he
 | `dia_semana.py` | Día de la semana desde `timestamp_utc` | TUI Hoja 2→6; standalone |
 | `ingest_gpx.py` | Ingesta de track GPX (tracks, waypoints, backfill altitud) | TUI Ingesta→2 |
 | `import_telegram.py` | Importa exports de Telegram (chats, mensajes, multimedia) | TUI Ingesta→4; CLI `flujos.py import-telegram` / `tg` |
+| `ingest_textos.py` | Ingiere textos `.md` de `textos/` como medios type='text' (frontmatter + subtítulos `##` = textos individuales) | TUI Ingesta→5; CLI `flujos.py ingest-textos` / `textos` |
 | `exportar_csv.py` | Exporta tablas a CSV en `db/exports/<timestamp>/` | TUI Mantenimiento→7; CLI `flujos.py export-csv` |
 | `puente_td.py` | Puente BD → TouchDesigner vía OSC (9000→TD, 9001←TD) | Standalone: `python scripts/puente_td.py enviar` |
+| `osc_probe.py` | Eco OSC: escucha lo que llega a un puerto y lo imprime. Test rápido TD→Python sin puente completo | Standalone: `python scripts/osc_probe.py 9001 [segundos]` |
 | `mover_media.py` | Mueve/copia medios y actualiza rutas en DB | TUI Mantenimiento→8; CLI `flujos.py mover` |
 | `ai_media/ollama_client.py` | Cliente Ollama compartido (visión/texto/embeddings) + auto-inicio `asegurar_ollama()` | Usado por todos los scripts IA |
 | `ai_media/image_analysis.py` | Keywords + descripción de imágenes (visión minicpm, prompts EN) | Usado por `improve_db --step keywords/descriptions` |
@@ -302,6 +307,7 @@ Se consulta bajo demanda según la necesidad:
 
 **Estructura de nombres de operadores TD esperados:**
 - `osc_in1` — OSC In DAT (puerto 9000); `osc_in1/osc_in1_callbacks` — DAT interno con `File` → `td/osc_callbacks.dat`, `Sync to File` = ON
+- `osc_out1` — OSC Out DAT (**TD → Python**), destino `127.0.0.1:9001; creado UNA SOLA VEZ a mano (no lo genera ningún script); usado por el callback de `elecciones_exec` para `/flujos/seleccion <grupo> <valor> 1|0`
 - `generar_nube` — Script DAT; `generar_nube/generar_nube_callbacks` — DAT interno con `File` → `td/nube_generar.dat`, `Sync to File` = ON
 - `tabla_colores` — Table DAT con lista de colores; `nube_datos` — Table DAT con columnas [palabra, frecuencia, peso]
 - `movie1` — Movie File In TOP para slideshow de imágenes; `nube_container` — Base COMP contenedor de Text TOPs de la nube

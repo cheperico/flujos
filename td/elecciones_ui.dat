@@ -1,4 +1,4 @@
-﻿"""
+"""
 elecciones_ui.dat — Rediseño de la UI de "nubes de elecciones" (Rediseño 2026)
 
 PROBLEMA DEL DISEÑO ANTERIOR:
@@ -34,11 +34,10 @@ GENERA AUTOMATICAMENTE (no hay que crearlos a mano):
                             select=value0).
   - elecciones_exec        (CHOP Execute DAT) que detecta toggles y dispara
                             el OSC hacia osc_out1.
-  - elecciones_render      (Top Render COMP -> elecciones_container), si la
-                            API lo permite; si falla, se crea a mano (ver
-                            instrucciones al final del archivo).
-
 CREADO UNA SOLA VEZ POR EL USUARIO:
+  - Cadena del viewer      (OP Viewer TOP + Null + Out):
+                            opview1 -> null1 -> out1, con opview1
+                            apuntando a /project2/elecciones_container.
   - osc_out1               (OSC Out DAT) hacia 127.0.0.1:9001 (TD -> Python).
   - elec_<id>              (Table DAT por grupo: [titulo, valor, peso]).
   - Las tablas elec_* las llena osc_callbacks.dat desde /flujos/elecciones/<id>.
@@ -48,9 +47,9 @@ COMO CRECER:
   Agregar un grupo nuevo -> su tabla elec_<id> aparece en la UI al pulsar
   "Generar".
 
-REQUIERE que el contenedor este "abierto" como Panel (Node Viewer de tipo
-Control Panel) o que elecciones_render apunte a el, para que TD ejecute la
-interaccion de mouse/touch sobre los botones.
+REQUIERE que la cadena del viewer (opview1 -> null1 -> out1) este armada
+en /project2 y que el OP Viewer apunte a elecciones_container, para que TD
+ejecute la interaccion de mouse/touch sobre los botones.
 """
 
 # Raiz del proyecto (cambiar si no es /project2)
@@ -162,6 +161,17 @@ def _listar_tablas_elec():
         if child.name.startswith("elec_"):
             ids.append(child.name.replace("elec_", "", 1))
     return sorted(ids)
+
+
+def _expr_tabla(grupo_id):
+    """Devuelve la ruta absoluta de la tabla elec_<id> para usar en expresiones.
+
+    En una expresion de parametro, op() se resuelve RELATIVO al network del
+    operador que posee el parametro (no al script). Como los botones viven
+    dentro de ui_<id> y las tablas en la raiz, la ruta relativa 'elec_*'
+    NO resuelve: se necesita la ruta absoluta (ej. /project2/elec_tags).
+    """
+    return "%s/elec_%s" % (_ROOT.path, grupo_id)
 
 
 def _leer_grupo(grupo_id):
@@ -297,84 +307,16 @@ def _asegurar_panelchop(cont):
     return pc
 
 
-def _asegurar_render(cont):
-    """
-    Crea (mejor esfuerzo) un 'OP Viewer TOP' que compone el contenedor del
-    paneles a una textura. El opType y el nombre del parametro de destino
-    varian segun la version de TD; por eso se prueban varias alternativas.
-    Devuelve el render o None (en ese caso el usuario lo crea a mano).
-    """
-    render = _ROOT.op("elecciones_render")
-    if render is None:
-        cls = _clase_global(["opviewer", "opviewertop"])
-        if cls is not None:
-            try:
-                render = _ROOT.create(cls, "elecciones_render")
-            except Exception:
-                render = None
-    if render is not None:
-        # El parametro que apunta al contenedor se llama distinto por version.
-        for nombre in ("op", "operator", "opviewer", "masterop", "target", "component"):
-            if _param(render, nombre, cont.path):
-                break
-        _param(render, "resolutionw", ANCHO_LIENZO)
-        _param(render, "resolutionh", ALTO_LIENZO)
-        _ubicar(render, 0, 200)
-    else:
-        print("[elecciones_ui] AVISO: no se pudo crear elecciones_render. "
-              "Ver la nota manual al final de este .dat para crearlo a mano "
-              "(COMP -> Top Render, tamano del lienzo, conectar salida TOP).")
-    return render
-
-
-def _asegurar_display(render):
-    """Conecta la salida del render a un Null TOP para llevarlo a pantalla.
-
-    Crea (si falta) 'elecciones_display' (Null TOP via _clase_global) y conecta
-    render.outputConnectors[0] -> nul.inputConnectors[0]. Idempotente: si la
-    conexion ya existe no la duplica. Devuelve el Null TOP (o None si fallo).
-    """
-    if render is None:
-        return None
-    nul = _ROOT.op("elecciones_display")
-    if nul is None:
-        cls_nul = _clase_global(["nulltop", "null"])
-        if cls_nul is not None:
-            try:
-                nul = _ROOT.create(cls_nul, "elecciones_display")
-            except Exception:
-                nul = None
-                print("[elecciones_ui] No se pudo crear elecciones_display (Null TOP).")
-    if nul is not None:
-        try:
-            render.outputConnectors[0].connect(nul.inputConnectors[0])
-        except Exception as e:
-            print("[elecciones_ui] No se pudo conectar render->display: %s" % e)
-    else:
-        print("[elecciones_ui] AVISO: sin elecciones_display no se ve el panel "
-              "en pantalla (ver nota manual al final de este .dat).")
-
-    _ubicar(nul, 0, 300)
-    return nul
-
-
 def _asegurar_exec(cont):
-    """
-    Detecta (o crea) el Panel Execute DAT que convierte los clicks de los
-    botones en OSC hacia el cerebro.
+    """Detecta (o crea) el Panel Execute DAT que convierte los clicks de
+    los botones en OSC hacia el cerebro.
 
-    En TD 2025.32820 los Execute DATs se crean con la clase global directa
-    (panelexecuteDAT) — los strings "chopexec" NO se resuelven. El patron
-    correcto para detectar toggles de Button COMPs es el Panel Execute DAT
-    (no el viejo CHOP Execute): monitorea elecciones_container y por cada
-    cambio llama onOffToOn/onOnToOff con panelValue.owner = boton tocado.
+    Los Panel Execute DAT en TD se crean con la clase global directa
+    (panelexecuteDAT) - los strings "chopexec" no se resuelven. Monitorea
+    elecciones_container y por cada cambio llama onOffToOn/onOnToOff con
+    panelValue.owner = boton tocado.
 
-    Si no se puede crear por codigo, indica crear el operador a mano UNA vez:
-      - COMP -> Panel Execute (o DAT -> Panel Execute DAT)
-      - Nombre: elecciones_exec
-      - Panels  -> /project2/elecciones_container
-      - Panel Value -> state
-      - Toggles: Off to On = ON, On to Off = ON, Value Change = OFF
+    Si no se puede crear por codigo, indica crear el operador a mano una vez.
     """
     exec_d = _ROOT.op("elecciones_exec")
     if exec_d is None:
@@ -391,16 +333,17 @@ def _asegurar_exec(cont):
         return None
 
     # Configurar el panel monitoreado y los toggles (idempotente).
+    # NOTA: panelvalue="value0" (no "state") para que los callbacks on/off
+    # del Button COMP se disparen con certeza; "state" cubre solo el hover.
     _param(exec_d, "panels", cont.path)
-    _param(exec_d, "panelvalue", "state")
+    _param(exec_d, "panelvalue", "value0")
     _param(exec_d, "offtoon", 1)
     _param(exec_d, "ontooff", 1)
     _param(exec_d, "valuechange", 0)
 
     # Escribir los callbacks en el DAT interno del execute.
     _escribir_callbacks_exec(exec_d)
-    # Posiciona el Panel Execute DAT en la red para que no quede superpuesto
-    # con el resto de los operadores raiz (container, panelchop, render, null).
+    # Posiciona el Panel Exec en la red para que no quede superpuesto.
     _ubicar(exec_d, 0, 400)
     return exec_d
 
@@ -421,8 +364,10 @@ def _escribir_callbacks_exec(exec_d):
         "    valor = btn.fetch('valor')\n"
         "    if grupo is None or valor is None:\n"
         "        return\n"
+        "    print('[elecciones_ui] toggle: %s = %s (%d)' % (grupo, valor, activo))\n"
         "    out = op('osc_out1')\n"
         "    if out is None:\n"
+        "        print('[elecciones_ui] ADVERTENCIA: osc_out1 no existe')\n"
         "        return\n"
         "    try:\n"
         "        out.sendOSC('/flujos/seleccion', [grupo, valor, int(activo)])\n"
@@ -461,12 +406,27 @@ def _crear_boton(grupo, idx, valor, peso_norm, x0, y0, cont):
     if btn is None:
         btn = cont.create(buttonCOMP, nombre)
 
+    # LAYOUT ABSOLUTO: hijos posicionados por X/Y/W/H exigen hmode/vmode=fixed
+    # (si quedan en 'fill', TD ignora x/y/w/h y los amontona en el origen).
+    _param(btn, "hmode", "fixed")
+    _param(btn, "vmode", "fixed")
+
     # Comportamiento: toggle (on/off) al pulsarlo; el estado queda en value0.
     _param(btn, "buttontype", "toggledown")
-    # Texto visible: en TD 2025 el Button usa un Text COMP interno y el
-    # parametro es 'text'; 'label' es el antiguo (pre-2021). El fallback
-    # aprovecha que _param devuelve True/False segun haya seteado o no.
-    if not _param(btn, "text", valor):
+    # Texto visible: el parametro canonico del Button COMP es 'label'
+    # ("The label that appears on the button", doc oficial). Se liga con una
+    # EXPRESION a la tabla elec_<id> (patron TD usado con replicators:
+    # op('/ruta/absoluta/tabla')[fila, columna]); asi el texto se actualiza
+    # solo cuando osc_callbacks reescribe la tabla.
+    # IMPORTANTE: se usa la RUTA ABSOLUTA (def _ruta_tabla) porque en una
+    # expresion de parametro el op() se resuelve relativo al network del
+    # operador (el boton esta dentro de ui_container, las tablas en la raiz).
+    # Fila 0 = encabezado, datos desde 1.
+    try:
+        btn.par.label.mode = ParMode.EXPRESSION
+        btn.par.label.expr = "op('%s')[%d, 1]" % (_expr_tabla(grupo), idx + 1)
+    except Exception:
+        # Fallback: constante si la expresion no es soportada.
         _param(btn, "label", valor)
     _param(btn, "x", x0)
     _param(btn, "y", ALTO_GRUPO - y0 - alto)   # y crece hacia arriba en paneles
@@ -493,13 +453,24 @@ def _crear_boton(grupo, idx, valor, peso_norm, x0, y0, cont):
 
 
 def _crear_titulo(grupo, titulo, cont):
-    """Crea un Button COMP deshabilitado como titulo del grupo."""
+    """Crea un Button COMP deshabilitado como titulo del grupo.
+
+    El titulo se liga como EXPRESION a la celda [1, 0] de elec_<grupo>
+    (mismo patron que los botones): cuando osc_callbacks reescribe la
+    tabla, el titulo se actualiza solo.
+    """
     nombre = "titulo_" + grupo
     t = cont.op(nombre)
     if t is None:
         t = cont.create(buttonCOMP, nombre)
     _param(t, "buttontype", "momentary")
-    _param(t, "label", titulo)
+    _param(t, "hmode", "fixed")
+    _param(t, "vmode", "fixed")
+    try:
+        t.par.label.mode = ParMode.EXPRESSION
+        t.par.label.expr = "op('%s')[1, 0]" % _expr_tabla(grupo)
+    except Exception:
+        _param(t, "label", titulo)
     _param(t, "x", MARGEN_GRUPO_X)
     _param(t, "y", ALTO_GRUPO - 24)
     _param(t, "w", ANCHO_GRUPO - 2 * MARGEN_GRUPO_X)
@@ -538,6 +509,10 @@ def _crear_grupo(grupo, titulo, items, offset_x):
     _param(grupo_cont, "w", ANCHO_GRUPO)
     _param(grupo_cont, "h", ALTO_GRUPO)
     _param(grupo_cont, "align", "none")
+    # LAYOUT ABSOLUTO: el grupo mismo debe ser fixed (no fill) y su alineacion
+    # interna none, para que cada boton use su X/Y independiente.
+    _param(grupo_cont, "hmode", "fixed")
+    _param(grupo_cont, "vmode", "fixed")
     # Display ON para que los Button COMPs del grupo se compongan dentro del
     # grupo; si queda apagado, TD solo pinta el primer hijo al apilarse.
     _param(grupo_cont, "display", 1)
@@ -650,11 +625,8 @@ def crear_ui():
     # Infraestructura de deteccion + render (una sola vez).
     pc = _asegurar_panelchop(cont)
     _asegurar_exec(cont)
-    render = _asegurar_render(cont)
-    _asegurar_display(render)
 
     print("[elecciones_ui] UI generada para %d grupo(s)" % len(grupos))
-
 
 def limpiar_seleccion():
     """Limpia la seleccion y apaga todos los botones."""
@@ -672,16 +644,8 @@ def limpiar_seleccion():
 
 
 # ───────────────────────────────────────────────────────────────
-# NOTA PARA CREAR A MANO (si _asegurar_render no encontró la API):
-#
-# 1) Crear un operador "OP Viewer" (se llama OP Viewer TOP; en la lista de
-#    operadores esta en Top -> OP Viewer). Apuntar su parametro "Operator" a
-#    /project2/elecciones_container  (NOTA: el boton "Ayuda manual" del Script
-#    DAT genera usando dinamicamente la clase opViewerTOP, por eso aqui se
-#    describe la via manual que usa el editor grafico y no una clase fija).
-# 2) Resolucion: poner el tamanio del lienzo (ej. 1440x900).
-# 3) Conectar su salida TOP a donde quieras (Null -> Out -> pantalla).
-#
-# Con eso el usuario VE la nube y puede hacer clic sin armar Composite.
-# Tambien se puede ver directamente abriendo el Node Viewer de tipo
-# "Control Panel" sobre /project2/elecciones_container (RMB -> View).
+
+# NOTA: la cadena del viewer se crea A MANO; el script ya no la genera.
+#        Crear en /project2: OP Viewer (opview1) apuntando a
+#        /project2/elecciones_container, + Null (null1) + Out (out1).
+#        El script solo genera container + botones + Panel CHOP + exec.
