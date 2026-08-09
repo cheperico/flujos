@@ -1,0 +1,349 @@
+"""
+fluir_callbacks.dat - Callbacks del receptor de retorno del "Fluir" (OSC 9002).
+
+El cerebro Python (`scripts/puente_td.py` modo 'fluir') envía por el puerto
+9002 un contrato POR TIPO, en este orden exacto:
+
+    /flujos/fluir/resumen <total> <loop_secs> <image> <video> <audio> <text>
+        Resumen del lote: totales por tipo (vienen de spec['resumen']).
+    /flujos/fluir/filtro <clave> <valor>   (0..N, uno por filtro puesto por
+        el usuario): hora_inicio, hora_fin, horas_elegidas, municipios,
+        colores, tags, dias, clima. Se guardan como filas [clave, valor] en
+        fluir_estado (igual que los totales).
+    Por tipo (orden estable image, video, audio, text; SOLO si tiene medios;
+    si un tipo tiene 0 medios NO se envían su /tabla ni /medio):
+        /flujos/fluir/tabla  <tipo> <cantidad>
+            Anuncia el comienzo de la tabla para ese tipo.
+        /flujos/fluir/medio  <media_id> <ruta> <keypoint> <hora> <tipo>  (x cantidad)
+            Un medio por mensaje; el <tipo> es el del momento (el del bloque).
+    /flujos/fluir/chiche <hora> <texto>   (0..N, chiches climáticos/astronómicos)
+    /flujos/fluir/fin   <total>           (fin de lote)
+
+keypoint = ubicación temporal del medio DENTRO del loop, en segundos sobre
+[0, loop_secs): es el mismo valor que el spec llama `t_loop`. `hora` es la
+hora decimal de los metadatos (0..24). El OSC ya trae todo esto: el archivo
+td/spec_fluir.json se escribe ANTES del primer mensaje y se lee SOLO para
+cotejar (debug de pérdida UDP), ya NO es fuente única de datos.
+
+Tablas destino (Table DAT en /project2). Las CUATRO tablas de medios tienen la
+MISMA estructura [media_id, ruta, keypoint, hora, tipo]:
+  fluir_estado  [clave, valor]  total, loop_secs, image, video, audio, text,
+                                fin (0/1), recibidos, esperados,
+                                + los filtros del usuario (hora_inicio,
+                                hora_fin, horas_elegidas, municipios,
+                                colores, tags, dias, clima si vienen)
+  fluir_fotos   [media_id, ruta, keypoint, hora, tipo]  <- image
+  fluir_videos  [media_id, ruta, keypoint, hora, tipo]  <- video
+  fluir_sonidos [media_id, ruta, keypoint, hora, tipo]  <- audio
+  fluir_textos  [media_id, ruta, keypoint, hora, tipo]  <- text
+  fluir_chiches [hora, texto]
+
+Un único helper _tabla_para_tipo(tipo) resuelve el nombre de tabla correcto
+para cada tipo: image -> fluir_fotos, video -> fluir_videos, audio ->
+fluir_sonidos, text -> fluir_textos.
+
+Este callbacks es INDEPENDIENTE del canal 9000/osc_in1 (nubes de elecciones):
+solo escribe las tablas `fluir_*`. No toca `elec_*` ni `osc_out1`.
+"""
+
+_ROOT = op("/project2")
+
+PREFIJO_LOG = "[fluir_callbacks]"
+
+# Address base del contrato "Fluir" (coincide con OSC_ADDR_FLUIR de
+# puente_td.py; verificado con osc_probe.py 9002).
+OSC_ADDR_FLUIR = "/flujos/fluir"
+
+# Nombre de tabla destino por tipo de medio (única fuente del mapeo).
+TABLAS_POR_TIPO = {
+    "image": "fluir_fotos",
+    "video": "fluir_videos",
+    "audio": "fluir_sonidos",
+    "text": "fluir_textos",
+}
+
+HEADER_MEDIO = ["media_id", "ruta", "keypoint", "hora", "tipo"]
+
+# Tipo anunciado por el último /tabla (contexto para logs y debug).
+_tipo_actual = None
+
+# Total esperado reportado por /resumen (fallback si /fin no trae total).
+_total_esperado = 0
+
+
+# --------------------------------------------------------------------- Router
+def onReceiveOSC(dat, rowIndex, message, bytes, timeStamp, address, args, peer):
+    """Entry point del callbacks interno del OSC In DAT (firma fija de TD)."""
+    try:
+        _enrutar(address, list(args))
+    except Exception as e:
+        print(f"{PREFIJO_LOG} Error en {address}: {e}")
+
+
+def _enrutar(address, args):
+    """Despacha por address absoluto. Los seis mensajes del 'Fluir' son fijos."""
+    if address == OSC_ADDR_FLUIR + "/resumen":
+        _recibir_resumen(args)
+    elif address == OSC_ADDR_FLUIR + "/filtro":
+        _recibir_filtro(args)
+    elif address == OSC_ADDR_FLUIR + "/tabla":
+        _recibir_tabla(args)
+    elif address == OSC_ADDR_FLUIR + "/medio":
+        _recibir_medio(args)
+    elif address == OSC_ADDR_FLUIR + "/chiche":
+        _recibir_chiche(args)
+    elif address == OSC_ADDR_FLUIR + "/fin":
+        _recibir_fin(args)
+    else:
+        print(f"{PREFIJO_LOG} Dirección desconocida: {address} {args}")
+
+
+def _tabla(nombre):
+    """Devuelve una tabla del proyecto o imprime advertencia si no existe."""
+    t = op("/project2").op(nombre)
+    if t is None:
+        print(f"{PREFIJO_LOG} Falta la tabla '{nombre}' (ver checklist)")
+    return t
+
+
+def _tabla_para_tipo(tipo):
+    """Devuelve el nombre de la tabla que corresponde a un tipo de medio.
+
+    image -> fluir_fotos, video -> fluir_videos, audio -> fluir_sonidos,
+    text -> fluir_textos. Si el tipo es desconocido, imprime advertencia y
+    devuelve None.
+    """
+    nombre = TABLAS_POR_TIPO.get(tipo)
+    if nombre is None:
+        print(f"{PREFIJO_LOG} Tipo desconocido: '{tipo}' (esperado: "
+              f"{list(TABLAS_POR_TIPO.keys())})")
+    return nombre
+
+
+def _filas_datos(tabla):
+    """Cantidad de filas de datos de una tabla (descuenta la fila 0 header)."""
+    return max(0, tabla.numRows - 1)
+
+
+def _limpiar(tabla, header):
+    """Vacía una tabla y escribe su fila 0 (header) con los nombres dados."""
+    tabla.clear()
+    tabla.appendRow(list(header))
+
+
+# ------------------------------------------------------------------- Handlers
+def _recibir_resumen(args):
+    """Guarda la metadata del lote en fluir_estado y reinicia las tablas.
+
+    Escribe total, loop_secs, image, video, audio, text y fin=0. También vacía
+    las tablas por tipo y los chiches: cada lote nuevo arranca limpio. Los
+    filtros del usuario llegan después con /filtro y se agregan abajo.
+    """
+    global _total_esperado, _tipo_actual
+    tabla = _tabla("fluir_estado")
+    if tabla is None:
+        return
+
+    total = int(args[0]) if len(args) > 0 and args[0] is not None else 0
+    loop_secs = float(args[1]) if len(args) > 1 and args[1] is not None else 300.0
+    n_image = int(args[2]) if len(args) > 2 and args[2] is not None else 0
+    n_video = int(args[3]) if len(args) > 3 and args[3] is not None else 0
+    n_audio = int(args[4]) if len(args) > 4 and args[4] is not None else 0
+    n_text = int(args[5]) if len(args) > 5 and args[5] is not None else 0
+
+    _total_esperado = total
+    _tipo_actual = None
+
+    _limpiar(tabla, ["clave", "valor"])
+    tabla.appendRow(["total", total])
+    tabla.appendRow(["loop_secs", loop_secs])
+    tabla.appendRow(["image", n_image])
+    tabla.appendRow(["video", n_video])
+    tabla.appendRow(["audio", n_audio])
+    tabla.appendRow(["text", n_text])
+    tabla.appendRow(["fin", 0])
+
+    # Lote nuevo: vaciar tablas por tipo y chiches con su header.
+    for nombre in TABLAS_POR_TIPO.values():
+        t = _tabla(nombre)
+        if t is not None:
+            _limpiar(t, HEADER_MEDIO)
+    t_chiches = _tabla("fluir_chiches")
+    if t_chiches is not None:
+        _limpiar(t_chiches, ["hora", "texto"])
+
+    print(f"{PREFIJO_LOG} Resumen: {total} medios (image={n_image}, "
+          f"video={n_video}, audio={n_audio}, text={n_text}), "
+          f"loop de {loop_secs}s")
+
+
+def _recibir_filtro(args):
+    """Guarda un filtro del usuario como fila [clave, valor] en fluir_estado.
+
+    El puente manda uno por filtro activo: hora_inicio, hora_fin,
+    horas_elegidas, municipios, colores, tags, dias, clima. Se escriben con el
+    mismo estilo que los totales para que el estado muestre qué eligió el
+    visitante.
+    """
+    if len(args) < 2:
+        print(f"{PREFIJO_LOG} Mensaje 'filtro' incompleto: {args}")
+        return
+
+    clave = str(args[0] or "").strip()
+    valor = str(args[1] or "")
+    if not clave:
+        print(f"{PREFIJO_LOG} 'filtro' sin clave, ignorado: {args}")
+        return
+    tabla = _tabla("fluir_estado")
+    if tabla is None:
+        return
+    _escribir_estado(tabla, clave, valor)
+
+    print(f"{PREFIJO_LOG} Filtro: {clave} = {valor}")
+
+
+def _recibir_tabla(args):
+    """Anuncia el comienzo de una tabla por tipo.
+
+    Guarda el tipo actual (contexto) y reinicia la tabla del tipo por si
+    quedaron filas de un lote anterior que no pasó por resumen. El conteo
+    real se verifica en /fin.
+    """
+    global _tipo_actual
+    tipo = str(args[0]) if len(args) > 0 and args[0] is not None else ""
+    cantidad = int(args[1]) if len(args) > 1 and args[1] is not None else 0
+    _tipo_actual = tipo
+
+    nombre = _tabla_para_tipo(tipo)
+    if nombre is not None:
+        t = _tabla(nombre)
+        if t is not None:
+            _limpiar(t, HEADER_MEDIO)
+
+    print(f"{PREFIJO_LOG} Tabla {tipo}: {cantidad} medios esperados")
+
+
+def _recibir_medio(args):
+    """Acumula un medio en la tabla de su tipo (una fila por medio)."""
+    if len(args) < 5:
+        print(f"{PREFIJO_LOG} Mensaje 'medio' incompleto: {args}")
+        return
+
+    media_id = int(str(args[0])) if args[0] is not None else 0
+    ruta = str(args[1] or "").replace("\\", "/")  # normaliza separadores para TD
+    keypoint = float(args[2]) if args[2] is not None else 0.0
+    hora = float(args[3]) if args[3] is not None else 0.0
+    tipo = str(args[4]) if args[4] is not None else _tipo_actual
+
+    nombre = _tabla_para_tipo(tipo)
+    if nombre is None:
+        return
+    tabla = _tabla(nombre)
+    if tabla is None:
+        return
+
+    # Seguridad: si la tabla quedó vacía (resumen perdido), escribir header.
+    if tabla.numRows == 0:
+        tabla.appendRow(list(HEADER_MEDIO))
+    tabla.appendRow([media_id, ruta, keypoint, hora, tipo])
+
+
+def _recibir_chiche(args):
+    """Acumula un chiche ambiental (clima/astronomía) en fluir_chiches."""
+    if len(args) < 2:
+        print(f"{PREFIJO_LOG} Mensaje 'chiche' incompleto: {args}")
+        return
+
+    hora = float(args[0]) if args[0] is not None else 0.0
+    texto = str(args[1] or "")
+    tabla = _tabla("fluir_chiches")
+    if tabla is None:
+        return
+    if tabla.numRows == 0:
+        tabla.appendRow(["hora", "texto"])
+    tabla.appendRow([hora, texto])
+
+
+def _recibir_fin(args):
+    """Finaliza el lote: marca fin=1 y valida recibidos vs esperados.
+
+    Compara el total esperado (args[0] o el de /resumen) contra la suma real
+    de filas de las 4 tablas por tipo y guarda received/esperados en
+    fluir_estado para debug de pérdida UDP. Luego coteja (opcional) contra
+    td/spec_fluir.json - que ya NO es fuente única de datos.
+    """
+    global _tipo_actual
+    tabla_estado = _tabla("fluir_estado")
+    if tabla_estado is None:
+        return
+
+    esperado = int(args[0]) if args else _total_esperado
+
+    recibido = 0
+    for nombre in TABLAS_POR_TIPO.values():
+        t = _tabla(nombre)
+        if t is not None:
+            recibido += _filas_datos(t)
+
+    if esperado >= 0 and esperado != recibido:
+        print(f"{PREFIJO_LOG} ¡Ojo! fin dice {esperado} medios, recibí "
+              f"{recibido} (posible pérdida de paquetes OSC)")
+
+    # Marcar fin = 1 para que el motor no arranque a mitad de carga.
+    _escribir_estado(tabla_estado, "fin", 1)
+    _escribir_estado(tabla_estado, "recibidos", recibido)
+    _escribir_estado(tabla_estado, "esperados", esperado)
+    _tipo_actual = None
+
+    print(f"{PREFIJO_LOG} Fin de lote: {recibido} medios cargados "
+          f"(esperados {esperado}).")
+
+    # Cotejo opcional contra el spec JSON (ya NO puebla tablas).
+    _cotejar_spec(recibido)
+
+
+def _escribir_estado(tabla, clave, valor):
+    """Agrega o actualiza una fila [clave, valor] en fluir_estado."""
+    for r in range(1, tabla.numRows):
+        fila = tabla.row(r)
+        if fila and str(fila[0]).lower() == clave:
+            tabla.setCell(r, 1, valor)
+            return
+    tabla.appendRow([clave, valor])
+
+
+# ----------------------------------------------------------------- Spec JSON
+def _cotejar_spec(recibido):
+    """Lee td/spec_fluir.json y coteja totales/por tipo contra lo recibido.
+
+    Solo informa (debug de pérdida UDP); NO puebla tablas: el OSC ya trae
+    todo (keypoint, hora, tipo). Devuelve el dict del spec o None.
+    """
+    import json as _json
+
+    try:
+        ruta = "{}/spec_fluir.json".format(project.folder)
+        with open(ruta, "r", encoding="utf-8") as f:
+            spec = _json.load(f)
+    except Exception as e:
+        print(f"{PREFIJO_LOG} Error al leer el spec JSON: {e}")
+        return None
+
+    resumen = spec.get("resumen") or {}
+    total_spec = resumen.get("total", len(spec.get("medios", [])))
+    if total_spec != recibido:
+        print(f"{PREFIJO_LOG} Cotejo: spec dice {total_spec} medios, recibí "
+              f"{recibido} (revisar pérdida UDP)")
+
+    por_tipo = spec.get("por_tipo") or {}
+    for tipo, nombre in TABLAS_POR_TIPO.items():
+        esperados_tipo = len(por_tipo.get(tipo, []))
+        t = _tabla(nombre)
+        recibidos_tipo = _filas_datos(t) if t is not None else 0
+        if esperados_tipo != recibidos_tipo:
+            print(f"{PREFIJO_LOG} Cotejo {tipo}: spec dice {esperados_tipo}, "
+                  f"recibí {recibidos_tipo}")
+
+    print(f"{PREFIJO_LOG} Spec leído: {total_spec} medios, "
+          f"{len(spec.get('chiches', []))} chiches")
+    return spec

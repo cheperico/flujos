@@ -1,0 +1,168 @@
+# =============================================================================
+# crear_tablas_fluir.dat — Auto-creación de las tablas del "Fluir" (Table DAT)
+#
+# Crea las 6 tablas que espera `td/fluir_callbacks.dat` (receptor OSC 9002):
+#     fluir_estado   [clave, valor]
+#     fluir_fotos    [media_id, ruta, keypoint, hora, tipo]
+#     fluir_videos   [media_id, ruta, keypoint, hora, tipo]
+#     fluir_sonidos  [media_id, ruta, keypoint, hora, tipo]
+#     fluir_textos   [media_id, ruta, keypoint, hora, tipo]
+#     fluir_chiches  [hora, texto]
+#
+# Los headers son EXACTOS a los que escribe fluir_callbacks.dat
+# (HEADER_MEDIO, ["clave","valor"], ["hora","texto"]). No cambiarlos.
+#
+# IDEMPOTENTE: si la tabla ya existe NO se pisa; solo se normaliza la fila 0
+# (header). Se puede volver a correr en un toe ya armado sin romper nada.
+#
+# CÓMO USARLO EN EL TOE
+# ---------------------
+# Opción A (recomendada): pegar el archivo en la raíz de /project2.
+#   1. Creá un Text DAT en /project2 y llamalo p.ej. `crear_tablas_fluir`.
+#   2. En su parámetro File escribí:  td/crear_tablas_fluir.dat
+#      y activá Sync (File > Sync to File). Guardá el .toe para persistirlo.
+#   3. Ejecutalo con el botón Run del panel del DAT. El resumen sale en el
+#      Textport: "Listo: 6 creadas, 0 ya existían, 0 con problemas".
+#
+# Opción B: copiar/pegar en el text port de un Text DAT.
+#   1. Creá un Text DAT en /project2.
+#   2. Pegá TODO este contenido en su text port.
+#   3. Presioná el botón Run del panel del DAT (o corré desde el Textport:
+#      run("op('crear_tablas_fluir').text")).
+#
+# El script usa me.parent() como padre (el COMP donde vive el DAT). Si se
+# ejecuta a nivel de módulo sin `me` (p.ej. import), cae a parent() y por
+# último a /project2. Nunca toca nodos que no sean los fluir_*.
+# =============================================================================
+
+PREFIJO_LOG = "[crear_tablas_fluir]"
+
+# Nombre de tabla -> header EXACTO que espera fluir_callbacks.dat.
+# Única fuente del mapeo (mismo espíritu que TABLAS_POR_TIPO en el callbacks).
+TABLAS = {
+    "fluir_estado": ["clave", "valor"],
+    "fluir_fotos": ["media_id", "ruta", "keypoint", "hora", "tipo"],
+    "fluir_videos": ["media_id", "ruta", "keypoint", "hora", "tipo"],
+    "fluir_sonidos": ["media_id", "ruta", "keypoint", "hora", "tipo"],
+    "fluir_textos": ["media_id", "ruta", "keypoint", "hora", "tipo"],
+    "fluir_chiches": ["hora", "texto"],
+}
+
+
+def _obtener_padre():
+    """Devuelve el COMP donde crear las tablas (normalmente /project2).
+
+    Prioridad de contexto:
+    1. `me.parent()` — el script corre dentro de un DAT (botón Run del panel,
+       OP Call, callback). `me` es el DAT que contiene este texto.
+    2. `parent()` — ejecución a nivel de módulo dentro de una red válida.
+    3. `/project2` — último recurso (raíz del proyecto).
+    """
+    # 1. Contexto DAT: `me` está disponible como variable global.
+    if "me" in globals() and globals()["me"] is not None:
+        try:
+            return globals()["me"].parent()
+        except Exception as e:
+            print("{} Error en me.parent(): {}".format(PREFIJO_LOG, e))
+    # 2. Contexto de red (módulo importado / ejecutado en una red).
+    try:
+        return parent()
+    except Exception:
+        pass
+    # 3. Último recurso: raíz del proyecto.
+    return op("/project2")
+
+
+def _normalizar_headers(tabla, header):
+    """Limpia una Table DAT y deja la fila 0 con el header dado.
+
+    Usa clear() + numCols + appendRow (la misma convención que _limpiar() en
+    fluir_callbacks.dat) para que la estructura de columnas quede EXACTA,
+    aunque la tabla existente tuviera más o menos columnas.
+    """
+    tabla.clear()
+    tabla.numCols = len(header)
+    tabla.appendRow(list(header))
+
+
+def crear_tablas_fluir(padre=None):
+    """Crea las 6 tablas fluir_* si no existen y normaliza sus headers.
+
+    Idempotente: si la tabla ya existe no se borra ni se recrea; solo se
+    asegura que su fila 0 tenga el header correcto. Devuelve una lista de
+    tuplas (nombre, estado) con estado en: creada | ya_existia | ocupada |
+    error.
+    """
+    if padre is None:
+        padre = _obtener_padre()
+
+    if padre is None:
+        print("{} No se encontró el COMP padre; abortando.".format(PREFIJO_LOG))
+        return []
+
+    print("{} Creando tablas del Fluir en {}".format(PREFIJO_LOG, padre.path))
+    resultados = []
+
+    for nombre, header in TABLAS.items():
+        tabla = padre.op(nombre)
+        if tabla is None:
+            try:
+                # create(TableDAT, nombre) crea la tabla con ese nombre exacto,
+                # evitando el nombre por defecto table1/table2/...
+                tabla = padre.create(TableDAT, nombre)
+                estado = "creada"
+            except Exception as e:
+                print("{} Error creando '{}': {}".format(PREFIJO_LOG, nombre, e))
+                resultados.append((nombre, "error"))
+                continue
+        else:
+            if tabla.opType != "tableDAT":
+                # Ya existe pero NO es Table DAT: NO se toca (anti-colisión).
+                print("{} '{}' ya existe pero NO es Table DAT ({}): no se toca".format(
+                    PREFIJO_LOG, nombre, tabla.opType))
+                resultados.append((nombre, "ocupada"))
+                continue
+            estado = "ya_existia"
+
+        # Si TD renombró el nodo creado por una colisión improbable, avisamos
+        # sin tocar el nodo existente que causó la colisión.
+        if tabla.name != nombre:
+            print("{} Ojo: se creó como '{}' en vez de '{}' (colisión); no se toca el nodo existente".format(
+                PREFIJO_LOG, tabla.name, nombre))
+
+        try:
+            _normalizar_headers(tabla, header)
+        except Exception as e:
+            print("{} Error normalizando '{}': {}".format(PREFIJO_LOG, nombre, e))
+            resultados.append((nombre, "error"))
+            continue
+
+        if estado == "creada":
+            print("{} Tabla creada: {} -> {}".format(PREFIJO_LOG, nombre, header))
+        else:
+            print("{} Tabla ya existía: {} (header normalizado)".format(PREFIJO_LOG, nombre))
+        resultados.append((nombre, estado))
+
+    # Resumen final (verificación visual en el Textport).
+    creadas = sum(1 for _, e in resultados if e == "creada")
+    existentes = sum(1 for _, e in resultados if e == "ya_existia")
+    problemas = len(resultados) - creadas - existentes
+    print("{} Listo: {} creadas, {} ya existían, {} con problemas".format(
+        PREFIJO_LOG, creadas, existentes, problemas))
+    return resultados
+
+
+def onCreate(*args):
+    """Callback opcional si el archivo se usa como callbacks DAT de un COMP.
+
+    Al crearse el COMP padre, se crean las tablas automáticamente. En el uso
+    normal (Text DAT + botón Run) no interviene.
+    """
+    crear_tablas_fluir()
+
+
+# Ejecución automática cuando corre dentro de TD (botón Run del DAT, OP Call
+# o callback). Si el módulo se importa a nivel de módulo sin `me`, solo se
+# definen las funciones y no se toca nada (llamar crear_tablas_fluir() a mano).
+if "me" in globals() and globals()["me"] is not None:
+    crear_tablas_fluir()

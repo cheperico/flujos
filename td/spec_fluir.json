@@ -1,0 +1,3939 @@
+{
+  "loop_secs": 300.0,
+  "segmentos": [
+    {
+      "i": 0,
+      "from": 9.0,
+      "to": 17.0,
+      "arco_horas": 8.0,
+      "t_start": 0.0,
+      "t_end": 300.0,
+      "duracion_seg": 300.0
+    }
+  ],
+  "medios": [
+    {
+      "media_id": 360,
+      "tipo": "video",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\video_files\\video_6@12-08-2025_12-02-50.mp4",
+      "hora": 9.047222222222222,
+      "duracion": 1.0,
+      "municipio": "Luján",
+      "color": null,
+      "tags": [],
+      "desc": "",
+      "ubicacion": {
+        "lat": -34.55944536659934,
+        "lon": -59.123074420194726
+      },
+      "clima": {
+        "temp_c": 10.2,
+        "viento_kmh": 63.0,
+        "precip_mm": 0.0,
+        "etiqueta": "despejado"
+      },
+      "score": 0,
+      "t_loop": 1.7708333333333437,
+      "seg_i": 0,
+      "keypoint": 1.7708333333333437
+    },
+    {
+      "media_id": 178,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250812_090703.jpg",
+      "hora": 9.1175,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "azul",
+      "tags": [
+        "otras"
+      ],
+      "desc": "La imagen muestra a un hombre caminando por una cancha de baloncesto desierta, rodeada de árboles sin hojas y un cielo nublado. El sujeto lleva una chaqueta azul marino y pantalones negros, mientras sostiene un teléfono móvil en la mano izquierda. En el fondo se pueden ver bancas de picnic, contenedores y una estructura azul con una puerta blanca. La atmósfera es tranquila y algo desolada debido a la falta de actividad y las hojas caídas.",
+      "ubicacion": {
+        "lat": -34.5594111,
+        "lon": -59.1230722
+      },
+      "clima": {
+        "temp_c": 10.2,
+        "viento_kmh": 63.0,
+        "precip_mm": 0.0,
+        "etiqueta": "despejado"
+      },
+      "score": 0,
+      "t_loop": 4.406249999999989,
+      "seg_i": 0,
+      "keypoint": 4.406249999999989
+    },
+    {
+      "media_id": 361,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_44@12-08-2025_12-15-23.jpg",
+      "hora": 9.256388888888889,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "rosa",
+      "tags": [
+        "otras"
+      ],
+      "desc": "'No sujeto como ley de ti. La foto presenta en el sujo por el perro. No te sientes frases como 'la imagen se ve' ni ningún otro encabezado. Arrancá directo: Un perro...', \n 'Dos personas...', 'Un paisaje...', etc.",
+      "ubicacion": {
+        "lat": -34.55940946919973,
+        "lon": -59.12307897538669
+      },
+      "clima": {
+        "temp_c": 10.2,
+        "viento_kmh": 63.0,
+        "precip_mm": 0.0,
+        "etiqueta": "despejado"
+      },
+      "score": 0,
+      "t_loop": 9.614583333333337,
+      "seg_i": 0,
+      "keypoint": 9.614583333333337
+    },
+    {
+      "media_id": 362,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_45@12-08-2025_12-44-02.jpg",
+      "hora": 9.733888888888888,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "gris",
+      "tags": [
+        "retrato grupal"
+      ],
+      "desc": "'Un perro...', 'Dos personas...', 'Un paisaje...', 'La foto presenta', 'En esta imagen se ve' ni ningún otro encabezado'.",
+      "ubicacion": {
+        "lat": -34.559403862508404,
+        "lon": -59.12310226916611
+      },
+      "clima": {
+        "temp_c": 10.2,
+        "viento_kmh": 63.0,
+        "precip_mm": 0.0,
+        "etiqueta": "despejado"
+      },
+      "score": 0,
+      "t_loop": 27.520833333333307,
+      "seg_i": 0,
+      "keypoint": 27.520833333333307
+    },
+    {
+      "media_id": 363,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_46@12-08-2025_12-44-07.jpg",
+      "hora": 9.735277777777776,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "azul",
+      "tags": [
+        "retrato grupal"
+      ],
+      "desc": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+      "ubicacion": {
+        "lat": -34.559403846200404,
+        "lon": -59.12310233691998
+      },
+      "clima": {
+        "temp_c": 10.2,
+        "viento_kmh": 63.0,
+        "precip_mm": 0.0,
+        "etiqueta": "despejado"
+      },
+      "score": 0,
+      "t_loop": 27.572916666666615,
+      "seg_i": 0,
+      "keypoint": 27.572916666666615
+    },
+    {
+      "media_id": 364,
+      "tipo": "video",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\video_files\\video_7@12-08-2025_12-59-32.mp4",
+      "hora": 9.992222222222221,
+      "duracion": 45.0,
+      "municipio": "Luján",
+      "color": null,
+      "tags": [],
+      "desc": "",
+      "ubicacion": {
+        "lat": -34.5594008292199,
+        "lon": -59.12311487138534
+      },
+      "clima": {
+        "temp_c": 10.2,
+        "viento_kmh": 63.0,
+        "precip_mm": 0.0,
+        "etiqueta": "despejado"
+      },
+      "score": 0,
+      "t_loop": 37.208333333333286,
+      "seg_i": 0,
+      "keypoint": 37.208333333333286
+    },
+    {
+      "media_id": 365,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_47@12-08-2025_13-17-35.jpg",
+      "hora": 10.293055555555556,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "marrón",
+      "tags": [
+        "retrato"
+      ],
+      "desc": "รายเมียงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกล",
+      "ubicacion": {
+        "lat": -34.559397296906525,
+        "lon": -59.123129546872896
+      },
+      "clima": {
+        "temp_c": 12.8,
+        "viento_kmh": 55.1,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 48.48958333333335,
+      "seg_i": 0,
+      "keypoint": 48.48958333333335
+    },
+    {
+      "media_id": 366,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_48@12-08-2025_13-28-32.jpg",
+      "hora": 10.475555555555555,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "rosa",
+      "tags": [
+        "retrato grupal"
+      ],
+      "desc": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+      "ubicacion": {
+        "lat": -34.55939515403497,
+        "lon": -59.123138449731
+      },
+      "clima": {
+        "temp_c": 12.8,
+        "viento_kmh": 55.1,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 55.33333333333332,
+      "seg_i": 0,
+      "keypoint": 55.33333333333332
+    },
+    {
+      "media_id": 367,
+      "tipo": "audio",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\voice_messages\\audio_10@12-08-2025_13-42-16.ogg",
+      "hora": 10.704444444444444,
+      "duracion": 57.0,
+      "municipio": "Luján",
+      "color": null,
+      "tags": [],
+      "desc": "",
+      "ubicacion": {
+        "lat": -34.559392466476126,
+        "lon": -59.12314961556826
+      },
+      "clima": {
+        "temp_c": 12.8,
+        "viento_kmh": 55.1,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 63.916666666666664,
+      "seg_i": 0,
+      "keypoint": 63.916666666666664
+    },
+    {
+      "media_id": 235,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_3\\Juan Marco\\IMG_20250812_104611024.jpg",
+      "hora": 10.769722222222223,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "azul",
+      "tags": [
+        "retrato"
+      ],
+      "desc": "'La foto presenta', 'la imagen se ve' ni ningún otro encabezado'.",
+      "ubicacion": {
+        "lat": -34.5593917,
+        "lon": -59.1231528
+      },
+      "clima": {
+        "temp_c": 12.8,
+        "viento_kmh": 55.1,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 66.36458333333334,
+      "seg_i": 0,
+      "keypoint": 66.36458333333334
+    },
+    {
+      "media_id": 236,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_3\\Juan Marco\\IMG_20250812_104617738.jpg",
+      "hora": 10.771944444444445,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "gris",
+      "tags": [
+        "retrato"
+      ],
+      "desc": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+      "ubicacion": {
+        "lat": -34.5593917,
+        "lon": -59.1231528
+      },
+      "clima": {
+        "temp_c": 12.8,
+        "viento_kmh": 55.1,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 66.4479166666667,
+      "seg_i": 0,
+      "keypoint": 66.4479166666667
+    },
+    {
+      "media_id": 237,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_3\\Juan Marco\\IMG_20250812_104626421.jpg",
+      "hora": 10.773888888888889,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "verde",
+      "tags": [
+        "retrato grupal"
+      ],
+      "desc": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+      "ubicacion": {
+        "lat": -34.5593917,
+        "lon": -59.1231528
+      },
+      "clima": {
+        "temp_c": 12.8,
+        "viento_kmh": 55.1,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 66.52083333333334,
+      "seg_i": 0,
+      "keypoint": 66.52083333333334
+    },
+    {
+      "media_id": 238,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_3\\Juan Marco\\IMG_20250812_104636031.jpg",
+      "hora": 10.776944444444446,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "amarillo",
+      "tags": [
+        "retrato grupal"
+      ],
+      "desc": "'Un perro...', 'Dos personas...', 'Un paisaje...', 'Una foto presenta', 'La imagen se ve'",
+      "ubicacion": {
+        "lat": -34.5593917,
+        "lon": -59.1231528
+      },
+      "clima": {
+        "temp_c": 12.8,
+        "viento_kmh": 55.1,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 66.63541666666673,
+      "seg_i": 0,
+      "keypoint": 66.63541666666673
+    },
+    {
+      "media_id": 239,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_3\\Juan Marco\\IMG_20250812_104651242.jpg",
+      "hora": 10.781111111111112,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "negro",
+      "tags": [
+        "retrato"
+      ],
+      "desc": "és ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella e",
+      "ubicacion": {
+        "lat": -34.5593917,
+        "lon": -59.1231528
+      },
+      "clima": {
+        "temp_c": 12.8,
+        "viento_kmh": 55.1,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 66.79166666666671,
+      "seg_i": 0,
+      "keypoint": 66.79166666666671
+    },
+    {
+      "media_id": 368,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_49@12-08-2025_14-00-07.jpg",
+      "hora": 11.001944444444444,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "negro",
+      "tags": [
+        "retrato grupal"
+      ],
+      "desc": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+      "ubicacion": {
+        "lat": -34.559447986,
+        "lon": -59.12309536125
+      },
+      "clima": {
+        "temp_c": 14.8,
+        "viento_kmh": 55.1,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 75.07291666666664,
+      "seg_i": 0,
+      "keypoint": 75.07291666666664
+    },
+    {
+      "media_id": 369,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_50@12-08-2025_14-15-56.jpg",
+      "hora": 11.265555555555556,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "amarillo",
+      "tags": [
+        "retrato grupal"
+      ],
+      "desc": "",
+      "ubicacion": {
+        "lat": -34.5595151752,
+        "lon": -59.123026796000005
+      },
+      "clima": {
+        "temp_c": 14.8,
+        "viento_kmh": 55.1,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 84.95833333333336,
+      "seg_i": 0,
+      "keypoint": 84.95833333333336
+    },
+    {
+      "media_id": 240,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_3\\Juan Marco\\IMG_20250812_112010749_HDR.jpg",
+      "hora": 11.336666666666668,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "verde",
+      "tags": [
+        "retrato grupal"
+      ],
+      "desc": "'La foto presenta suavemente de una manera tan precisa para mantenerte en su propia forma, también se convirtiera en una imagen más grande y profunda, pero no se convirtía en la foto. La imagen se convirtía en una imagen más grande y profunda, pero no se convirtía en la foto. La imagen convirtía en la foto, pero no se convirtía en la foto.",
+      "ubicacion": {
+        "lat": -34.5595333,
+        "lon": -59.1230083
+      },
+      "clima": {
+        "temp_c": 14.8,
+        "viento_kmh": 55.1,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 87.62500000000004,
+      "seg_i": 0,
+      "keypoint": 87.62500000000004
+    },
+    {
+      "media_id": 241,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_3\\Juan Marco\\IMG_20250812_112035002_HDR.jpg",
+      "hora": 11.343055555555557,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "azul",
+      "tags": [
+        "retrato grupal"
+      ],
+      "desc": "!!!IMAGEN!!!",
+      "ubicacion": {
+        "lat": -34.559475,
+        "lon": -59.1230139
+      },
+      "clima": {
+        "temp_c": 14.8,
+        "viento_kmh": 55.1,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 87.86458333333339,
+      "seg_i": 0,
+      "keypoint": 87.86458333333339
+    },
+    {
+      "media_id": 242,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_3\\Juan Marco\\IMG_20250812_112124329_HDR.jpg",
+      "hora": 11.356944444444444,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "negro",
+      "tags": [
+        "otras"
+      ],
+      "desc": "'Un perro ...', 'Dos personas ...', 'Un paisaje ...', 'Una foto presenta ...', 'El sujeto principal ...', 'La imagen se ve' ni ningún otro encabezado'.",
+      "ubicacion": {
+        "lat": -34.5594889,
+        "lon": -59.1229972
+      },
+      "clima": {
+        "temp_c": 14.8,
+        "viento_kmh": 55.1,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 88.38541666666666,
+      "seg_i": 0,
+      "keypoint": 88.38541666666666
+    },
+    {
+      "media_id": 370,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_51@12-08-2025_14-30-35.jpg",
+      "hora": 11.509722222222223,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "negro",
+      "tags": [
+        "retrato"
+      ],
+      "desc": "'Un perro...', 'Dos personas...', 'Un paisaje...', 'una foto presenta', 'la imagen se ve' ni ningún otro encabezado'.",
+      "ubicacion": {
+        "lat": -34.55908202779267,
+        "lon": -59.12305593547811
+      },
+      "clima": {
+        "temp_c": 14.8,
+        "viento_kmh": 55.1,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 94.11458333333336,
+      "seg_i": 0,
+      "keypoint": 94.11458333333336
+    },
+    {
+      "media_id": 371,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_52@12-08-2025_14-30-35.jpg",
+      "hora": 11.509722222222223,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "azul",
+      "tags": [
+        "retrato grupal"
+      ],
+      "desc": "",
+      "ubicacion": {
+        "lat": -34.55908202779267,
+        "lon": -59.12305593547811
+      },
+      "clima": {
+        "temp_c": 14.8,
+        "viento_kmh": 55.1,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 94.11458333333336,
+      "seg_i": 0,
+      "keypoint": 94.11458333333336
+    },
+    {
+      "media_id": 179,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250812_114004.jpg",
+      "hora": 11.667777777777777,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "violeta",
+      "tags": [
+        "retrato"
+      ],
+      "desc": "La imagen muestra un grupo de ciclistas reunidos frente a la entrada del \"Club de Regatas\", bajo un cielo azul claro. Los participantes están equipados con cascos y chaquetas de seguridad, algunos sentados en el suelo mientras otros permanecen de pie junto a sus bicicletas cargadas con bolsas y accesorios. El entorno incluye una estructura azul con un letrero que marca la entrada del club, rodeado por árboles desnudos y una cerca metálica. La atmósfera es relajada y amigable, reflejando una pausa durante una ruta en bicicleta.",
+      "ubicacion": {
+        "lat": -34.5586611,
+        "lon": -59.1231167
+      },
+      "clima": {
+        "temp_c": 14.8,
+        "viento_kmh": 55.1,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 100.04166666666666,
+      "seg_i": 0,
+      "keypoint": 100.04166666666666
+    },
+    {
+      "media_id": 180,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250812_115029.jpg",
+      "hora": 11.84138888888889,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "negro",
+      "tags": [
+        "otras"
+      ],
+      "desc": "La imagen muestra un monumento dedicado al poeta Dardo S. Dorronzoro, ubicado en un entorno urbano con edificios comerciales de fondo. El monumento consiste en una escultura de bronce que representa la mano derecha sosteniendo un lápiz, colocada sobre un anclaje metálico en forma de estrella. La composición incluye placas informativas y rocas alrededor del pedestal. El color predominante es el negro de la escultura y el anclaje, contrastando con las estructuras grises y blancas de los edificios y el verde de algunas plantas en el entorno. La atmósfera es serena pero con un toque de solemnidad debido a la presencia del monumento dedicado al poeta desaparecido.",
+      "ubicacion": {
+        "lat": -34.5554083,
+        "lon": -59.1256944
+      },
+      "clima": {
+        "temp_c": 14.8,
+        "viento_kmh": 55.1,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 106.55208333333337,
+      "seg_i": 0,
+      "keypoint": 106.55208333333337
+    },
+    {
+      "media_id": 243,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_3\\Juan Marco\\IMG_20250812_115047250.jpg",
+      "hora": 11.846666666666668,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "azul",
+      "tags": [
+        "otras"
+      ],
+      "desc": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+      "ubicacion": {
+        "lat": -34.5553778,
+        "lon": -59.1256833
+      },
+      "clima": {
+        "temp_c": 14.8,
+        "viento_kmh": 55.1,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 106.75000000000003,
+      "seg_i": 0,
+      "keypoint": 106.75000000000003
+    },
+    {
+      "media_id": 181,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250812_115242.jpg",
+      "hora": 11.878333333333334,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "gris",
+      "tags": [
+        "otras"
+      ],
+      "desc": "La imagen muestra una placa metálica con la firma de Neruda y el texto de su \"Declaración Jurada\". La placa está fijada a un muro de piedra natural, y el fondo es oscuro y texturizado, lo que resalta el contenido blanco del texto. El tono general es sombrío pero con un fuerte contraste entre la placa y el muro, creando una atmósfera reflexiva y significativa.",
+      "ubicacion": {
+        "lat": -34.5553833,
+        "lon": -59.125725
+      },
+      "clima": {
+        "temp_c": 14.8,
+        "viento_kmh": 55.1,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 107.93750000000001,
+      "seg_i": 0,
+      "keypoint": 107.93750000000001
+    },
+    {
+      "media_id": 372,
+      "tipo": "video",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\video_files\\video_8@12-08-2025_14-56-59.mp4",
+      "hora": 11.949722222222222,
+      "duracion": 30.0,
+      "municipio": "Luján",
+      "color": null,
+      "tags": [],
+      "desc": "",
+      "ubicacion": {
+        "lat": -34.55404845757576,
+        "lon": -59.134087624242426
+      },
+      "clima": {
+        "temp_c": 14.8,
+        "viento_kmh": 55.1,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 110.61458333333334,
+      "seg_i": 0,
+      "keypoint": 110.61458333333334
+    },
+    {
+      "media_id": 373,
+      "tipo": "audio",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\voice_messages\\audio_11@12-08-2025_14-59-53.ogg",
+      "hora": 11.998055555555554,
+      "duracion": 82.0,
+      "municipio": "Luján",
+      "color": null,
+      "tags": [],
+      "desc": "",
+      "ubicacion": {
+        "lat": -34.55314471212122,
+        "lon": -59.13974947878788
+      },
+      "clima": {
+        "temp_c": 14.8,
+        "viento_kmh": 55.1,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 112.42708333333329,
+      "seg_i": 0,
+      "keypoint": 112.42708333333329
+    },
+    {
+      "media_id": 374,
+      "tipo": "audio",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\voice_messages\\audio_12@12-08-2025_15-05-16.ogg",
+      "hora": 12.087777777777779,
+      "duracion": 51.0,
+      "municipio": "Luján",
+      "color": null,
+      "tags": [],
+      "desc": "",
+      "ubicacion": {
+        "lat": -34.551467069696976,
+        "lon": -59.1502597030303
+      },
+      "clima": {
+        "temp_c": 16.5,
+        "viento_kmh": 51.5,
+        "precip_mm": 0.0,
+        "etiqueta": "parcialmente nublado"
+      },
+      "score": 0,
+      "t_loop": 115.79166666666671,
+      "seg_i": 0,
+      "keypoint": 115.79166666666671
+    },
+    {
+      "media_id": 375,
+      "tipo": "audio",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\voice_messages\\audio_13@12-08-2025_15-06-32.ogg",
+      "hora": 12.108888888888888,
+      "duracion": 58.0,
+      "municipio": "Luján",
+      "color": null,
+      "tags": [],
+      "desc": "",
+      "ubicacion": {
+        "lat": -34.551072330303036,
+        "lon": -59.15273269696969
+      },
+      "clima": {
+        "temp_c": 16.5,
+        "viento_kmh": 51.5,
+        "precip_mm": 0.0,
+        "etiqueta": "parcialmente nublado"
+      },
+      "score": 0,
+      "t_loop": 116.5833333333333,
+      "seg_i": 0,
+      "keypoint": 116.5833333333333
+    },
+    {
+      "media_id": 376,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_53@12-08-2025_15-07-47.jpg",
+      "hora": 12.129722222222222,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "azul",
+      "tags": [
+        "retrato grupal"
+      ],
+      "desc": "รับมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระม",
+      "ubicacion": {
+        "lat": -34.55068278484849,
+        "lon": -59.15517315151515
+      },
+      "clima": {
+        "temp_c": 16.5,
+        "viento_kmh": 51.5,
+        "precip_mm": 0.0,
+        "etiqueta": "parcialmente nublado"
+      },
+      "score": 0,
+      "t_loop": 117.36458333333333,
+      "seg_i": 0,
+      "keypoint": 117.36458333333333
+    },
+    {
+      "media_id": 182,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250812_121654.jpg",
+      "hora": 12.281666666666668,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "gris",
+      "tags": [
+        "otras"
+      ],
+      "desc": "La imagen muestra un vehículo quemado parcialmente incrustado en el asfalto de la carretera, con su estructura frontal destrozada y partes del capó y puertas visibles. En el fondo, se observan otros vehículos circulando por la autopista, mientras que el paisaje alrededor está compuesto principalmente por árboles y un cielo despejado. La atmósfera es sombría y triste debido a la escena de accidente en medio del camino.",
+      "ubicacion": {
+        "lat": -34.5478417,
+        "lon": -59.1729722
+      },
+      "clima": {
+        "temp_c": 16.6,
+        "viento_kmh": 54.0,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 123.06250000000006,
+      "seg_i": 0,
+      "keypoint": 123.06250000000006
+    },
+    {
+      "media_id": 244,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_3\\Juan Marco\\IMG_20250812_121830381.jpg",
+      "hora": 12.308611111111112,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "negro",
+      "tags": [
+        "retrato grupal"
+      ],
+      "desc": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+      "ubicacion": {
+        "lat": -34.5478944,
+        "lon": -59.1741222
+      },
+      "clima": {
+        "temp_c": 16.6,
+        "viento_kmh": 54.0,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 124.07291666666671,
+      "seg_i": 0,
+      "keypoint": 124.07291666666671
+    },
+    {
+      "media_id": 183,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250812_124230.jpg",
+      "hora": 12.708333333333332,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "azul",
+      "tags": [
+        "otras"
+      ],
+      "desc": "La imagen muestra un paisaje rural con contenedores metálicos oxidados y dañados en primer plano, rodeados de hierba alta y arbustos. En el fondo se extiende una amplia pradera verde con árboles dispersos bajo un cielo despejado, creando una atmósfera de abandono y decadencia.",
+      "ubicacion": {
+        "lat": -34.544225,
+        "lon": -59.2272222
+      },
+      "clima": {
+        "temp_c": 16.6,
+        "viento_kmh": 54.0,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 139.06249999999994,
+      "seg_i": 0,
+      "keypoint": 139.06249999999994
+    },
+    {
+      "media_id": 184,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250812_130451.jpg",
+      "hora": 13.080833333333333,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "amarillo",
+      "tags": [
+        "retrato grupal"
+      ],
+      "desc": "La imagen muestra un paisaje rural con un montículo de tierra y ramas secas en primer plano, rodeado por una cerca de alambre. En el fondo, se observan campos abiertos con hierba verde y árboles altos bajo un cielo despejado. La atmósfera es tranquila y natural, típica de un día soleado en la campiña.",
+      "ubicacion": {
+        "lat": -34.5306833,
+        "lon": -59.2824667
+      },
+      "clima": {
+        "temp_c": 17.9,
+        "viento_kmh": 53.6,
+        "precip_mm": 0.0,
+        "etiqueta": "despejado"
+      },
+      "score": 0,
+      "t_loop": 153.03124999999997,
+      "seg_i": 0,
+      "keypoint": 153.03124999999997
+    },
+    {
+      "media_id": 204,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250813_131347.jpg",
+      "hora": 13.229722222222222,
+      "duracion": 0.0,
+      "municipio": "Salto",
+      "color": "azul",
+      "tags": [
+        "retrato grupal"
+      ],
+      "desc": "La imagen muestra un paisaje rural con un camino asfaltado que se extiende hacia el horizonte. En el fondo, hay campos verdes y una pequeña elevación de tierra en el centro del campo. El cielo es azul claro con algunas nubes dispersas, creando una atmósfera tranquila y abierta típica de un día soleado en la campiña.",
+      "ubicacion": {
+        "lat": -34.3625139,
+        "lon": -60.1041972
+      },
+      "clima": {
+        "temp_c": 12.7,
+        "viento_kmh": 65.5,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 158.61458333333331,
+      "seg_i": 0,
+      "keypoint": 158.61458333333331
+    },
+    {
+      "media_id": 185,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250812_131543.jpg",
+      "hora": 13.261666666666667,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "negro",
+      "tags": [
+        "retrato grupal"
+      ],
+      "desc": "La imagen muestra un grupo de ciclistas disfrutando de una ruta por carretera en un paisaje rural soleado. Los ciclistas llevan ropa deportiva colorida, como rojo y negro, y algunos usan chalecos reflectantes para seguridad. Las bicicletas están equipadas con bolsas laterales y contenedores, indicando que realizan una travesía o viaje de larga distancia. La atmósfera es activa y amistosa, reflejada en la sonrisa de los ciclistas mientras avanzan por el camino asfaltado.",
+      "ubicacion": {
+        "lat": -34.5225278,
+        "lon": -59.3032472
+      },
+      "clima": {
+        "temp_c": 17.9,
+        "viento_kmh": 53.6,
+        "precip_mm": 0.0,
+        "etiqueta": "despejado"
+      },
+      "score": 0,
+      "t_loop": 159.8125,
+      "seg_i": 0,
+      "keypoint": 159.8125
+    },
+    {
+      "media_id": 186,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250812_131719.jpg",
+      "hora": 13.288611111111111,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "negro",
+      "tags": [
+        "retrato grupal"
+      ],
+      "desc": "La imagen muestra a dos ciclistas viajando por un camino asfaltado junto a una carretera principal, con vehículos pesados transitando al fondo. Uno de los ciclistas lleva una chaqueta reflectante verde y el otro está en ropa deportiva blanca y azul. La atmósfera es tranquila y soleada, con un cielo claro y árboles al fondo, creando un ambiente de viaje rural.",
+      "ubicacion": {
+        "lat": -34.5209444,
+        "lon": -59.3062944
+      },
+      "clima": {
+        "temp_c": 17.9,
+        "viento_kmh": 53.6,
+        "precip_mm": 0.0,
+        "etiqueta": "despejado"
+      },
+      "score": 0,
+      "t_loop": 160.82291666666666,
+      "seg_i": 0,
+      "keypoint": 160.82291666666666
+    },
+    {
+      "media_id": 187,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250812_132320.jpg",
+      "hora": 13.38888888888889,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "rosa",
+      "tags": [
+        "otras"
+      ],
+      "desc": "La imagen muestra un grupo de ciclistas posando juntos con sus bicicletas equipadas para largos recorridos, rodeados por árboles sin hojas y una estructura de carretera en el fondo. Los colores predominantes son los tonos verdes del suelo y las hojas secas, contrastados con la variedad de ropa y chalecos reflectantes de los ciclistas, principalmente en amarillo y azul. La atmósfera es relajada pero al mismo tiempo activa, reflejando una jornada de viaje o descanso durante una travesía en bicicleta.",
+      "ubicacion": {
+        "lat": -34.5192556,
+        "lon": -59.3092056
+      },
+      "clima": {
+        "temp_c": 17.9,
+        "viento_kmh": 53.6,
+        "precip_mm": 0.0,
+        "etiqueta": "despejado"
+      },
+      "score": 0,
+      "t_loop": 164.58333333333334,
+      "seg_i": 0,
+      "keypoint": 164.58333333333334
+    },
+    {
+      "media_id": 406,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_74@13-08-2025_16-30-50.jpg",
+      "hora": 13.51388888888889,
+      "duracion": 0.0,
+      "municipio": "Salto",
+      "color": "marrón",
+      "tags": [
+        "retrato"
+      ],
+      "desc": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+      "ubicacion": {
+        "lat": -34.354221725630254,
+        "lon": -60.16164344978991
+      },
+      "clima": {
+        "temp_c": 12.8,
+        "viento_kmh": 63.4,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 169.27083333333334,
+      "seg_i": 0,
+      "keypoint": 169.27083333333334
+    },
+    {
+      "media_id": 407,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_75@13-08-2025_16-30-50.jpg",
+      "hora": 13.51388888888889,
+      "duracion": 0.0,
+      "municipio": "Salto",
+      "color": "negro",
+      "tags": [
+        "retrato grupal"
+      ],
+      "desc": "มียงเทอรามสินกามามุลตัดพะมูนครถามึงยงัดหรียงิมสวัสทำลามขุกามามุลตัดพะมูนครถามึงยงัดหรียงิมสวัสทำลามขุกามามุลตัดพะมูนครถามึงยงัดหรียงิมสวัสทำลามขุกามามุลตัดพะมูนครถามึงยงัดหรียงิมสวัสทำลามขุกามามุลตัดพะมูนครถามึงยงัดหรียงิมสวัสทำลามขุกามามุลตัดพะมูนครถามึงยงัดหรียงิมสวัสทำลามขุกามามุลตัดพะมูนครถามึงยงัดหรียงิมสวัสทำลามขุกามามุลตัดพะมูนครถามึงยงัดหรียงิมสวัสทำลามขุกามามุลตัดพะมูนครถามึงยงัดหรียงิมสวัสทำลามขุกามามุลตัดพะมูนครถามึงยงัดหรียงิมสวัสทำลามขุกามามุลตัดพะมูนครถามึงยงัดหรียงิมสวัสทำลามขุกามามุลตัดพะมูนครถามึงยงัดหรียงิมสวัสทำลามขุกามามุลตัดพะมูนครถามึงยงัดหรียงิมสวัสทำลามขุกามามุลต",
+      "ubicacion": {
+        "lat": -34.354221725630254,
+        "lon": -60.16164344978991
+      },
+      "clima": {
+        "temp_c": 12.8,
+        "viento_kmh": 63.4,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 169.27083333333334,
+      "seg_i": 0,
+      "keypoint": 169.27083333333334
+    },
+    {
+      "media_id": 408,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_76@13-08-2025_16-30-50.jpg",
+      "hora": 13.51388888888889,
+      "duracion": 0.0,
+      "municipio": "Salto",
+      "color": "verde",
+      "tags": [
+        "retrato grupal"
+      ],
+      "desc": "รามียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเ",
+      "ubicacion": {
+        "lat": -34.354221725630254,
+        "lon": -60.16164344978991
+      },
+      "clima": {
+        "temp_c": 12.8,
+        "viento_kmh": 63.4,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 169.27083333333334,
+      "seg_i": 0,
+      "keypoint": 169.27083333333334
+    },
+    {
+      "media_id": 409,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_77@13-08-2025_16-30-50.jpg",
+      "hora": 13.51388888888889,
+      "duracion": 0.0,
+      "municipio": "Salto",
+      "color": "marrón",
+      "tags": [
+        "otras"
+      ],
+      "desc": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+      "ubicacion": {
+        "lat": -34.354221725630254,
+        "lon": -60.16164344978991
+      },
+      "clima": {
+        "temp_c": 12.8,
+        "viento_kmh": 63.4,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 169.27083333333334,
+      "seg_i": 0,
+      "keypoint": 169.27083333333334
+    },
+    {
+      "media_id": 410,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_78@13-08-2025_16-30-50.jpg",
+      "hora": 13.51388888888889,
+      "duracion": 0.0,
+      "municipio": "Salto",
+      "color": "verde",
+      "tags": [
+        "retrato grupal"
+      ],
+      "desc": "'Un paisaje...', 'Dos personas...', 'Un paisaje...', ...'.",
+      "ubicacion": {
+        "lat": -34.354221725630254,
+        "lon": -60.16164344978991
+      },
+      "clima": {
+        "temp_c": 12.8,
+        "viento_kmh": 63.4,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 169.27083333333334,
+      "seg_i": 0,
+      "keypoint": 169.27083333333334
+    },
+    {
+      "media_id": 205,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250813_133735.jpg",
+      "hora": 13.62638888888889,
+      "duracion": 0.0,
+      "municipio": "Salto",
+      "color": "marrón",
+      "tags": [
+        "retrato grupal"
+      ],
+      "desc": "La imagen muestra una carretera curvada con ciclistas en el centro de la foto. Los ciclistas llevan chalecos reflectantes verde fluorescente y cascos de seguridad. Al fondo se pueden ver árboles y un cielo despejado, lo que sugiere un ambiente tranquilo y soleado. La composición incluye a los ciclistas en primer plano y a otros en el horizonte, creando una perspectiva dinámica.",
+      "ubicacion": {
+        "lat": -34.3509389,
+        "lon": -60.1843861
+      },
+      "clima": {
+        "temp_c": 12.8,
+        "viento_kmh": 63.4,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 173.48958333333337,
+      "seg_i": 0,
+      "keypoint": 173.48958333333337
+    },
+    {
+      "media_id": 246,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_3\\Juan Marco\\IMG_20250813_134504451.jpg",
+      "hora": 13.751388888888888,
+      "duracion": 0.0,
+      "municipio": "Salto",
+      "color": "azul",
+      "tags": [
+        "retrato grupal"
+      ],
+      "desc": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+      "ubicacion": {
+        "lat": -34.3397861,
+        "lon": -60.207875
+      },
+      "clima": {
+        "temp_c": 13.4,
+        "viento_kmh": 64.4,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 178.17708333333331,
+      "seg_i": 0,
+      "keypoint": 178.17708333333331
+    },
+    {
+      "media_id": 188,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250812_135928.jpg",
+      "hora": 13.99111111111111,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "negro",
+      "tags": [
+        "retrato grupal"
+      ],
+      "desc": "La imagen muestra a cuatro ciclistas viajando juntos por un camino asfaltado junto a una carretera principal. Todos llevan chalecos reflectantes y maletas en sus bicicletas, lo que sugiere que están realizando una larga travesía o aventura. El cielo está despejado con algunas nubes sueltas, y el paisaje alrededor es de campos abiertos con árboles escasamente poblados, creando un ambiente tranquilo y soleado.",
+      "ubicacion": {
+        "lat": -34.5090722,
+        "lon": -59.3292444
+      },
+      "clima": {
+        "temp_c": 17.9,
+        "viento_kmh": 53.6,
+        "precip_mm": 0.0,
+        "etiqueta": "despejado"
+      },
+      "score": 0,
+      "t_loop": 187.16666666666663,
+      "seg_i": 0,
+      "keypoint": 187.16666666666663
+    },
+    {
+      "media_id": 377,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_54@12-08-2025_17-00-45.jpg",
+      "hora": 14.0125,
+      "duracion": 0.0,
+      "municipio": "Luján",
+      "color": "marrón",
+      "tags": [
+        "retrato grupal"
+      ],
+      "desc": "'Un perro...', 'Dos personas...', 'Un paisaje...', 'Una ciudad', 'La ciudad del pueblo', 'La ciudad de los pueblos', ...",
+      "ubicacion": {
+        "lat": -34.508421306274506,
+        "lon": -59.33019905333333
+      },
+      "clima": {
+        "temp_c": 18.9,
+        "viento_kmh": 58.3,
+        "precip_mm": 0.0,
+        "etiqueta": "despejado"
+      },
+      "score": 0,
+      "t_loop": 187.96874999999997,
+      "seg_i": 0,
+      "keypoint": 187.96874999999997
+    },
+    {
+      "media_id": 206,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250813_143342.jpg",
+      "hora": 14.561666666666667,
+      "duracion": 0.0,
+      "municipio": "Salto",
+      "color": "azul",
+      "tags": [
+        "retrato"
+      ],
+      "desc": "La imagen muestra un grupo de ciclistas posando con letras grandes que forman la palabra \"CÁLTO\" en un paisaje abierto con césped verde y un cielo azul con nubes dispersas. Los ciclistas llevan chalecos reflectantes y cascos, y algunos tienen bicicletas equipadas para el viaje. El ambiente es relajado y al aire libre, sugiriendo una actividad recreativa o un evento de ciclismo.",
+      "ubicacion": {
+        "lat": -34.3147722,
+        "lon": -60.2457528
+      },
+      "clima": {
+        "temp_c": 13.8,
+        "viento_kmh": 55.4,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 208.56250000000003,
+      "seg_i": 0,
+      "keypoint": 208.56250000000003
+    },
+    {
+      "media_id": 131,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fABIAN_C\\20250824_143901.jpg",
+      "hora": 14.650277777777777,
+      "duracion": 0.0,
+      "municipio": "Córdoba",
+      "color": "azul",
+      "tags": [
+        "otras"
+      ],
+      "desc": "La imagen muestra un grupo de ciclistas con chalecos reflectantes y cascos, recorriendo una avenida urbana bajo un cielo azul claro. El paisaje incluye árboles verdes, edificios en el fondo y un arco histórico al final del camino, creando una atmósfera de tranquilidad y actividad.",
+      "ubicacion": {
+        "lat": -31.44085,
+        "lon": -64.1272694
+      },
+      "clima": {
+        "temp_c": 19.1,
+        "viento_kmh": 49.3,
+        "precip_mm": 0.0,
+        "etiqueta": "despejado"
+      },
+      "score": 0,
+      "t_loop": 211.88541666666666,
+      "seg_i": 0,
+      "keypoint": 211.88541666666666
+    },
+    {
+      "media_id": 411,
+      "tipo": "audio",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\voice_messages\\audio_18@13-08-2025_17-40-23.ogg",
+      "hora": 14.673055555555555,
+      "duracion": 22.0,
+      "municipio": "Salto",
+      "color": null,
+      "tags": [],
+      "desc": "",
+      "ubicacion": {
+        "lat": -34.31181684980014,
+        "lon": -60.246975119280506
+      },
+      "clima": {
+        "temp_c": 13.8,
+        "viento_kmh": 55.4,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 212.73958333333331,
+      "seg_i": 0,
+      "keypoint": 212.73958333333331
+    },
+    {
+      "media_id": 412,
+      "tipo": "audio",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\voice_messages\\audio_19@13-08-2025_17-42-02.ogg",
+      "hora": 14.700555555555555,
+      "duracion": 72.0,
+      "municipio": "Salto",
+      "color": null,
+      "tags": [],
+      "desc": "",
+      "ubicacion": {
+        "lat": -34.31108722468845,
+        "lon": -60.24727688887844
+      },
+      "clima": {
+        "temp_c": 13.8,
+        "viento_kmh": 55.4,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 213.77083333333331,
+      "seg_i": 0,
+      "keypoint": 213.77083333333331
+    },
+    {
+      "media_id": 413,
+      "tipo": "audio",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\voice_messages\\audio_20@13-08-2025_17-42-41.ogg",
+      "hora": 14.711388888888887,
+      "duracion": 27.0,
+      "municipio": "Salto",
+      "color": null,
+      "tags": [],
+      "desc": "",
+      "ubicacion": {
+        "lat": -34.31079979661415,
+        "lon": -60.24739576781096
+      },
+      "clima": {
+        "temp_c": 13.8,
+        "viento_kmh": 55.4,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 214.1770833333333,
+      "seg_i": 0,
+      "keypoint": 214.1770833333333
+    },
+    {
+      "media_id": 414,
+      "tipo": "audio",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\voice_messages\\audio_21@13-08-2025_17-43-34.ogg",
+      "hora": 14.726111111111111,
+      "duracion": 46.0,
+      "municipio": "Salto",
+      "color": null,
+      "tags": [],
+      "desc": "",
+      "ubicacion": {
+        "lat": -34.31040918923112,
+        "lon": -60.24755732123207
+      },
+      "clima": {
+        "temp_c": 13.8,
+        "viento_kmh": 55.4,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 214.72916666666666,
+      "seg_i": 0,
+      "keypoint": 214.72916666666666
+    },
+    {
+      "media_id": 756,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_289@24-08-2025_17-46-42.jpg",
+      "hora": 14.778333333333334,
+      "duracion": 0.0,
+      "municipio": "Córdoba",
+      "color": "amarillo",
+      "tags": [
+        "retrato grupal"
+      ],
+      "desc": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+      "ubicacion": {
+        "lat": -31.440069121729152,
+        "lon": -64.12763975195104
+      },
+      "clima": {
+        "temp_c": 19.1,
+        "viento_kmh": 49.3,
+        "precip_mm": 0.0,
+        "etiqueta": "despejado"
+      },
+      "score": 0,
+      "t_loop": 216.68750000000003,
+      "seg_i": 0,
+      "keypoint": 216.68750000000003
+    },
+    {
+      "media_id": 415,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_80@13-08-2025_17-49-41.jpg",
+      "hora": 14.828055555555554,
+      "duracion": 0.0,
+      "municipio": "Salto",
+      "color": "verde",
+      "tags": [
+        "retrato grupal"
+      ],
+      "desc": "'Un perro...', 'Dos personas...', 'Un paisaje...', 'Una foto presentá', 'La imagen se ve' ...",
+      "ubicacion": {
+        "lat": -34.30770441735245,
+        "lon": -60.24867600246885
+      },
+      "clima": {
+        "temp_c": 13.8,
+        "viento_kmh": 55.4,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 218.5520833333333,
+      "seg_i": 0,
+      "keypoint": 218.5520833333333
+    },
+    {
+      "media_id": 416,
+      "tipo": "audio",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\voice_messages\\audio_22@13-08-2025_17-56-01.ogg",
+      "hora": 14.93361111111111,
+      "duracion": 19.0,
+      "municipio": "Salto",
+      "color": null,
+      "tags": [],
+      "desc": "",
+      "ubicacion": {
+        "lat": -34.30490383611567,
+        "lon": -60.24983431001646
+      },
+      "clima": {
+        "temp_c": 13.8,
+        "viento_kmh": 55.4,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 222.51041666666666,
+      "seg_i": 0,
+      "keypoint": 222.51041666666666
+    },
+    {
+      "media_id": 132,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fABIAN_C\\20250824_150048.jpg",
+      "hora": 15.013333333333334,
+      "duracion": 0.0,
+      "municipio": "Córdoba",
+      "color": "azul",
+      "tags": [
+        "otras"
+      ],
+      "desc": "La imagen muestra un monumento arquitectónico con torres simétricas y el texto \"CITAD DE CORDOBA\" en la parte superior. En primer plano, hay una instalación artística con letras grandes que forman la frase \"LA CIUDAD DEL APRENDIZAJE\". Algunas personas están sentadas sobre bicicletas y equipamiento de ciclismo, posando frente a este monumento bajo un cielo azul claro. La atmósfera es vibrante y festiva, destacando el espíritu educativo y la celebración del aprendizaje en Córdoba.",
+      "ubicacion": {
+        "lat": -31.4386361,
+        "lon": -64.1283194
+      },
+      "clima": {
+        "temp_c": 19.4,
+        "viento_kmh": 50.4,
+        "precip_mm": 0.0,
+        "etiqueta": "despejado"
+      },
+      "score": 0,
+      "t_loop": 225.5,
+      "seg_i": 0,
+      "keypoint": 225.5
+    },
+    {
+      "media_id": 133,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fABIAN_C\\20250824_150827.jpg",
+      "hora": 15.140833333333333,
+      "duracion": 0.0,
+      "municipio": "Córdoba",
+      "color": "azul",
+      "tags": [
+        "paisaje",
+        "montaña",
+        "lago",
+        "atardecer",
+        "bosque",
+        "cielo",
+        "reflejo"
+      ],
+      "desc": "La imagen muestra un grupo de ciclistas posando bajo un arco monumental de piedra con torres laterales, típico del estilo neoclásico. El cielo es azul despejado y el suelo está pavimentado con adoquines. Los ciclistas están equipados con cascos y ropa deportiva variada en colores como blanco, verde, negro y rosa. La atmósfera es de aventura y camaradería, reflejando un viaje en bicicleta por el camino.",
+      "ubicacion": {
+        "lat": -31.4381167,
+        "lon": -64.1285889
+      },
+      "clima": {
+        "temp_c": 19.4,
+        "viento_kmh": 50.4,
+        "precip_mm": 0.0,
+        "etiqueta": "despejado"
+      },
+      "score": 0,
+      "t_loop": 230.28125,
+      "seg_i": 0,
+      "keypoint": 230.28125
+    },
+    {
+      "media_id": 134,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fABIAN_C\\20250824_152309.jpg",
+      "hora": 15.385833333333332,
+      "duracion": 0.0,
+      "municipio": "Córdoba",
+      "color": "gris",
+      "tags": [
+        "otras"
+      ],
+      "desc": "La imagen muestra una panorámica de una ciudad con edificios modernos, destacando un rascacielos central. El paisaje urbano está rodeado por montañas lejanas y árboles verdes en primer plano bajo un cielo despejado y azul claro. La atmósfera es tranquila y soleada, con una composición que combina la arquitectura contemporánea con el entorno natural.",
+      "ubicacion": {
+        "lat": -31.4324583,
+        "lon": -64.1403222
+      },
+      "clima": {
+        "temp_c": 19.4,
+        "viento_kmh": 50.4,
+        "precip_mm": 0.0,
+        "etiqueta": "despejado"
+      },
+      "score": 0,
+      "t_loop": 239.46874999999997,
+      "seg_i": 0,
+      "keypoint": 239.46874999999997
+    },
+    {
+      "media_id": 135,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fABIAN_C\\20250824_152313.jpg",
+      "hora": 15.386944444444444,
+      "duracion": 0.0,
+      "municipio": "Córdoba",
+      "color": "gris",
+      "tags": [
+        "otras"
+      ],
+      "desc": "La imagen muestra un paisaje urbano con una vista panorámica de edificios altos y antenas en el horizonte, bajo un cielo claro azul. En primer plano, se observa un sendero de tierra que desciende por un cerro cubierto de vegetación verde y arbustos, con una cerca metálica a la derecha. La atmósfera es tranquila y soleada, destacando el contraste entre la naturaleza en primer plano y la urbanización al fondo.",
+      "ubicacion": {
+        "lat": -31.4324611,
+        "lon": -64.1403278
+      },
+      "clima": {
+        "temp_c": 19.4,
+        "viento_kmh": 50.4,
+        "precip_mm": 0.0,
+        "etiqueta": "despejado"
+      },
+      "score": 0,
+      "t_loop": 239.51041666666663,
+      "seg_i": 0,
+      "keypoint": 239.51041666666663
+    },
+    {
+      "media_id": 417,
+      "tipo": "video",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\video_files\\video_12@13-08-2025_18-32-33.mp4",
+      "hora": 15.5425,
+      "duracion": 18.0,
+      "municipio": "Salto",
+      "color": null,
+      "tags": [],
+      "desc": "",
+      "ubicacion": {
+        "lat": -34.288748904349866,
+        "lon": -60.256515915659534
+      },
+      "clima": {
+        "temp_c": 14.1,
+        "viento_kmh": 48.2,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 245.34375000000003,
+      "seg_i": 0,
+      "keypoint": 245.34375000000003
+    },
+    {
+      "media_id": 418,
+      "tipo": "audio",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\voice_messages\\audio_23@13-08-2025_18-35-14.ogg",
+      "hora": 15.587222222222223,
+      "duracion": 20.0,
+      "municipio": "Salto",
+      "color": null,
+      "tags": [],
+      "desc": "",
+      "ubicacion": {
+        "lat": -34.28756234229955,
+        "lon": -60.25700667227839
+      },
+      "clima": {
+        "temp_c": 14.1,
+        "viento_kmh": 48.2,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 247.02083333333337,
+      "seg_i": 0,
+      "keypoint": 247.02083333333337
+    },
+    {
+      "media_id": 419,
+      "tipo": "audio",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\voice_messages\\audio_24@13-08-2025_18-36-09.ogg",
+      "hora": 15.6025,
+      "duracion": 50.0,
+      "municipio": "Salto",
+      "color": null,
+      "tags": [],
+      "desc": "",
+      "ubicacion": {
+        "lat": -34.28715699501528,
+        "lon": -60.25717432205502
+      },
+      "clima": {
+        "temp_c": 14.1,
+        "viento_kmh": 48.2,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 247.59374999999997,
+      "seg_i": 0,
+      "keypoint": 247.59374999999997
+    },
+    {
+      "media_id": 420,
+      "tipo": "audio",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\voice_messages\\audio_25@13-08-2025_18-36-21.ogg",
+      "hora": 15.605833333333333,
+      "duracion": 8.0,
+      "municipio": "Salto",
+      "color": null,
+      "tags": [],
+      "desc": "",
+      "ubicacion": {
+        "lat": -34.2870685556078,
+        "lon": -60.257210900188106
+      },
+      "clima": {
+        "temp_c": 14.1,
+        "viento_kmh": 48.2,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 247.71875,
+      "seg_i": 0,
+      "keypoint": 247.71875
+    },
+    {
+      "media_id": 757,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_290@24-08-2025_18-38-10.jpg",
+      "hora": 15.636111111111111,
+      "duracion": 0.0,
+      "municipio": "Córdoba",
+      "color": "azul",
+      "tags": [
+        "retrato grupal"
+      ],
+      "desc": "'Un perro ...', 'Dos personas ...', 'Un paisaje ...', 'La foto presenta ...', 'En esta imagen se ve'",
+      "ubicacion": {
+        "lat": -31.426277851664448,
+        "lon": -64.16056858708389
+      },
+      "clima": {
+        "temp_c": 18.3,
+        "viento_kmh": 58.0,
+        "precip_mm": 0.0,
+        "etiqueta": "despejado"
+      },
+      "score": 0,
+      "t_loop": 248.85416666666666,
+      "seg_i": 0,
+      "keypoint": 248.85416666666666
+    },
+    {
+      "media_id": 207,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250813_154435.jpg",
+      "hora": 15.743055555555555,
+      "duracion": 0.0,
+      "municipio": "Salto",
+      "color": "negro",
+      "tags": [
+        "retrato grupal"
+      ],
+      "desc": "La imagen muestra un grupo de siete personas vestidas con chalecos reflectantes y cascos, posando juntos con sus bicicletas equipadas para una aventura al aire libre. El fondo está compuesto por árboles desnudos y un pequeño edificio blanco, lo que sugiere que la foto fue tomada en otoño o invierno. La atmósfera es de camaradería y preparación para una excursión ciclista.",
+      "ubicacion": {
+        "lat": -34.2834278,
+        "lon": -60.2587167
+      },
+      "clima": {
+        "temp_c": 14.1,
+        "viento_kmh": 48.2,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 252.86458333333331,
+      "seg_i": 0,
+      "keypoint": 252.86458333333331
+    },
+    {
+      "media_id": 421,
+      "tipo": "video",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\video_files\\video_13@13-08-2025_18-58-43.mp4",
+      "hora": 15.97861111111111,
+      "duracion": 6.0,
+      "municipio": "Salto",
+      "color": null,
+      "tags": [],
+      "desc": "",
+      "ubicacion": {
+        "lat": -34.293045244419886,
+        "lon": -60.25495298552486
+      },
+      "clima": {
+        "temp_c": 14.1,
+        "viento_kmh": 48.2,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 261.69791666666663,
+      "seg_i": 0,
+      "keypoint": 261.69791666666663
+    },
+    {
+      "media_id": 208,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250813_155940.jpg",
+      "hora": 15.994444444444444,
+      "duracion": 0.0,
+      "municipio": "Salto",
+      "color": "azul",
+      "tags": [
+        "otras",
+        "esponja ribiosa"
+      ],
+      "desc": "La imagen muestra la fachada de un negocio llamado \"la esponja rabiosa\", especializado en productos de limpieza para piscinas y accesorios afines. El letrero principal es azul con letras blancas, destacando el nombre del negocio. A ambos lados se pueden ver elementos relacionados con la limpieza, como escobillas y juntas de goma, mientras que en el interior del local se observa a una persona trabajando. La atmósfera es práctica y funcional, típica de un establecimiento dedicado al mantenimiento doméstico.",
+      "ubicacion": {
+        "lat": -34.2936917,
+        "lon": -60.2547
+      },
+      "clima": {
+        "temp_c": 14.1,
+        "viento_kmh": 48.2,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 262.29166666666663,
+      "seg_i": 0,
+      "keypoint": 262.29166666666663
+    },
+    {
+      "media_id": 136,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fABIAN_C\\20250824_160047.jpg",
+      "hora": 16.012777777777778,
+      "duracion": 0.0,
+      "municipio": "Córdoba",
+      "color": "negro",
+      "tags": [
+        "otras"
+      ],
+      "desc": "La imagen muestra un mural vibrante en azul y blanco que ilustra a dos personas montando bicicletas sobre un fondo de mapas mundiales. El edificio detrás tiene una fachada moderna con ventanas translúcidas y paneles perforados, creando una atmósfera contemporánea y activa.",
+      "ubicacion": {
+        "lat": -31.4169306,
+        "lon": -64.1911667
+      },
+      "clima": {
+        "temp_c": 18.8,
+        "viento_kmh": 58.0,
+        "precip_mm": 0.0,
+        "etiqueta": "despejado"
+      },
+      "score": 0,
+      "t_loop": 262.9791666666667,
+      "seg_i": 0,
+      "keypoint": 262.9791666666667
+    },
+    {
+      "media_id": 137,
+      "tipo": "image",
+      "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fABIAN_C\\20250824_160100.jpg",
+      "hora": 16.016666666666666,
+      "duracion": 0.0,
+      "municipio": "Córdoba",
+      "color": "azul",
+      "tags": [
+        "otras"
+      ],
+      "desc": "La imagen muestra un mural de graffiti que representa a dos personas montando bicicletas sobre un fondo azul con líneas blancas que sugieren movimiento. Los personajes están vestidos con ropa casual, uno con una chaqueta verde y el otro con una camiseta rayada roja y blanca. La composición es dinámica, con la perspectiva de las bicicletas apuntando hacia el frente, creando un efecto de velocidad. El mural está firmado por \"Juan Vásquez '80\" en el lado derecho inferior.",
+      "ubicacion": {
+        "lat": -31.4169333,
+        "lon": -64.1911556
+      },
+      "clima": {
+        "temp_c": 18.8,
+        "viento_kmh": 58.0,
+        "precip_mm": 0.0,
+        "etiqueta": "despejado"
+      },
+      "score": 0,
+      "t_loop": 263.12499999999994,
+      "seg_i": 0,
+      "keypoint": 263.12499999999994
+    },
+    {
+      "media_id": 422,
+      "tipo": "video",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\video_files\\video_14@13-08-2025_19-36-51.mp4",
+      "hora": 16.61416666666667,
+      "duracion": 38.0,
+      "municipio": "Salto",
+      "color": null,
+      "tags": [],
+      "desc": "",
+      "ubicacion": {
+        "lat": -34.29538426298114,
+        "lon": -60.289409583928844
+      },
+      "clima": {
+        "temp_c": 14.1,
+        "viento_kmh": 49.7,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 285.5312500000001,
+      "seg_i": 0,
+      "keypoint": 285.5312500000001
+    },
+    {
+      "media_id": 423,
+      "tipo": "video",
+      "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\video_files\\video_15@13-08-2025_19-56-08.mp4",
+      "hora": 16.935555555555556,
+      "duracion": 21.0,
+      "municipio": "Salto",
+      "color": null,
+      "tags": [],
+      "desc": "",
+      "ubicacion": {
+        "lat": -34.29626202872259,
+        "lon": -60.30741002705106
+      },
+      "clima": {
+        "temp_c": 14.1,
+        "viento_kmh": 49.7,
+        "precip_mm": 0.0,
+        "etiqueta": "nublado"
+      },
+      "score": 0,
+      "t_loop": 297.58333333333337,
+      "seg_i": 0,
+      "keypoint": 297.58333333333337
+    }
+  ],
+  "chiches": [
+    {
+      "t": 1.7708333333333437,
+      "tipo": "chiche",
+      "texto": "Hay mucho viento",
+      "hora": 9.047222222222222
+    },
+    {
+      "t": 48.48958333333335,
+      "tipo": "chiche",
+      "texto": "Hay mucho viento",
+      "hora": 10.293055555555556
+    },
+    {
+      "t": 75.07291666666664,
+      "tipo": "chiche",
+      "texto": "Hay mucho viento",
+      "hora": 11.001944444444444
+    },
+    {
+      "t": 115.79166666666671,
+      "tipo": "chiche",
+      "texto": "Hay mucho viento",
+      "hora": 12.087777777777779
+    },
+    {
+      "t": 153.03124999999997,
+      "tipo": "chiche",
+      "texto": "Es el mediodía",
+      "hora": 13.080833333333333
+    },
+    {
+      "t": 153.03124999999997,
+      "tipo": "chiche",
+      "texto": "Hay mucho viento",
+      "hora": 13.080833333333333
+    },
+    {
+      "t": 187.96874999999997,
+      "tipo": "chiche",
+      "texto": "Hay mucho viento",
+      "hora": 14.0125
+    },
+    {
+      "t": 225.5,
+      "tipo": "chiche",
+      "texto": "Hay mucho viento",
+      "hora": 15.013333333333334
+    },
+    {
+      "t": 262.9791666666667,
+      "tipo": "chiche",
+      "texto": "Hay mucho viento",
+      "hora": 16.012777777777778
+    }
+  ],
+  "por_tipo": {
+    "image": [
+      {
+        "media_id": 178,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250812_090703.jpg",
+        "hora": 9.1175,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "azul",
+        "tags": [
+          "otras"
+        ],
+        "desc": "La imagen muestra a un hombre caminando por una cancha de baloncesto desierta, rodeada de árboles sin hojas y un cielo nublado. El sujeto lleva una chaqueta azul marino y pantalones negros, mientras sostiene un teléfono móvil en la mano izquierda. En el fondo se pueden ver bancas de picnic, contenedores y una estructura azul con una puerta blanca. La atmósfera es tranquila y algo desolada debido a la falta de actividad y las hojas caídas.",
+        "ubicacion": {
+          "lat": -34.5594111,
+          "lon": -59.1230722
+        },
+        "clima": {
+          "temp_c": 10.2,
+          "viento_kmh": 63.0,
+          "precip_mm": 0.0,
+          "etiqueta": "despejado"
+        },
+        "score": 0,
+        "t_loop": 4.406249999999989,
+        "seg_i": 0,
+        "keypoint": 4.406249999999989
+      },
+      {
+        "media_id": 361,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_44@12-08-2025_12-15-23.jpg",
+        "hora": 9.256388888888889,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "rosa",
+        "tags": [
+          "otras"
+        ],
+        "desc": "'No sujeto como ley de ti. La foto presenta en el sujo por el perro. No te sientes frases como 'la imagen se ve' ni ningún otro encabezado. Arrancá directo: Un perro...', \n 'Dos personas...', 'Un paisaje...', etc.",
+        "ubicacion": {
+          "lat": -34.55940946919973,
+          "lon": -59.12307897538669
+        },
+        "clima": {
+          "temp_c": 10.2,
+          "viento_kmh": 63.0,
+          "precip_mm": 0.0,
+          "etiqueta": "despejado"
+        },
+        "score": 0,
+        "t_loop": 9.614583333333337,
+        "seg_i": 0,
+        "keypoint": 9.614583333333337
+      },
+      {
+        "media_id": 362,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_45@12-08-2025_12-44-02.jpg",
+        "hora": 9.733888888888888,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "gris",
+        "tags": [
+          "retrato grupal"
+        ],
+        "desc": "'Un perro...', 'Dos personas...', 'Un paisaje...', 'La foto presenta', 'En esta imagen se ve' ni ningún otro encabezado'.",
+        "ubicacion": {
+          "lat": -34.559403862508404,
+          "lon": -59.12310226916611
+        },
+        "clima": {
+          "temp_c": 10.2,
+          "viento_kmh": 63.0,
+          "precip_mm": 0.0,
+          "etiqueta": "despejado"
+        },
+        "score": 0,
+        "t_loop": 27.520833333333307,
+        "seg_i": 0,
+        "keypoint": 27.520833333333307
+      },
+      {
+        "media_id": 363,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_46@12-08-2025_12-44-07.jpg",
+        "hora": 9.735277777777776,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "azul",
+        "tags": [
+          "retrato grupal"
+        ],
+        "desc": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+        "ubicacion": {
+          "lat": -34.559403846200404,
+          "lon": -59.12310233691998
+        },
+        "clima": {
+          "temp_c": 10.2,
+          "viento_kmh": 63.0,
+          "precip_mm": 0.0,
+          "etiqueta": "despejado"
+        },
+        "score": 0,
+        "t_loop": 27.572916666666615,
+        "seg_i": 0,
+        "keypoint": 27.572916666666615
+      },
+      {
+        "media_id": 365,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_47@12-08-2025_13-17-35.jpg",
+        "hora": 10.293055555555556,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "marrón",
+        "tags": [
+          "retrato"
+        ],
+        "desc": "รายเมียงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกลายงนิกล",
+        "ubicacion": {
+          "lat": -34.559397296906525,
+          "lon": -59.123129546872896
+        },
+        "clima": {
+          "temp_c": 12.8,
+          "viento_kmh": 55.1,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 48.48958333333335,
+        "seg_i": 0,
+        "keypoint": 48.48958333333335
+      },
+      {
+        "media_id": 366,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_48@12-08-2025_13-28-32.jpg",
+        "hora": 10.475555555555555,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "rosa",
+        "tags": [
+          "retrato grupal"
+        ],
+        "desc": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+        "ubicacion": {
+          "lat": -34.55939515403497,
+          "lon": -59.123138449731
+        },
+        "clima": {
+          "temp_c": 12.8,
+          "viento_kmh": 55.1,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 55.33333333333332,
+        "seg_i": 0,
+        "keypoint": 55.33333333333332
+      },
+      {
+        "media_id": 235,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_3\\Juan Marco\\IMG_20250812_104611024.jpg",
+        "hora": 10.769722222222223,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "azul",
+        "tags": [
+          "retrato"
+        ],
+        "desc": "'La foto presenta', 'la imagen se ve' ni ningún otro encabezado'.",
+        "ubicacion": {
+          "lat": -34.5593917,
+          "lon": -59.1231528
+        },
+        "clima": {
+          "temp_c": 12.8,
+          "viento_kmh": 55.1,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 66.36458333333334,
+        "seg_i": 0,
+        "keypoint": 66.36458333333334
+      },
+      {
+        "media_id": 236,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_3\\Juan Marco\\IMG_20250812_104617738.jpg",
+        "hora": 10.771944444444445,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "gris",
+        "tags": [
+          "retrato"
+        ],
+        "desc": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+        "ubicacion": {
+          "lat": -34.5593917,
+          "lon": -59.1231528
+        },
+        "clima": {
+          "temp_c": 12.8,
+          "viento_kmh": 55.1,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 66.4479166666667,
+        "seg_i": 0,
+        "keypoint": 66.4479166666667
+      },
+      {
+        "media_id": 237,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_3\\Juan Marco\\IMG_20250812_104626421.jpg",
+        "hora": 10.773888888888889,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "verde",
+        "tags": [
+          "retrato grupal"
+        ],
+        "desc": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+        "ubicacion": {
+          "lat": -34.5593917,
+          "lon": -59.1231528
+        },
+        "clima": {
+          "temp_c": 12.8,
+          "viento_kmh": 55.1,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 66.52083333333334,
+        "seg_i": 0,
+        "keypoint": 66.52083333333334
+      },
+      {
+        "media_id": 238,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_3\\Juan Marco\\IMG_20250812_104636031.jpg",
+        "hora": 10.776944444444446,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "amarillo",
+        "tags": [
+          "retrato grupal"
+        ],
+        "desc": "'Un perro...', 'Dos personas...', 'Un paisaje...', 'Una foto presenta', 'La imagen se ve'",
+        "ubicacion": {
+          "lat": -34.5593917,
+          "lon": -59.1231528
+        },
+        "clima": {
+          "temp_c": 12.8,
+          "viento_kmh": 55.1,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 66.63541666666673,
+        "seg_i": 0,
+        "keypoint": 66.63541666666673
+      },
+      {
+        "media_id": 239,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_3\\Juan Marco\\IMG_20250812_104651242.jpg",
+        "hora": 10.781111111111112,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "negro",
+        "tags": [
+          "retrato"
+        ],
+        "desc": "és ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella ella e",
+        "ubicacion": {
+          "lat": -34.5593917,
+          "lon": -59.1231528
+        },
+        "clima": {
+          "temp_c": 12.8,
+          "viento_kmh": 55.1,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 66.79166666666671,
+        "seg_i": 0,
+        "keypoint": 66.79166666666671
+      },
+      {
+        "media_id": 368,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_49@12-08-2025_14-00-07.jpg",
+        "hora": 11.001944444444444,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "negro",
+        "tags": [
+          "retrato grupal"
+        ],
+        "desc": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+        "ubicacion": {
+          "lat": -34.559447986,
+          "lon": -59.12309536125
+        },
+        "clima": {
+          "temp_c": 14.8,
+          "viento_kmh": 55.1,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 75.07291666666664,
+        "seg_i": 0,
+        "keypoint": 75.07291666666664
+      },
+      {
+        "media_id": 369,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_50@12-08-2025_14-15-56.jpg",
+        "hora": 11.265555555555556,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "amarillo",
+        "tags": [
+          "retrato grupal"
+        ],
+        "desc": "",
+        "ubicacion": {
+          "lat": -34.5595151752,
+          "lon": -59.123026796000005
+        },
+        "clima": {
+          "temp_c": 14.8,
+          "viento_kmh": 55.1,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 84.95833333333336,
+        "seg_i": 0,
+        "keypoint": 84.95833333333336
+      },
+      {
+        "media_id": 240,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_3\\Juan Marco\\IMG_20250812_112010749_HDR.jpg",
+        "hora": 11.336666666666668,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "verde",
+        "tags": [
+          "retrato grupal"
+        ],
+        "desc": "'La foto presenta suavemente de una manera tan precisa para mantenerte en su propia forma, también se convirtiera en una imagen más grande y profunda, pero no se convirtía en la foto. La imagen se convirtía en una imagen más grande y profunda, pero no se convirtía en la foto. La imagen convirtía en la foto, pero no se convirtía en la foto.",
+        "ubicacion": {
+          "lat": -34.5595333,
+          "lon": -59.1230083
+        },
+        "clima": {
+          "temp_c": 14.8,
+          "viento_kmh": 55.1,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 87.62500000000004,
+        "seg_i": 0,
+        "keypoint": 87.62500000000004
+      },
+      {
+        "media_id": 241,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_3\\Juan Marco\\IMG_20250812_112035002_HDR.jpg",
+        "hora": 11.343055555555557,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "azul",
+        "tags": [
+          "retrato grupal"
+        ],
+        "desc": "!!!IMAGEN!!!",
+        "ubicacion": {
+          "lat": -34.559475,
+          "lon": -59.1230139
+        },
+        "clima": {
+          "temp_c": 14.8,
+          "viento_kmh": 55.1,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 87.86458333333339,
+        "seg_i": 0,
+        "keypoint": 87.86458333333339
+      },
+      {
+        "media_id": 242,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_3\\Juan Marco\\IMG_20250812_112124329_HDR.jpg",
+        "hora": 11.356944444444444,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "negro",
+        "tags": [
+          "otras"
+        ],
+        "desc": "'Un perro ...', 'Dos personas ...', 'Un paisaje ...', 'Una foto presenta ...', 'El sujeto principal ...', 'La imagen se ve' ni ningún otro encabezado'.",
+        "ubicacion": {
+          "lat": -34.5594889,
+          "lon": -59.1229972
+        },
+        "clima": {
+          "temp_c": 14.8,
+          "viento_kmh": 55.1,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 88.38541666666666,
+        "seg_i": 0,
+        "keypoint": 88.38541666666666
+      },
+      {
+        "media_id": 370,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_51@12-08-2025_14-30-35.jpg",
+        "hora": 11.509722222222223,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "negro",
+        "tags": [
+          "retrato"
+        ],
+        "desc": "'Un perro...', 'Dos personas...', 'Un paisaje...', 'una foto presenta', 'la imagen se ve' ni ningún otro encabezado'.",
+        "ubicacion": {
+          "lat": -34.55908202779267,
+          "lon": -59.12305593547811
+        },
+        "clima": {
+          "temp_c": 14.8,
+          "viento_kmh": 55.1,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 94.11458333333336,
+        "seg_i": 0,
+        "keypoint": 94.11458333333336
+      },
+      {
+        "media_id": 371,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_52@12-08-2025_14-30-35.jpg",
+        "hora": 11.509722222222223,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "azul",
+        "tags": [
+          "retrato grupal"
+        ],
+        "desc": "",
+        "ubicacion": {
+          "lat": -34.55908202779267,
+          "lon": -59.12305593547811
+        },
+        "clima": {
+          "temp_c": 14.8,
+          "viento_kmh": 55.1,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 94.11458333333336,
+        "seg_i": 0,
+        "keypoint": 94.11458333333336
+      },
+      {
+        "media_id": 179,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250812_114004.jpg",
+        "hora": 11.667777777777777,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "violeta",
+        "tags": [
+          "retrato"
+        ],
+        "desc": "La imagen muestra un grupo de ciclistas reunidos frente a la entrada del \"Club de Regatas\", bajo un cielo azul claro. Los participantes están equipados con cascos y chaquetas de seguridad, algunos sentados en el suelo mientras otros permanecen de pie junto a sus bicicletas cargadas con bolsas y accesorios. El entorno incluye una estructura azul con un letrero que marca la entrada del club, rodeado por árboles desnudos y una cerca metálica. La atmósfera es relajada y amigable, reflejando una pausa durante una ruta en bicicleta.",
+        "ubicacion": {
+          "lat": -34.5586611,
+          "lon": -59.1231167
+        },
+        "clima": {
+          "temp_c": 14.8,
+          "viento_kmh": 55.1,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 100.04166666666666,
+        "seg_i": 0,
+        "keypoint": 100.04166666666666
+      },
+      {
+        "media_id": 180,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250812_115029.jpg",
+        "hora": 11.84138888888889,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "negro",
+        "tags": [
+          "otras"
+        ],
+        "desc": "La imagen muestra un monumento dedicado al poeta Dardo S. Dorronzoro, ubicado en un entorno urbano con edificios comerciales de fondo. El monumento consiste en una escultura de bronce que representa la mano derecha sosteniendo un lápiz, colocada sobre un anclaje metálico en forma de estrella. La composición incluye placas informativas y rocas alrededor del pedestal. El color predominante es el negro de la escultura y el anclaje, contrastando con las estructuras grises y blancas de los edificios y el verde de algunas plantas en el entorno. La atmósfera es serena pero con un toque de solemnidad debido a la presencia del monumento dedicado al poeta desaparecido.",
+        "ubicacion": {
+          "lat": -34.5554083,
+          "lon": -59.1256944
+        },
+        "clima": {
+          "temp_c": 14.8,
+          "viento_kmh": 55.1,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 106.55208333333337,
+        "seg_i": 0,
+        "keypoint": 106.55208333333337
+      },
+      {
+        "media_id": 243,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_3\\Juan Marco\\IMG_20250812_115047250.jpg",
+        "hora": 11.846666666666668,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "azul",
+        "tags": [
+          "otras"
+        ],
+        "desc": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+        "ubicacion": {
+          "lat": -34.5553778,
+          "lon": -59.1256833
+        },
+        "clima": {
+          "temp_c": 14.8,
+          "viento_kmh": 55.1,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 106.75000000000003,
+        "seg_i": 0,
+        "keypoint": 106.75000000000003
+      },
+      {
+        "media_id": 181,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250812_115242.jpg",
+        "hora": 11.878333333333334,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "gris",
+        "tags": [
+          "otras"
+        ],
+        "desc": "La imagen muestra una placa metálica con la firma de Neruda y el texto de su \"Declaración Jurada\". La placa está fijada a un muro de piedra natural, y el fondo es oscuro y texturizado, lo que resalta el contenido blanco del texto. El tono general es sombrío pero con un fuerte contraste entre la placa y el muro, creando una atmósfera reflexiva y significativa.",
+        "ubicacion": {
+          "lat": -34.5553833,
+          "lon": -59.125725
+        },
+        "clima": {
+          "temp_c": 14.8,
+          "viento_kmh": 55.1,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 107.93750000000001,
+        "seg_i": 0,
+        "keypoint": 107.93750000000001
+      },
+      {
+        "media_id": 376,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_53@12-08-2025_15-07-47.jpg",
+        "hora": 12.129722222222222,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "azul",
+        "tags": [
+          "retrato grupal"
+        ],
+        "desc": "รับมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระมายนี้สิงความการทระม",
+        "ubicacion": {
+          "lat": -34.55068278484849,
+          "lon": -59.15517315151515
+        },
+        "clima": {
+          "temp_c": 16.5,
+          "viento_kmh": 51.5,
+          "precip_mm": 0.0,
+          "etiqueta": "parcialmente nublado"
+        },
+        "score": 0,
+        "t_loop": 117.36458333333333,
+        "seg_i": 0,
+        "keypoint": 117.36458333333333
+      },
+      {
+        "media_id": 182,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250812_121654.jpg",
+        "hora": 12.281666666666668,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "gris",
+        "tags": [
+          "otras"
+        ],
+        "desc": "La imagen muestra un vehículo quemado parcialmente incrustado en el asfalto de la carretera, con su estructura frontal destrozada y partes del capó y puertas visibles. En el fondo, se observan otros vehículos circulando por la autopista, mientras que el paisaje alrededor está compuesto principalmente por árboles y un cielo despejado. La atmósfera es sombría y triste debido a la escena de accidente en medio del camino.",
+        "ubicacion": {
+          "lat": -34.5478417,
+          "lon": -59.1729722
+        },
+        "clima": {
+          "temp_c": 16.6,
+          "viento_kmh": 54.0,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 123.06250000000006,
+        "seg_i": 0,
+        "keypoint": 123.06250000000006
+      },
+      {
+        "media_id": 244,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_3\\Juan Marco\\IMG_20250812_121830381.jpg",
+        "hora": 12.308611111111112,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "negro",
+        "tags": [
+          "retrato grupal"
+        ],
+        "desc": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+        "ubicacion": {
+          "lat": -34.5478944,
+          "lon": -59.1741222
+        },
+        "clima": {
+          "temp_c": 16.6,
+          "viento_kmh": 54.0,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 124.07291666666671,
+        "seg_i": 0,
+        "keypoint": 124.07291666666671
+      },
+      {
+        "media_id": 183,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250812_124230.jpg",
+        "hora": 12.708333333333332,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "azul",
+        "tags": [
+          "otras"
+        ],
+        "desc": "La imagen muestra un paisaje rural con contenedores metálicos oxidados y dañados en primer plano, rodeados de hierba alta y arbustos. En el fondo se extiende una amplia pradera verde con árboles dispersos bajo un cielo despejado, creando una atmósfera de abandono y decadencia.",
+        "ubicacion": {
+          "lat": -34.544225,
+          "lon": -59.2272222
+        },
+        "clima": {
+          "temp_c": 16.6,
+          "viento_kmh": 54.0,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 139.06249999999994,
+        "seg_i": 0,
+        "keypoint": 139.06249999999994
+      },
+      {
+        "media_id": 184,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250812_130451.jpg",
+        "hora": 13.080833333333333,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "amarillo",
+        "tags": [
+          "retrato grupal"
+        ],
+        "desc": "La imagen muestra un paisaje rural con un montículo de tierra y ramas secas en primer plano, rodeado por una cerca de alambre. En el fondo, se observan campos abiertos con hierba verde y árboles altos bajo un cielo despejado. La atmósfera es tranquila y natural, típica de un día soleado en la campiña.",
+        "ubicacion": {
+          "lat": -34.5306833,
+          "lon": -59.2824667
+        },
+        "clima": {
+          "temp_c": 17.9,
+          "viento_kmh": 53.6,
+          "precip_mm": 0.0,
+          "etiqueta": "despejado"
+        },
+        "score": 0,
+        "t_loop": 153.03124999999997,
+        "seg_i": 0,
+        "keypoint": 153.03124999999997
+      },
+      {
+        "media_id": 204,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250813_131347.jpg",
+        "hora": 13.229722222222222,
+        "duracion": 0.0,
+        "municipio": "Salto",
+        "color": "azul",
+        "tags": [
+          "retrato grupal"
+        ],
+        "desc": "La imagen muestra un paisaje rural con un camino asfaltado que se extiende hacia el horizonte. En el fondo, hay campos verdes y una pequeña elevación de tierra en el centro del campo. El cielo es azul claro con algunas nubes dispersas, creando una atmósfera tranquila y abierta típica de un día soleado en la campiña.",
+        "ubicacion": {
+          "lat": -34.3625139,
+          "lon": -60.1041972
+        },
+        "clima": {
+          "temp_c": 12.7,
+          "viento_kmh": 65.5,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 158.61458333333331,
+        "seg_i": 0,
+        "keypoint": 158.61458333333331
+      },
+      {
+        "media_id": 185,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250812_131543.jpg",
+        "hora": 13.261666666666667,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "negro",
+        "tags": [
+          "retrato grupal"
+        ],
+        "desc": "La imagen muestra un grupo de ciclistas disfrutando de una ruta por carretera en un paisaje rural soleado. Los ciclistas llevan ropa deportiva colorida, como rojo y negro, y algunos usan chalecos reflectantes para seguridad. Las bicicletas están equipadas con bolsas laterales y contenedores, indicando que realizan una travesía o viaje de larga distancia. La atmósfera es activa y amistosa, reflejada en la sonrisa de los ciclistas mientras avanzan por el camino asfaltado.",
+        "ubicacion": {
+          "lat": -34.5225278,
+          "lon": -59.3032472
+        },
+        "clima": {
+          "temp_c": 17.9,
+          "viento_kmh": 53.6,
+          "precip_mm": 0.0,
+          "etiqueta": "despejado"
+        },
+        "score": 0,
+        "t_loop": 159.8125,
+        "seg_i": 0,
+        "keypoint": 159.8125
+      },
+      {
+        "media_id": 186,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250812_131719.jpg",
+        "hora": 13.288611111111111,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "negro",
+        "tags": [
+          "retrato grupal"
+        ],
+        "desc": "La imagen muestra a dos ciclistas viajando por un camino asfaltado junto a una carretera principal, con vehículos pesados transitando al fondo. Uno de los ciclistas lleva una chaqueta reflectante verde y el otro está en ropa deportiva blanca y azul. La atmósfera es tranquila y soleada, con un cielo claro y árboles al fondo, creando un ambiente de viaje rural.",
+        "ubicacion": {
+          "lat": -34.5209444,
+          "lon": -59.3062944
+        },
+        "clima": {
+          "temp_c": 17.9,
+          "viento_kmh": 53.6,
+          "precip_mm": 0.0,
+          "etiqueta": "despejado"
+        },
+        "score": 0,
+        "t_loop": 160.82291666666666,
+        "seg_i": 0,
+        "keypoint": 160.82291666666666
+      },
+      {
+        "media_id": 187,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250812_132320.jpg",
+        "hora": 13.38888888888889,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "rosa",
+        "tags": [
+          "otras"
+        ],
+        "desc": "La imagen muestra un grupo de ciclistas posando juntos con sus bicicletas equipadas para largos recorridos, rodeados por árboles sin hojas y una estructura de carretera en el fondo. Los colores predominantes son los tonos verdes del suelo y las hojas secas, contrastados con la variedad de ropa y chalecos reflectantes de los ciclistas, principalmente en amarillo y azul. La atmósfera es relajada pero al mismo tiempo activa, reflejando una jornada de viaje o descanso durante una travesía en bicicleta.",
+        "ubicacion": {
+          "lat": -34.5192556,
+          "lon": -59.3092056
+        },
+        "clima": {
+          "temp_c": 17.9,
+          "viento_kmh": 53.6,
+          "precip_mm": 0.0,
+          "etiqueta": "despejado"
+        },
+        "score": 0,
+        "t_loop": 164.58333333333334,
+        "seg_i": 0,
+        "keypoint": 164.58333333333334
+      },
+      {
+        "media_id": 406,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_74@13-08-2025_16-30-50.jpg",
+        "hora": 13.51388888888889,
+        "duracion": 0.0,
+        "municipio": "Salto",
+        "color": "marrón",
+        "tags": [
+          "retrato"
+        ],
+        "desc": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+        "ubicacion": {
+          "lat": -34.354221725630254,
+          "lon": -60.16164344978991
+        },
+        "clima": {
+          "temp_c": 12.8,
+          "viento_kmh": 63.4,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 169.27083333333334,
+        "seg_i": 0,
+        "keypoint": 169.27083333333334
+      },
+      {
+        "media_id": 407,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_75@13-08-2025_16-30-50.jpg",
+        "hora": 13.51388888888889,
+        "duracion": 0.0,
+        "municipio": "Salto",
+        "color": "negro",
+        "tags": [
+          "retrato grupal"
+        ],
+        "desc": "มียงเทอรามสินกามามุลตัดพะมูนครถามึงยงัดหรียงิมสวัสทำลามขุกามามุลตัดพะมูนครถามึงยงัดหรียงิมสวัสทำลามขุกามามุลตัดพะมูนครถามึงยงัดหรียงิมสวัสทำลามขุกามามุลตัดพะมูนครถามึงยงัดหรียงิมสวัสทำลามขุกามามุลตัดพะมูนครถามึงยงัดหรียงิมสวัสทำลามขุกามามุลตัดพะมูนครถามึงยงัดหรียงิมสวัสทำลามขุกามามุลตัดพะมูนครถามึงยงัดหรียงิมสวัสทำลามขุกามามุลตัดพะมูนครถามึงยงัดหรียงิมสวัสทำลามขุกามามุลตัดพะมูนครถามึงยงัดหรียงิมสวัสทำลามขุกามามุลตัดพะมูนครถามึงยงัดหรียงิมสวัสทำลามขุกามามุลตัดพะมูนครถามึงยงัดหรียงิมสวัสทำลามขุกามามุลตัดพะมูนครถามึงยงัดหรียงิมสวัสทำลามขุกามามุลตัดพะมูนครถามึงยงัดหรียงิมสวัสทำลามขุกามามุลต",
+        "ubicacion": {
+          "lat": -34.354221725630254,
+          "lon": -60.16164344978991
+        },
+        "clima": {
+          "temp_c": 12.8,
+          "viento_kmh": 63.4,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 169.27083333333334,
+        "seg_i": 0,
+        "keypoint": 169.27083333333334
+      },
+      {
+        "media_id": 408,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_76@13-08-2025_16-30-50.jpg",
+        "hora": 13.51388888888889,
+        "duracion": 0.0,
+        "municipio": "Salto",
+        "color": "verde",
+        "tags": [
+          "retrato grupal"
+        ],
+        "desc": "รามียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเมลุมียงสมินกั้นทำเ",
+        "ubicacion": {
+          "lat": -34.354221725630254,
+          "lon": -60.16164344978991
+        },
+        "clima": {
+          "temp_c": 12.8,
+          "viento_kmh": 63.4,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 169.27083333333334,
+        "seg_i": 0,
+        "keypoint": 169.27083333333334
+      },
+      {
+        "media_id": 409,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_77@13-08-2025_16-30-50.jpg",
+        "hora": 13.51388888888889,
+        "duracion": 0.0,
+        "municipio": "Salto",
+        "color": "marrón",
+        "tags": [
+          "otras"
+        ],
+        "desc": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+        "ubicacion": {
+          "lat": -34.354221725630254,
+          "lon": -60.16164344978991
+        },
+        "clima": {
+          "temp_c": 12.8,
+          "viento_kmh": 63.4,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 169.27083333333334,
+        "seg_i": 0,
+        "keypoint": 169.27083333333334
+      },
+      {
+        "media_id": 410,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_78@13-08-2025_16-30-50.jpg",
+        "hora": 13.51388888888889,
+        "duracion": 0.0,
+        "municipio": "Salto",
+        "color": "verde",
+        "tags": [
+          "retrato grupal"
+        ],
+        "desc": "'Un paisaje...', 'Dos personas...', 'Un paisaje...', ...'.",
+        "ubicacion": {
+          "lat": -34.354221725630254,
+          "lon": -60.16164344978991
+        },
+        "clima": {
+          "temp_c": 12.8,
+          "viento_kmh": 63.4,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 169.27083333333334,
+        "seg_i": 0,
+        "keypoint": 169.27083333333334
+      },
+      {
+        "media_id": 205,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250813_133735.jpg",
+        "hora": 13.62638888888889,
+        "duracion": 0.0,
+        "municipio": "Salto",
+        "color": "marrón",
+        "tags": [
+          "retrato grupal"
+        ],
+        "desc": "La imagen muestra una carretera curvada con ciclistas en el centro de la foto. Los ciclistas llevan chalecos reflectantes verde fluorescente y cascos de seguridad. Al fondo se pueden ver árboles y un cielo despejado, lo que sugiere un ambiente tranquilo y soleado. La composición incluye a los ciclistas en primer plano y a otros en el horizonte, creando una perspectiva dinámica.",
+        "ubicacion": {
+          "lat": -34.3509389,
+          "lon": -60.1843861
+        },
+        "clima": {
+          "temp_c": 12.8,
+          "viento_kmh": 63.4,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 173.48958333333337,
+        "seg_i": 0,
+        "keypoint": 173.48958333333337
+      },
+      {
+        "media_id": 246,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_3\\Juan Marco\\IMG_20250813_134504451.jpg",
+        "hora": 13.751388888888888,
+        "duracion": 0.0,
+        "municipio": "Salto",
+        "color": "azul",
+        "tags": [
+          "retrato grupal"
+        ],
+        "desc": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+        "ubicacion": {
+          "lat": -34.3397861,
+          "lon": -60.207875
+        },
+        "clima": {
+          "temp_c": 13.4,
+          "viento_kmh": 64.4,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 178.17708333333331,
+        "seg_i": 0,
+        "keypoint": 178.17708333333331
+      },
+      {
+        "media_id": 188,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250812_135928.jpg",
+        "hora": 13.99111111111111,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "negro",
+        "tags": [
+          "retrato grupal"
+        ],
+        "desc": "La imagen muestra a cuatro ciclistas viajando juntos por un camino asfaltado junto a una carretera principal. Todos llevan chalecos reflectantes y maletas en sus bicicletas, lo que sugiere que están realizando una larga travesía o aventura. El cielo está despejado con algunas nubes sueltas, y el paisaje alrededor es de campos abiertos con árboles escasamente poblados, creando un ambiente tranquilo y soleado.",
+        "ubicacion": {
+          "lat": -34.5090722,
+          "lon": -59.3292444
+        },
+        "clima": {
+          "temp_c": 17.9,
+          "viento_kmh": 53.6,
+          "precip_mm": 0.0,
+          "etiqueta": "despejado"
+        },
+        "score": 0,
+        "t_loop": 187.16666666666663,
+        "seg_i": 0,
+        "keypoint": 187.16666666666663
+      },
+      {
+        "media_id": 377,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_54@12-08-2025_17-00-45.jpg",
+        "hora": 14.0125,
+        "duracion": 0.0,
+        "municipio": "Luján",
+        "color": "marrón",
+        "tags": [
+          "retrato grupal"
+        ],
+        "desc": "'Un perro...', 'Dos personas...', 'Un paisaje...', 'Una ciudad', 'La ciudad del pueblo', 'La ciudad de los pueblos', ...",
+        "ubicacion": {
+          "lat": -34.508421306274506,
+          "lon": -59.33019905333333
+        },
+        "clima": {
+          "temp_c": 18.9,
+          "viento_kmh": 58.3,
+          "precip_mm": 0.0,
+          "etiqueta": "despejado"
+        },
+        "score": 0,
+        "t_loop": 187.96874999999997,
+        "seg_i": 0,
+        "keypoint": 187.96874999999997
+      },
+      {
+        "media_id": 206,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250813_143342.jpg",
+        "hora": 14.561666666666667,
+        "duracion": 0.0,
+        "municipio": "Salto",
+        "color": "azul",
+        "tags": [
+          "retrato"
+        ],
+        "desc": "La imagen muestra un grupo de ciclistas posando con letras grandes que forman la palabra \"CÁLTO\" en un paisaje abierto con césped verde y un cielo azul con nubes dispersas. Los ciclistas llevan chalecos reflectantes y cascos, y algunos tienen bicicletas equipadas para el viaje. El ambiente es relajado y al aire libre, sugiriendo una actividad recreativa o un evento de ciclismo.",
+        "ubicacion": {
+          "lat": -34.3147722,
+          "lon": -60.2457528
+        },
+        "clima": {
+          "temp_c": 13.8,
+          "viento_kmh": 55.4,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 208.56250000000003,
+        "seg_i": 0,
+        "keypoint": 208.56250000000003
+      },
+      {
+        "media_id": 131,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fABIAN_C\\20250824_143901.jpg",
+        "hora": 14.650277777777777,
+        "duracion": 0.0,
+        "municipio": "Córdoba",
+        "color": "azul",
+        "tags": [
+          "otras"
+        ],
+        "desc": "La imagen muestra un grupo de ciclistas con chalecos reflectantes y cascos, recorriendo una avenida urbana bajo un cielo azul claro. El paisaje incluye árboles verdes, edificios en el fondo y un arco histórico al final del camino, creando una atmósfera de tranquilidad y actividad.",
+        "ubicacion": {
+          "lat": -31.44085,
+          "lon": -64.1272694
+        },
+        "clima": {
+          "temp_c": 19.1,
+          "viento_kmh": 49.3,
+          "precip_mm": 0.0,
+          "etiqueta": "despejado"
+        },
+        "score": 0,
+        "t_loop": 211.88541666666666,
+        "seg_i": 0,
+        "keypoint": 211.88541666666666
+      },
+      {
+        "media_id": 756,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_289@24-08-2025_17-46-42.jpg",
+        "hora": 14.778333333333334,
+        "duracion": 0.0,
+        "municipio": "Córdoba",
+        "color": "amarillo",
+        "tags": [
+          "retrato grupal"
+        ],
+        "desc": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+        "ubicacion": {
+          "lat": -31.440069121729152,
+          "lon": -64.12763975195104
+        },
+        "clima": {
+          "temp_c": 19.1,
+          "viento_kmh": 49.3,
+          "precip_mm": 0.0,
+          "etiqueta": "despejado"
+        },
+        "score": 0,
+        "t_loop": 216.68750000000003,
+        "seg_i": 0,
+        "keypoint": 216.68750000000003
+      },
+      {
+        "media_id": 415,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_80@13-08-2025_17-49-41.jpg",
+        "hora": 14.828055555555554,
+        "duracion": 0.0,
+        "municipio": "Salto",
+        "color": "verde",
+        "tags": [
+          "retrato grupal"
+        ],
+        "desc": "'Un perro...', 'Dos personas...', 'Un paisaje...', 'Una foto presentá', 'La imagen se ve' ...",
+        "ubicacion": {
+          "lat": -34.30770441735245,
+          "lon": -60.24867600246885
+        },
+        "clima": {
+          "temp_c": 13.8,
+          "viento_kmh": 55.4,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 218.5520833333333,
+        "seg_i": 0,
+        "keypoint": 218.5520833333333
+      },
+      {
+        "media_id": 132,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fABIAN_C\\20250824_150048.jpg",
+        "hora": 15.013333333333334,
+        "duracion": 0.0,
+        "municipio": "Córdoba",
+        "color": "azul",
+        "tags": [
+          "otras"
+        ],
+        "desc": "La imagen muestra un monumento arquitectónico con torres simétricas y el texto \"CITAD DE CORDOBA\" en la parte superior. En primer plano, hay una instalación artística con letras grandes que forman la frase \"LA CIUDAD DEL APRENDIZAJE\". Algunas personas están sentadas sobre bicicletas y equipamiento de ciclismo, posando frente a este monumento bajo un cielo azul claro. La atmósfera es vibrante y festiva, destacando el espíritu educativo y la celebración del aprendizaje en Córdoba.",
+        "ubicacion": {
+          "lat": -31.4386361,
+          "lon": -64.1283194
+        },
+        "clima": {
+          "temp_c": 19.4,
+          "viento_kmh": 50.4,
+          "precip_mm": 0.0,
+          "etiqueta": "despejado"
+        },
+        "score": 0,
+        "t_loop": 225.5,
+        "seg_i": 0,
+        "keypoint": 225.5
+      },
+      {
+        "media_id": 133,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fABIAN_C\\20250824_150827.jpg",
+        "hora": 15.140833333333333,
+        "duracion": 0.0,
+        "municipio": "Córdoba",
+        "color": "azul",
+        "tags": [
+          "paisaje",
+          "montaña",
+          "lago",
+          "atardecer",
+          "bosque",
+          "cielo",
+          "reflejo"
+        ],
+        "desc": "La imagen muestra un grupo de ciclistas posando bajo un arco monumental de piedra con torres laterales, típico del estilo neoclásico. El cielo es azul despejado y el suelo está pavimentado con adoquines. Los ciclistas están equipados con cascos y ropa deportiva variada en colores como blanco, verde, negro y rosa. La atmósfera es de aventura y camaradería, reflejando un viaje en bicicleta por el camino.",
+        "ubicacion": {
+          "lat": -31.4381167,
+          "lon": -64.1285889
+        },
+        "clima": {
+          "temp_c": 19.4,
+          "viento_kmh": 50.4,
+          "precip_mm": 0.0,
+          "etiqueta": "despejado"
+        },
+        "score": 0,
+        "t_loop": 230.28125,
+        "seg_i": 0,
+        "keypoint": 230.28125
+      },
+      {
+        "media_id": 134,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fABIAN_C\\20250824_152309.jpg",
+        "hora": 15.385833333333332,
+        "duracion": 0.0,
+        "municipio": "Córdoba",
+        "color": "gris",
+        "tags": [
+          "otras"
+        ],
+        "desc": "La imagen muestra una panorámica de una ciudad con edificios modernos, destacando un rascacielos central. El paisaje urbano está rodeado por montañas lejanas y árboles verdes en primer plano bajo un cielo despejado y azul claro. La atmósfera es tranquila y soleada, con una composición que combina la arquitectura contemporánea con el entorno natural.",
+        "ubicacion": {
+          "lat": -31.4324583,
+          "lon": -64.1403222
+        },
+        "clima": {
+          "temp_c": 19.4,
+          "viento_kmh": 50.4,
+          "precip_mm": 0.0,
+          "etiqueta": "despejado"
+        },
+        "score": 0,
+        "t_loop": 239.46874999999997,
+        "seg_i": 0,
+        "keypoint": 239.46874999999997
+      },
+      {
+        "media_id": 135,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fABIAN_C\\20250824_152313.jpg",
+        "hora": 15.386944444444444,
+        "duracion": 0.0,
+        "municipio": "Córdoba",
+        "color": "gris",
+        "tags": [
+          "otras"
+        ],
+        "desc": "La imagen muestra un paisaje urbano con una vista panorámica de edificios altos y antenas en el horizonte, bajo un cielo claro azul. En primer plano, se observa un sendero de tierra que desciende por un cerro cubierto de vegetación verde y arbustos, con una cerca metálica a la derecha. La atmósfera es tranquila y soleada, destacando el contraste entre la naturaleza en primer plano y la urbanización al fondo.",
+        "ubicacion": {
+          "lat": -31.4324611,
+          "lon": -64.1403278
+        },
+        "clima": {
+          "temp_c": 19.4,
+          "viento_kmh": 50.4,
+          "precip_mm": 0.0,
+          "etiqueta": "despejado"
+        },
+        "score": 0,
+        "t_loop": 239.51041666666663,
+        "seg_i": 0,
+        "keypoint": 239.51041666666663
+      },
+      {
+        "media_id": 757,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\photos\\photo_290@24-08-2025_18-38-10.jpg",
+        "hora": 15.636111111111111,
+        "duracion": 0.0,
+        "municipio": "Córdoba",
+        "color": "azul",
+        "tags": [
+          "retrato grupal"
+        ],
+        "desc": "'Un perro ...', 'Dos personas ...', 'Un paisaje ...', 'La foto presenta ...', 'En esta imagen se ve'",
+        "ubicacion": {
+          "lat": -31.426277851664448,
+          "lon": -64.16056858708389
+        },
+        "clima": {
+          "temp_c": 18.3,
+          "viento_kmh": 58.0,
+          "precip_mm": 0.0,
+          "etiqueta": "despejado"
+        },
+        "score": 0,
+        "t_loop": 248.85416666666666,
+        "seg_i": 0,
+        "keypoint": 248.85416666666666
+      },
+      {
+        "media_id": 207,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250813_154435.jpg",
+        "hora": 15.743055555555555,
+        "duracion": 0.0,
+        "municipio": "Salto",
+        "color": "negro",
+        "tags": [
+          "retrato grupal"
+        ],
+        "desc": "La imagen muestra un grupo de siete personas vestidas con chalecos reflectantes y cascos, posando juntos con sus bicicletas equipadas para una aventura al aire libre. El fondo está compuesto por árboles desnudos y un pequeño edificio blanco, lo que sugiere que la foto fue tomada en otoño o invierno. La atmósfera es de camaradería y preparación para una excursión ciclista.",
+        "ubicacion": {
+          "lat": -34.2834278,
+          "lon": -60.2587167
+        },
+        "clima": {
+          "temp_c": 14.1,
+          "viento_kmh": 48.2,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 252.86458333333331,
+        "seg_i": 0,
+        "keypoint": 252.86458333333331
+      },
+      {
+        "media_id": 208,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fabian 2\\20250813_155940.jpg",
+        "hora": 15.994444444444444,
+        "duracion": 0.0,
+        "municipio": "Salto",
+        "color": "azul",
+        "tags": [
+          "otras",
+          "esponja ribiosa"
+        ],
+        "desc": "La imagen muestra la fachada de un negocio llamado \"la esponja rabiosa\", especializado en productos de limpieza para piscinas y accesorios afines. El letrero principal es azul con letras blancas, destacando el nombre del negocio. A ambos lados se pueden ver elementos relacionados con la limpieza, como escobillas y juntas de goma, mientras que en el interior del local se observa a una persona trabajando. La atmósfera es práctica y funcional, típica de un establecimiento dedicado al mantenimiento doméstico.",
+        "ubicacion": {
+          "lat": -34.2936917,
+          "lon": -60.2547
+        },
+        "clima": {
+          "temp_c": 14.1,
+          "viento_kmh": 48.2,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 262.29166666666663,
+        "seg_i": 0,
+        "keypoint": 262.29166666666663
+      },
+      {
+        "media_id": 136,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fABIAN_C\\20250824_160047.jpg",
+        "hora": 16.012777777777778,
+        "duracion": 0.0,
+        "municipio": "Córdoba",
+        "color": "negro",
+        "tags": [
+          "otras"
+        ],
+        "desc": "La imagen muestra un mural vibrante en azul y blanco que ilustra a dos personas montando bicicletas sobre un fondo de mapas mundiales. El edificio detrás tiene una fachada moderna con ventanas translúcidas y paneles perforados, creando una atmósfera contemporánea y activa.",
+        "ubicacion": {
+          "lat": -31.4169306,
+          "lon": -64.1911667
+        },
+        "clima": {
+          "temp_c": 18.8,
+          "viento_kmh": 58.0,
+          "precip_mm": 0.0,
+          "etiqueta": "despejado"
+        },
+        "score": 0,
+        "t_loop": 262.9791666666667,
+        "seg_i": 0,
+        "keypoint": 262.9791666666667
+      },
+      {
+        "media_id": 137,
+        "tipo": "image",
+        "ruta": "C:\\Users\\Federico\\Desktop\\Flujos\\Testeo_2\\fABIAN_C\\20250824_160100.jpg",
+        "hora": 16.016666666666666,
+        "duracion": 0.0,
+        "municipio": "Córdoba",
+        "color": "azul",
+        "tags": [
+          "otras"
+        ],
+        "desc": "La imagen muestra un mural de graffiti que representa a dos personas montando bicicletas sobre un fondo azul con líneas blancas que sugieren movimiento. Los personajes están vestidos con ropa casual, uno con una chaqueta verde y el otro con una camiseta rayada roja y blanca. La composición es dinámica, con la perspectiva de las bicicletas apuntando hacia el frente, creando un efecto de velocidad. El mural está firmado por \"Juan Vásquez '80\" en el lado derecho inferior.",
+        "ubicacion": {
+          "lat": -31.4169333,
+          "lon": -64.1911556
+        },
+        "clima": {
+          "temp_c": 18.8,
+          "viento_kmh": 58.0,
+          "precip_mm": 0.0,
+          "etiqueta": "despejado"
+        },
+        "score": 0,
+        "t_loop": 263.12499999999994,
+        "seg_i": 0,
+        "keypoint": 263.12499999999994
+      }
+    ],
+    "video": [
+      {
+        "media_id": 360,
+        "tipo": "video",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\video_files\\video_6@12-08-2025_12-02-50.mp4",
+        "hora": 9.047222222222222,
+        "duracion": 1.0,
+        "municipio": "Luján",
+        "color": null,
+        "tags": [],
+        "desc": "",
+        "ubicacion": {
+          "lat": -34.55944536659934,
+          "lon": -59.123074420194726
+        },
+        "clima": {
+          "temp_c": 10.2,
+          "viento_kmh": 63.0,
+          "precip_mm": 0.0,
+          "etiqueta": "despejado"
+        },
+        "score": 0,
+        "t_loop": 1.7708333333333437,
+        "seg_i": 0,
+        "keypoint": 1.7708333333333437
+      },
+      {
+        "media_id": 364,
+        "tipo": "video",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\video_files\\video_7@12-08-2025_12-59-32.mp4",
+        "hora": 9.992222222222221,
+        "duracion": 45.0,
+        "municipio": "Luján",
+        "color": null,
+        "tags": [],
+        "desc": "",
+        "ubicacion": {
+          "lat": -34.5594008292199,
+          "lon": -59.12311487138534
+        },
+        "clima": {
+          "temp_c": 10.2,
+          "viento_kmh": 63.0,
+          "precip_mm": 0.0,
+          "etiqueta": "despejado"
+        },
+        "score": 0,
+        "t_loop": 37.208333333333286,
+        "seg_i": 0,
+        "keypoint": 37.208333333333286
+      },
+      {
+        "media_id": 372,
+        "tipo": "video",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\video_files\\video_8@12-08-2025_14-56-59.mp4",
+        "hora": 11.949722222222222,
+        "duracion": 30.0,
+        "municipio": "Luján",
+        "color": null,
+        "tags": [],
+        "desc": "",
+        "ubicacion": {
+          "lat": -34.55404845757576,
+          "lon": -59.134087624242426
+        },
+        "clima": {
+          "temp_c": 14.8,
+          "viento_kmh": 55.1,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 110.61458333333334,
+        "seg_i": 0,
+        "keypoint": 110.61458333333334
+      },
+      {
+        "media_id": 417,
+        "tipo": "video",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\video_files\\video_12@13-08-2025_18-32-33.mp4",
+        "hora": 15.5425,
+        "duracion": 18.0,
+        "municipio": "Salto",
+        "color": null,
+        "tags": [],
+        "desc": "",
+        "ubicacion": {
+          "lat": -34.288748904349866,
+          "lon": -60.256515915659534
+        },
+        "clima": {
+          "temp_c": 14.1,
+          "viento_kmh": 48.2,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 245.34375000000003,
+        "seg_i": 0,
+        "keypoint": 245.34375000000003
+      },
+      {
+        "media_id": 421,
+        "tipo": "video",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\video_files\\video_13@13-08-2025_18-58-43.mp4",
+        "hora": 15.97861111111111,
+        "duracion": 6.0,
+        "municipio": "Salto",
+        "color": null,
+        "tags": [],
+        "desc": "",
+        "ubicacion": {
+          "lat": -34.293045244419886,
+          "lon": -60.25495298552486
+        },
+        "clima": {
+          "temp_c": 14.1,
+          "viento_kmh": 48.2,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 261.69791666666663,
+        "seg_i": 0,
+        "keypoint": 261.69791666666663
+      },
+      {
+        "media_id": 422,
+        "tipo": "video",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\video_files\\video_14@13-08-2025_19-36-51.mp4",
+        "hora": 16.61416666666667,
+        "duracion": 38.0,
+        "municipio": "Salto",
+        "color": null,
+        "tags": [],
+        "desc": "",
+        "ubicacion": {
+          "lat": -34.29538426298114,
+          "lon": -60.289409583928844
+        },
+        "clima": {
+          "temp_c": 14.1,
+          "viento_kmh": 49.7,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 285.5312500000001,
+        "seg_i": 0,
+        "keypoint": 285.5312500000001
+      },
+      {
+        "media_id": 423,
+        "tipo": "video",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\video_files\\video_15@13-08-2025_19-56-08.mp4",
+        "hora": 16.935555555555556,
+        "duracion": 21.0,
+        "municipio": "Salto",
+        "color": null,
+        "tags": [],
+        "desc": "",
+        "ubicacion": {
+          "lat": -34.29626202872259,
+          "lon": -60.30741002705106
+        },
+        "clima": {
+          "temp_c": 14.1,
+          "viento_kmh": 49.7,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 297.58333333333337,
+        "seg_i": 0,
+        "keypoint": 297.58333333333337
+      }
+    ],
+    "audio": [
+      {
+        "media_id": 367,
+        "tipo": "audio",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\voice_messages\\audio_10@12-08-2025_13-42-16.ogg",
+        "hora": 10.704444444444444,
+        "duracion": 57.0,
+        "municipio": "Luján",
+        "color": null,
+        "tags": [],
+        "desc": "",
+        "ubicacion": {
+          "lat": -34.559392466476126,
+          "lon": -59.12314961556826
+        },
+        "clima": {
+          "temp_c": 12.8,
+          "viento_kmh": 55.1,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 63.916666666666664,
+        "seg_i": 0,
+        "keypoint": 63.916666666666664
+      },
+      {
+        "media_id": 373,
+        "tipo": "audio",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\voice_messages\\audio_11@12-08-2025_14-59-53.ogg",
+        "hora": 11.998055555555554,
+        "duracion": 82.0,
+        "municipio": "Luján",
+        "color": null,
+        "tags": [],
+        "desc": "",
+        "ubicacion": {
+          "lat": -34.55314471212122,
+          "lon": -59.13974947878788
+        },
+        "clima": {
+          "temp_c": 14.8,
+          "viento_kmh": 55.1,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 112.42708333333329,
+        "seg_i": 0,
+        "keypoint": 112.42708333333329
+      },
+      {
+        "media_id": 374,
+        "tipo": "audio",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\voice_messages\\audio_12@12-08-2025_15-05-16.ogg",
+        "hora": 12.087777777777779,
+        "duracion": 51.0,
+        "municipio": "Luján",
+        "color": null,
+        "tags": [],
+        "desc": "",
+        "ubicacion": {
+          "lat": -34.551467069696976,
+          "lon": -59.1502597030303
+        },
+        "clima": {
+          "temp_c": 16.5,
+          "viento_kmh": 51.5,
+          "precip_mm": 0.0,
+          "etiqueta": "parcialmente nublado"
+        },
+        "score": 0,
+        "t_loop": 115.79166666666671,
+        "seg_i": 0,
+        "keypoint": 115.79166666666671
+      },
+      {
+        "media_id": 375,
+        "tipo": "audio",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\voice_messages\\audio_13@12-08-2025_15-06-32.ogg",
+        "hora": 12.108888888888888,
+        "duracion": 58.0,
+        "municipio": "Luján",
+        "color": null,
+        "tags": [],
+        "desc": "",
+        "ubicacion": {
+          "lat": -34.551072330303036,
+          "lon": -59.15273269696969
+        },
+        "clima": {
+          "temp_c": 16.5,
+          "viento_kmh": 51.5,
+          "precip_mm": 0.0,
+          "etiqueta": "parcialmente nublado"
+        },
+        "score": 0,
+        "t_loop": 116.5833333333333,
+        "seg_i": 0,
+        "keypoint": 116.5833333333333
+      },
+      {
+        "media_id": 411,
+        "tipo": "audio",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\voice_messages\\audio_18@13-08-2025_17-40-23.ogg",
+        "hora": 14.673055555555555,
+        "duracion": 22.0,
+        "municipio": "Salto",
+        "color": null,
+        "tags": [],
+        "desc": "",
+        "ubicacion": {
+          "lat": -34.31181684980014,
+          "lon": -60.246975119280506
+        },
+        "clima": {
+          "temp_c": 13.8,
+          "viento_kmh": 55.4,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 212.73958333333331,
+        "seg_i": 0,
+        "keypoint": 212.73958333333331
+      },
+      {
+        "media_id": 412,
+        "tipo": "audio",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\voice_messages\\audio_19@13-08-2025_17-42-02.ogg",
+        "hora": 14.700555555555555,
+        "duracion": 72.0,
+        "municipio": "Salto",
+        "color": null,
+        "tags": [],
+        "desc": "",
+        "ubicacion": {
+          "lat": -34.31108722468845,
+          "lon": -60.24727688887844
+        },
+        "clima": {
+          "temp_c": 13.8,
+          "viento_kmh": 55.4,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 213.77083333333331,
+        "seg_i": 0,
+        "keypoint": 213.77083333333331
+      },
+      {
+        "media_id": 413,
+        "tipo": "audio",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\voice_messages\\audio_20@13-08-2025_17-42-41.ogg",
+        "hora": 14.711388888888887,
+        "duracion": 27.0,
+        "municipio": "Salto",
+        "color": null,
+        "tags": [],
+        "desc": "",
+        "ubicacion": {
+          "lat": -34.31079979661415,
+          "lon": -60.24739576781096
+        },
+        "clima": {
+          "temp_c": 13.8,
+          "viento_kmh": 55.4,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 214.1770833333333,
+        "seg_i": 0,
+        "keypoint": 214.1770833333333
+      },
+      {
+        "media_id": 414,
+        "tipo": "audio",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\voice_messages\\audio_21@13-08-2025_17-43-34.ogg",
+        "hora": 14.726111111111111,
+        "duracion": 46.0,
+        "municipio": "Salto",
+        "color": null,
+        "tags": [],
+        "desc": "",
+        "ubicacion": {
+          "lat": -34.31040918923112,
+          "lon": -60.24755732123207
+        },
+        "clima": {
+          "temp_c": 13.8,
+          "viento_kmh": 55.4,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 214.72916666666666,
+        "seg_i": 0,
+        "keypoint": 214.72916666666666
+      },
+      {
+        "media_id": 416,
+        "tipo": "audio",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\voice_messages\\audio_22@13-08-2025_17-56-01.ogg",
+        "hora": 14.93361111111111,
+        "duracion": 19.0,
+        "municipio": "Salto",
+        "color": null,
+        "tags": [],
+        "desc": "",
+        "ubicacion": {
+          "lat": -34.30490383611567,
+          "lon": -60.24983431001646
+        },
+        "clima": {
+          "temp_c": 13.8,
+          "viento_kmh": 55.4,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 222.51041666666666,
+        "seg_i": 0,
+        "keypoint": 222.51041666666666
+      },
+      {
+        "media_id": 418,
+        "tipo": "audio",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\voice_messages\\audio_23@13-08-2025_18-35-14.ogg",
+        "hora": 15.587222222222223,
+        "duracion": 20.0,
+        "municipio": "Salto",
+        "color": null,
+        "tags": [],
+        "desc": "",
+        "ubicacion": {
+          "lat": -34.28756234229955,
+          "lon": -60.25700667227839
+        },
+        "clima": {
+          "temp_c": 14.1,
+          "viento_kmh": 48.2,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 247.02083333333337,
+        "seg_i": 0,
+        "keypoint": 247.02083333333337
+      },
+      {
+        "media_id": 419,
+        "tipo": "audio",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\voice_messages\\audio_24@13-08-2025_18-36-09.ogg",
+        "hora": 15.6025,
+        "duracion": 50.0,
+        "municipio": "Salto",
+        "color": null,
+        "tags": [],
+        "desc": "",
+        "ubicacion": {
+          "lat": -34.28715699501528,
+          "lon": -60.25717432205502
+        },
+        "clima": {
+          "temp_c": 14.1,
+          "viento_kmh": 48.2,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 247.59374999999997,
+        "seg_i": 0,
+        "keypoint": 247.59374999999997
+      },
+      {
+        "media_id": 420,
+        "tipo": "audio",
+        "ruta": "C:\\Users\\Federico\\Downloads\\Telegram Desktop\\ChatExport_2026-07-28\\voice_messages\\audio_25@13-08-2025_18-36-21.ogg",
+        "hora": 15.605833333333333,
+        "duracion": 8.0,
+        "municipio": "Salto",
+        "color": null,
+        "tags": [],
+        "desc": "",
+        "ubicacion": {
+          "lat": -34.2870685556078,
+          "lon": -60.257210900188106
+        },
+        "clima": {
+          "temp_c": 14.1,
+          "viento_kmh": 48.2,
+          "precip_mm": 0.0,
+          "etiqueta": "nublado"
+        },
+        "score": 0,
+        "t_loop": 247.71875,
+        "seg_i": 0,
+        "keypoint": 247.71875
+      }
+    ],
+    "text": []
+  },
+  "resumen": {
+    "total": 72,
+    "image": 53,
+    "video": 7,
+    "audio": 12,
+    "text": 0,
+    "rango_horas": [
+      9,
+      17
+    ],
+    "filtros": {
+      "horas": [
+        9,
+        17
+      ],
+      "municipios": [
+        "Luján",
+        "Salto",
+        "Córdoba"
+      ],
+      "colores": [],
+      "tags": [],
+      "dias": [],
+      "clima": []
+    },
+    "notas": [
+      "rango 9-17",
+      "municipios: 3 → Luján, Salto, Córdoba",
+      "colores: sin prioridad",
+      "tags: sin prioridad"
+    ]
+  }
+}

@@ -299,9 +299,11 @@ valor por mensaje).
 **El concepto clave — "Fluir" (decidido 2026-08-08)**: al igual que en la
 visualización web (`web3/`, botón `#btn-fluir`), al visitante se le pide que
 **seleccione** (acumule) y luego presione el botón **"Fluir"**. Ese disparo
-envía **todas las elecciones juntas** — con `osc_probe.py` sobre 9001 se
-verificó la ráfaga de una selección completa (8 mensajes: 2 tags, 2 colores,
-2 municipios, 2 horas; uno por elección):
+envía **todas las elecciones juntas** — la salida OSC es la **descarga de la
+tabla de selección acumulada** (las filas se llenaron durante la interacción,
+pero salen todas en el único click de "Fluir"). Con `osc_probe.py` sobre 9001
+se verificó esa descarga completa (8 mensajes: 2 tags, 2 colores, 2 municipios,
+2 horas; uno por elección):
 
 ```
 [OSC] /flujos/seleccion/tags       ('macarona',)
@@ -314,24 +316,49 @@ verificó la ráfaga de una selección completa (8 mensajes: 2 tags, 2 colores,
 [OSC] /flujos/seleccion/horas      ('06:00',)
 ```
 
-**Diseño deseado (futuro)**: ese mismo disparo "Fluir" debería acumular en TD
-(los toggles NO salen por OSC uno por uno) y enviar **un mensaje grande único**
-con todas las elecciones; Python responde con la serie de medios/metadatos
-derivados de ese mensaje (alimenta `loop_db.py` → spec JSON).
+**Diseño actual (decidido 2026-08-09)**: la ráfaga ES el "Fluir" — sale toda
+junta en el único click (descarga de la tabla acumulada), no hay toggles
+individuales en el wire. Python **no espera un mensaje grande único**: recibe
+la ráfaga, la acumula por grupo y detecta el fin con un **debounce** (espera X
+ms sin mensajes → el lote está completo). Eso respeta el mecanismo real de TD
+y no obliga a cambiar la UI.
 
-Implicancias del diseño futuro:
-- El `panelexec1` de cada botón dejaría de enviar OSC por toggle y pasaría a
-  **marcar un estado local** (ej. fila activa en un Table DAT o flags en un CHOP).
-- El botón **"Fluir"** (análogo al de la web) es el disparador de finalización:
-  arma el payload acumulado y lo envía por `osc_out1` — ya sea como ráfaga
-  actual o como mensaje agregado (formato a definir, p.ej. lista plana o JSON).
-- En Python, el receptor del puente deja de esperar toggles individuales y
-  procesa **la selección completa** que alimenta el filtrado/loop
-  (`loop_db.py` → spec JSON ya soporta horas/municipios/colores/tags).
-- No confundir con la entrada: `/flujos/elecciones/<id>` sigue siendo Python→TD
-  para poblar las tablas; el cambio es solo en la dirección TD→Python
-  (las elecciones acumuladas se envían al "Fluir").
+**Decisión clave — el retorno va por UN CANAL SEPARADO (9002 + `osc_in2`)**:
+la respuesta del "Fluir" (spec del loop / lista de medios) **NO debe tocar
+`osc_in1`/9000** — ese canal queda exclusivo para poblar las nubes
+(`/flujos/elecciones/<id>` → `elec_*`). El retorno llega a un receptor OSC
+nuevo en TD (puerto 9002, `osc_in2` + su propio callbacks), de modo que **ni
+reemplaza ni se suma** al flujo de entrada. Tabla de canales definitiva:
 
-> Pendiente de definir: formato del payload agregado (ráfaga vs un mensaje único)
-> y si el disparador es el botón "Fluir" visible en la UI de TD. Ver ROADMAP
-> (Etapa 5, "Multiselector OSC" → "Fluir").
+| Canal | Puerto | Dirección | Qué lleva | Receptor |
+|---|---|---|---|---|
+| Nubes | 9000 | Python → TD | `/flujos/elecciones/<id>` → `elec_*` | `osc_in1` → `osc_callbacks.dat` |
+| Selección | 9001 | TD → Python | El "Fluir" (descarga de la tabla acumulada) | puente en Python (`puente_td.py`) |
+| **Resultado** | **9002** | Python → TD | Spec del loop + lista de medios resultante | `osc_in2` (**nuevo**, callbacks propio) |
+
+Arquitectura del flujo completo (decidida 2026-08-09):
+
+```
+TD (elec_* → "Fluir") ──9001──► Python: puente_td.py modo `fluir`
+   acumula {grupo: [valores...]}  (ej. tags: [macarona, obra], colores: [rosa, verde]...)
+   debounce (fin de ráfaga) → mapea grupos → loop_db.generar_loop(...)
+                                   │
+                escribe spec.json + envía por 9002 ──► osc_in2 (nuevo) → motor visual TD
+```
+
+Implicancias del diseño:
+- El `panelexec1` de cada botón **sigue como está** (envía su OSC al togglear;
+  la descarga sale junta en el "Fluir"). No hay que cambiar la UI de TD.
+- Python mapea los grupos OSC a los filtros de `loop_db.generar_loop`:
+  `tags → filtros['tags']`, `colores → filtros['colores']`,
+  `municipios → filtros['municipios']`, `horas → horas` (formato `'13:00'` → 13),
+  `dias → filtros['dias']`, `clima → filtros['clima']`.
+- El retorno por 9002 transporta: spec del loop (escrito a archivo, p.ej.
+  `td/spec_fluir.json`) + mensajes OSC ligeros con la lista de medios resultante
+  (o un resumen) — formato a fijar por el lado TD (ver sección de armado).
+- `/flujos/elecciones/<id>` (Python→TD, nubes) queda **intacto**.
+
+> Pendiente (menor): formato exacto de los mensajes OSC del retorno por 9002
+> (depende de cómo arme TD `osc_in2`). El formato del "Fluir" de entrada (ráfaga
+> actual) se acepta tal cual; el "mensaje grande único" queda descartado por
+> innecesario con el debounce. Ver ROADMAP (Etapa 5, "Fluir").

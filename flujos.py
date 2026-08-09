@@ -26,6 +26,7 @@ import os
 import sqlite3
 import subprocess
 import sys
+from typing import Callable
 
 # Forzar UTF-8 en consola Windows para poder usar caracteres Unicode
 if sys.platform == "win32":
@@ -186,34 +187,69 @@ def resumen_db(conn) -> str:
     )
 
 
-def opcion_preparar(db_path: str | None = None):
-    """Menu: Preparar medios (pre-ingesta)."""
+def _preguntar_sn(pregunta: str, default: bool = False) -> bool:
+    """Confirma una pregunta si/no. default=True muestra (S/n) (acepta cualquier
+    tecla excepto 'n' como sí). Devuelve bool."""
+    sufijo = " (S/n)" if default else " (s/N)"
+    r = input(f"  ?{pregunta}?{sufijo}: ").strip().lower()
+    if default:
+        return r != "n"
+    return r == "s"
+
+
+def _menu(titulo: str, opciones: dict[str, tuple[str, Callable]], db_path: str | None = None):
+    """Menu generico con loop: imprime titulo, opciones ("1) nombre"),
+    pide "  Opcion: ", ejecuta la funcion asociada a la clave.
+    La clave "0" (volver) esta reservada y SIEMPRE rompe el loop.
+    Si la clave no existe imprime "  Opcion invalida." y pausa().
+    Las funciones reciben db_path como argumento."""
     while True:
         limpiar_pantalla()
-        print("=== PREPARAR MEDIOS ===\n")
-        print("  1) Limpieza de tandas de fotografias")
+        print(f"=== {titulo} ===\n")
+        for clave, (etiqueta, _llamada) in opciones.items():
+            print(f"  {clave}) {etiqueta}")
         print("  0) Volver\n")
 
         opc = input("  Opcion: ").strip()
-        if opc == "1":
-            from scripts import limpiar_tandas
-            ruta = input("  Carpeta a limpiar: ").strip()
-            if not ruta:
-                print("  Cancelado.")
-                pausa()
-                continue
-            if not os.path.isdir(ruta):
-                print("  Carpeta no encontrada.")
-                pausa()
-                continue
-            dry_run = input("  ?Solo previsualizar (s/N): ").strip().lower() == "s"
-            limpiar_tandas.main([ruta] + (["--dry-run"] if dry_run else []))
-            pausa()
-        elif opc == "0":
+        if opc == "0":
             break
+        if opc in opciones:
+            _, llamada = opciones[opc]
+            llamada(db_path)
         else:
             print("  Opcion invalida.")
             pausa()
+
+
+def _args_sn(args: list[str], flags: list[tuple[bool, str]]) -> list[str]:
+    """Agrega a la lista args los flags cuya condicion booleana sea True.
+    Cada tupla es (condicion, "--flag"). Devuelve la lista resultante."""
+    for condicion, flag in flags:
+        if condicion:
+            args.append(flag)
+    return args
+
+
+def opcion_preparar(db_path: str | None = None):
+    """Menu: Preparar medios (pre-ingesta)."""
+    def _limpiar_tandas(db_path):
+        from scripts import limpiar_tandas
+        ruta = input("  Carpeta a limpiar: ").strip()
+        if not ruta:
+            print("  Cancelado.")
+            pausa()
+            return
+        if not os.path.isdir(ruta):
+            print("  Carpeta no encontrada.")
+            pausa()
+            return
+        dry_run = input("  ?Solo previsualizar (s/N): ").strip().lower() == "s"
+        limpiar_tandas.main([ruta] + (["--dry-run"] if dry_run else []))
+        pausa()
+
+    _menu("PREPARAR MEDIOS", {
+        "1": ("Limpieza de tandas de fotografias", _limpiar_tandas),
+    }, db_path)
 
 
 def opcion_ingesta(db_path: str | None = None):
@@ -333,13 +369,14 @@ def opcion_importar_telegram(db_path: str | None = None):
         return
 
     # Modo
-    print("\n  Modo de importación:")
-    print("    s) skip — solo mensajes nuevos")
-    print("    u) update — actualiza existentes")
-    print("    r) replace — limpia y reimporta todo")
-    modo = input("  Modo [s]: ").strip().lower() or "s"
-    mapa_modo = {"s": "skip", "u": "update", "r": "replace"}
-    modo_str = mapa_modo.get(modo, "skip")
+    modo_str = _elegir_modo_pregunta(db_path, "importación",
+                                     descripciones={"s": "— solo mensajes nuevos",
+                                                    "u": "— actualiza existentes",
+                                                    "r": "— limpia y reimporta todo"})
+    if modo_str is None:
+        print("  Cancelado.")
+        pausa()
+        return
 
     include_system = input("  ?Incluir mensajes de sistema? (S/n): ").strip().lower() != "n"
     ingest_media = input("  ?Ingerir multimedia en tabla media? (S/n): ").strip().lower() != "n"
@@ -384,13 +421,14 @@ def opcion_ingestar_textos(db_path: str | None = None):
         pausa()
         return
 
-    print("\n  Modo de ingesta:")
-    print("    s) skip — solo textos nuevos")
-    print("    u) update — actualiza existentes")
-    print("    r) replace — limpia y reingresa todo")
-    modo = input("  Modo [s]: ").strip().lower() or "s"
-    mapa_modo = {"s": "skip", "u": "update", "r": "replace"}
-    modo_str = mapa_modo.get(modo, "skip")
+    modo_str = _elegir_modo_pregunta(db_path, "ingesta",
+                                     descripciones={"s": "— solo textos nuevos",
+                                                    "u": "— actualiza existentes",
+                                                    "r": "— limpia y reingresa todo"})
+    if modo_str is None:
+        print("  Cancelado.")
+        pausa()
+        return
 
     dry_run = input("  ?Solo previsualizar (dry-run)? (s/N): ").strip().lower() == "s"
     custom_db = input(f"  ?Usar otra DB? (default: {leer_db(db_path)}) [Enter para default]: ").strip()
@@ -1006,6 +1044,26 @@ def _preguntar_modo(db_path: str | None = None):
     return "skip"
 
 
+def _elegir_modo_pregunta(db_path: str | None, descripcion: str,
+                          descripciones: dict[str, str] | None = None) -> str | None:
+    """Pregunta modo de ejecución (skip/update/replace) para menus que
+    traen descripcion propia personalizada. Devuelve string o None si cancelar.
+    descripciones: dict opcional maperando opcion->texto p.ej {"s": "skip — solo mensajes nuevos"}.
+    Si no se pasa descripciones, imprime los textos genericos."""
+    print(f"\n  Modo de {descripcion}:")
+    if descripciones:
+        for tecla, texto in (("s", "skip"), ("u", "update"), ("r", "replace")):
+            print(f"    {tecla}) {texto} {descripciones.get(tecla, '')}".rstrip())
+    else:
+        print("    s) skip")
+        print("    u) update")
+        print("    r) replace / c) cancelar")
+    m = input("  Modo [s]: ").strip().lower() or "s"
+    if m == "c":
+        return None
+    return {"s": "skip", "u": "update", "r": "replace"}.get(m, "skip")
+
+
 def opcion_improve_db():
     """Menu para ejecutar pasos de mejora sobre la DB (hojas paginadas).
     Regla de navegacion: hasta 9 opciones por hoja (1-9); cuando se superan,
@@ -1467,42 +1525,16 @@ def opcion_geocode():
 
 def opcion_mantenimiento(db_path: str | None = None):
     """Menu: mantenimiento general de la DB (backup, restore, exportar, etc)."""
-    while True:
-        limpiar_pantalla()
-        print("=== MANTENIMIENTO DB ===\n")
-        print("  1) Relocalizar medios (cambio de raiz)")
-        print("  2) Calcular posición del sol (astronomía)")
-        print("  3) Backfill end_time")
-        print("  4) Backup DB (solo backup, sin borrar)")
-        print("  5) Restore DB desde backup")
-        print("  6) Resetear DB (backup + limpiar)")
-        print("  7) Exportar DB a CSV")
-        print("  8) Mover/Copiar medios")
-        print("  0) Volver\n")
-
-        opc = input("  Opcion: ").strip()
-
-        if opc == "1":
-            opcion_relocalizar(db_path)
-        elif opc == "2":
-            opcion_astronomia(db_path)
-        elif opc == "3":
-            opcion_backfill_end_time(db_path)
-        elif opc == "4":
-            opcion_backup_db(db_path)
-        elif opc == "5":
-            opcion_restore_db(db_path)
-        elif opc == "6":
-            opcion_reset_db(db_path)
-        elif opc == "7":
-            opcion_exportar_csv(db_path)
-        elif opc == "8":
-            opcion_mover_media(db_path)
-        elif opc == "0":
-            break
-        else:
-            print("  Opcion invalida.")
-            pausa()
+    _menu("MANTENIMIENTO DB", {
+        "1": ("Relocalizar medios (cambio de raiz)", opcion_relocalizar),
+        "2": ("Calcular posición del sol (astronomía)", opcion_astronomia),
+        "3": ("Backfill end_time", opcion_backfill_end_time),
+        "4": ("Backup DB (solo backup, sin borrar)", opcion_backup_db),
+        "5": ("Restore DB desde backup", opcion_restore_db),
+        "6": ("Resetear DB (backup + limpiar)", opcion_reset_db),
+        "7": ("Exportar DB a CSV", opcion_exportar_csv),
+        "8": ("Mover/Copiar medios", opcion_mover_media),
+    }, db_path)
 
 
 def opcion_ingestar_gpx(db_path: str | None = None):

@@ -7,6 +7,41 @@ Las versiones corresponden a entregas funcionales, no a releases semánticas.
 
 ---
 
+## [Entrega 23] — 2026-08-09
+
+### Añadido
+- **Rediseño del motor de loop `loop_db.py` — "mensaje" por rangos y prioridades, tablas POR TIPO** (consigna del usuario 2026-08-09): el "mensaje" del Fluir es un concepto (la ráfaga completa aunque sean N paquetes OSC) y un "medio" es foto/video/audio/texto. `generar_loop()` ahora:
+  - **Horas**: la línea de tiempo respeta el orden de llegada y filtra con **rango [min,max] inclusive** (elegir 6 y 13 → medios con hora local 06:00–13:59).
+  - **Municipios**: filtro duro si vienen en el mensaje (municipio IN).
+  - **Colores**: **prioridad** (score por slot color_1/2/3 coincidente), solo imágenes — los videos/audios/textos NO se descartan.
+  - **Tags**: **prioridad** — score por etiqueta contenida en `ia_keywords` — NO descartan.
+  - Orden de salida: **hora asc, score desc como desempate (id asc)**.
+  - **`keypoint`** = ubicación temporal del medio **dentro del loop** (el `t_loop` que ya produce `armar_spec`) — replicado como campo `keypoint` en cada medio.
+  - **Salida nueva `spec["por_tipo"]`** = `{image:[...], video:[...], audio:[...], text:[...]}` (mantiene `spec["medios"]` retro-compat) + `spec["resumen"]` = {total, image, video, audio, text, rango_horas, notas}.
+  - Chiches: explícito que solo salen de **clima y astronomía** (era ya el caso).
+  - CLI: agrega `--por-tipo` (imprime el resumen por tipo); `--dry-run` muestra rango/cantidades/score medio sin escribir.
+- **`puente_td.py` modo `fluir` — contrato OSC 9002 por tipo**: reescrita `_procesar_rafaga` para emitir `/flujos/fluir/resumen <total> <loop_secs> <image> <video> <audio> <text>` → por tipo en orden `image, video, audio, text` (solo si tiene medios): `/flujos/fluir/tabla <tipo> <cant>` + `/flujos/fluir/medio <media_id> <ruta> <keypoint> <hora> <tipo>` → `/flujos/fluir/chiche <hora> <texto>` → `/flujos/fluir/fin <total>`. Flag `--enviar-medios` (default True; `--no-enviar-medios` solo resumen+fin). Verificado de punta a punta: ráfaga falsa (horas 6+13, tag paisaje, color azul, municipio Inriville) → 6 imágenes de Inriville en rango → OSC 9002 completo (resumen 6/6/0/0/0, tabla image 6, medio×6 con keypoint/hora, chiche×2, fin).
+- **`td/fluir_callbacks.dat` reescrito — receptor por tipo**: `esc_in2_callbacks` (9002) ahora distribuye en **tablas por tipo**: `fluir_fotos` (image), `fluir_videos`, `fluir_sonidos` (audio), `fluir_textos` (text), todas `[media_id, ruta, keypoint, hora, tipo]`; `fluir_estado` lleva además `recibidos`/`esperados`; `fluir_medios`/`fluir_posiciones`/`_consumir_spec` eliminados (el `OSC` trae todo; el `spec` solo se lee para **cotejar** pérdida UDP). Helper único `_tabla_para_tipo(tipo)`. Mismo patrón File+Sync en `td/fluir_callbacks.dat`.
+- **`docs/retorno_fluir_td.md` actualizado** al contrato por tipo y tablas `fluir_*` nuevas (checklist, esqueleto callbacks, 4 tablas de medios, decisiones cerradas: keypoint = t_loop, audio → `fluir_sonidos`).
+- **El estado del loop refleja el filtro del usuario**: `spec["resumen"]["filtros"]` nuevo (horas, municipios, colores, tags, dias, clima) en `loop_db.py`; el puente envía por 9002 **`/flujos/fluir/filtro <clave> <valor>`** (hora_inicio, hora_fin, horas_elegidas siempre; municipios/colores/tags/dias/clima si vienen) y el callbacks `_recibir_filtro` los escribe como filas `[clave, valor]` en `fluir_estado` — así TD muestra qué eligió el visitante, no solo los totales. `/fluir_callbacks.dat` reescrito en UTF-8 limpio (corrige encoding mixto previo). Verificado de punta a punta: `/filtro` × 6 (hora_inicio=6, hora_fin=13, horas_elegidas="6, 13", municipios=Inriville, colores=azul, tags=paisaje) + spec con `filtros` estructurados.
+
+### Cambiado
+- **`docs/lecciones_elecciones_td.md` y `ROADMAP.md`**: rediseño del "Fluir" documentado — modelo filtrós duros (hora rango + municipios) y prioridades (color/tags), orden hora+score, keypoint, tablas por tipo. ROADMAP Etapa 5 "Fluir": lado Python ✅, falta receptor TD.
+
+---
+
+## [Entrega 22] — 2026-08-09
+
+### Añadido
+- **Modo `fluir` en `puente_td.py` — cierre del ciclo "Fluir" (TD → Python → respuesta)**: el puente ahora escucha en 9001 la ráfaga del botón "Fluir" de TD (formato verificada `/flujos/seleccion/<grupo> <valor>`, descarga de la tabla acumulada — sale toda junta en el único click), la **acumula por grupo** (tags, colores, municipios, horas, días, clima), detecta el fin de ráfaga por **debounce** (default 0.7s, `--debounce`), traduce los grupos a los filtros de `loop_db.generar_loop` (mapeo en constante `GRUPOS_OSC_A_FILTRO`, horas `'13:00'` → 13) y genera el spec del loop. Retorno por **canal separado 9002** (constante `OSC_PUERTO_TD_RESULTADO`), NO toca `osc_in1`/9000: escribe `td/spec_fluir.json` (flag `--spec-salida`) y envía `/flujos/fluir/resultado <cantidad> <loop_secs>` → `/flujos/fluir/medio <media_id> <ruta>` (uno por medio del spec) → `/flujos/fluir/fin <cantidad>`. Flags: `--debounce`, `--loop-secs`, `--spec-salida`, `--una-vez`. Probado de punta a punta sin TD (ráfaga falsa por 9001 → spec `td/spec_fluir.json` con 1 medio/23 segmentos/1 chiche + `osc_probe.py 9002` recibiendo los 3 mensajes).
+- **`docs/retorno_fluir_td.md` — guía de armado manual del receptor 9002 en TD**: arquitectura del canal de retorno aislado (`osc_in2` OSC In DAT 9002 + `osc_in2_callbacks` → `td/fluir_callbacks.dat` con File+Sync), tablas `fluir_estado`/`fluir_medios` (OSC) y `fluir_posiciones`/`fluir_chiches` (JSON), esqueleto completo del callbacks, estrategia híbrida de consumo (OSC inmediato + JSON en `fin`), opciones de reproducción coherentes con `docs/motor_loop.md` (reloj de loop, cursor de medio activo, chiches), regla dura de no pisar `osc_in1`/`elec_*` ni recrear nombres legacy (`movie1`, `tabla_colores`, ...), checklist de armado y decisiones abiertas (duración efectiva de imágenes, verificación de paquetes OSC perdidos, `loop_secs` desde tabla).
+- **`docs/lecciones_elecciones_td.md` — "Decisión clave" de canal de retorno**: documentado que el "Fluir" es un evento único (descarga de la tabla acumulada; no hay toggles individuales en el wire) y que la respuesta NO debe tocar `osc_in1`/9000 — el retorno va por **9002 separado + `osc_in2`** (tabla de los 3 canales OSC definitiva). ROADMAP Etapa 5 "Fluir" actualizado a "en implementación".
+
+### Cambiado
+- **`scripts/puente_td.py` — docstring/epilog**: nuevo modo `fluir` documentado con ejemplo de prueba sin TD (3 terminales: `fluir` + enviador + `osc_probe.py` 9002).
+
+---
+
 ## [Entrega 21] — 2026-08-08
 
 ### Cambiado
