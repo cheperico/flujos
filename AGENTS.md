@@ -60,7 +60,7 @@ referenciados en **Dónde está la información** (al final) — consultar bajo 
 │       │   keywords_transcripciones.py, audio_tagging.py, checkpoint.py, proxy.py
 │       └── loop_engine.py, loop_db.py, test_motor_loop.py
 ├── td/
-│   ├── osc_callbacks.dat, nube_generar.dat, elecciones_ui.dat, flujos.toe
+│   ├── osc_callbacks.dat, elecciones_ui.dat, flujos.toe
 ├── docs/
 │   ├── diseno_instalacion.md, motor_loop.md, arquitectura_motor.md, flujo_de_medios.md,
 │   │   linea_de_tiempo.md, geocodificacion_reversa.md, semantica_color.md, calculo_astronomico.md,
@@ -81,7 +81,7 @@ Schema completo y versionado en `db/schema.sql` (SQLite WAL, foreign_keys=ON; mi
 | Tabla | Propósito | Columnas / claves CLAVE |
 |---|---|---|
 | `media` | Tabla principal (~55 cols): identidad, hashes, sidecar Sony, tiempo, GPS, geocode, gradientes, autor, colores, control | `timestamp_utc`, `latitude`/`longitude` (**NEGATIVAS en Argentina**), `filepath_absoluto` UNIQUE, `file_hash` UNIQUE, `telegram_message_id` FK |
-| `media_metadata` | key-value por medio | Claves usadas: `ia_keywords`, `ia_keywords_en`, `ia_description`, `ia_description_en`, `whisper_segments`, `whisper_info`, `whisper_estado`, `weather_*`, `dia_semana`, `ia_keywords_transcripcion`, `ia_keywords_sonido`, `ia_sonido_raw` |
+| `media_metadata` | key-value por medio | Claves usadas: `ia_keywords`, `ia_keywords_en`, `ia_description`, `ia_description_en`, `whisper_segments`, `whisper_info`, `whisper_estado`, `weather_*`, `dia_semana`, `ia_keywords_transcripcion`, `ia_keywords_texto`, `ia_keywords_sonido`, `ia_sonido_raw` |
 | `media_keypoints` | Segmentos individuales con timestamp | `timestamp_offset_secs`, key=`transcript_segment` |
 | `media_embeddings` | Vectores de búsqueda semántica | `modelo` (default nomic-embed-text), UNIQUE(media_id, modelo) |
 | `config` | key-value global | `ingest_root`, `current_ingest_batch` |
@@ -124,7 +124,8 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 | **DÍA SEMANA** | `dia_semana.py` | Día de la semana en español | `media_metadata` | key=`dia_semana`, value=lunes\|martes\|...\|domingo |
 | **GRADIENTES** | `gradiente.py` | Distancia Haversine, cambio elevación, pendiente % y acumulados | `media` | distance_from_prev_m, elevation_gain_m, gradient_pct, cumul_distance_m, cumul_elevation_gain_m |
 | **ASTRONOMÍA** | `astronomia.py` | Posición del sol (NOAA), clasificación twilight, amanecer/atardecer/cenit, tiempos relativos | `media` | sun_elevation, sun_azimuth, sun_distance_au, twilight_period, sunrise_ts, sunset_ts, solar_noon_ts, secs_since_sunrise, secs_to_sunset, secs_since_noon, astronomy_source |
-| **KEYWORDS TRANSCRIPCIÓN** | `ai_media/keywords_transcripciones.py` | Keywords del SENTIDO de la transcripción (Ollama texto, qwen2.5:3b) | `media_metadata` | key=`ia_keywords_transcripcion`, value=keywords ES separadas por coma (fuente: whisper_segments) |
+| **KEYWORDS TRANSCRIPCIÓN** | `ai_media/keywords_transcripciones.py --origen transcripcion` (default) | Keywords del SENTIDO de la transcripción (Ollama texto, qwen2.5:3b) | `media_metadata` | key=`ia_keywords_transcripcion`, value=keywords ES separadas por coma (fuente: whisper_segments) |
+| **KEYWORDS TEXTOS** | `ai_media/keywords_transcripciones.py --origen texto` | Keywords del SENTIDO de los textos ingresados (Ollama texto, qwen2.5:3b) | `media_metadata` | key=`ia_keywords_texto`, value=keywords ES separadas por coma (fuente: texto_completo) |
 | **AUDIO TAGGING** | `ai_media/audio_tagging.py` | Sonidos ambientales en audio/video (sherpa-onnx CED-mini, 527 clases AudioSet, local) | `media_metadata` | key=`ia_keywords_sonido` (ES, texto coma-separado); key=`ia_sonido_raw` (JSON [{name, prob}]) |
 | **BACKFILL** | `flujos.py` backfill-end-time | Precalcula end_time = timestamp_utc + duration_secs | `media` | end_time, updated_at |
 | **RELOCATE** | `relocate.py` | Actualiza rutas cuando los archivos se mudan de carpeta | `media` | filepath_absoluto, filepath_relativo, carpeta, sidecar_xml |
@@ -179,7 +180,7 @@ Detalle de args CLI de cada script en su **docstring** (o `python script.py --he
 | `ai_media/clustering.py` | Agrupa por tags/embeddings (moondream, prompts EN) | Usado por `limpiar_tandas` |
 | `ai_media/generate_embeddings.py` | Embeddings multi-fuente (nomic-embed-text, MAX 6000 chars) | TUI Hoja 2→8; standalone |
 | `ai_media/refinar_keywords.py` | Refina/unifica keywords (léxico + diccionario de sinónimos) | TUI Hoja 1→7; standalone |
-| `ai_media/keywords_transcripciones.py` | Keywords del sentido de transcripciones | TUI Hoja 2→9 |
+| `ai_media/keywords_transcripciones.py` | Keywords del SENTIDO desde transcripciones (`--origen transcripcion`, default → `ia_keywords_transcripcion`) o desde textos .md ingresados (`--origen texto` → `ia_keywords_texto`) | TUI Hoja 2→1; standalone |
 | `ai_media/audio_tagging.py` | Sonidos ambientales (sherpa-onnx CED-mini, local) | TUI Hoja 3→1 |
 | `ai_media/checkpoint.py` | Checkpoint + detención limpia para procesos IA | Usado por improve_db y otros |
 | `ai_media/proxy.py` | Redimensiona imágenes a ~800px | Usado por limpiar_tandas/clustering/batch_selector |
@@ -263,7 +264,7 @@ El modo `replace` vía `_preguntar_modo()` (flujos.py) crea backup automático e
 ## Reglas de desarrollo (menú TUI)
 
 - **Regla de agrupación**: siempre que se agregue una opción nueva al TUI, insertarla cerca de opciones temáticamente relacionadas, no al final de la lista.
-- **Regla de paginación**: cada hoja soporta hasta **9 opciones** (1-9). Solo al superar 9 se crea una hoja nueva. Navegación: **n** = Siguiente, **p** = Anterior, **0** = Volver. Si la hoja temática está llena, las nuevas van a la hoja siguiente.
+- **Regla de paginación**: cada hoja soporta hasta **9 opciones** (1-9). Solo al superar 9 se crea una hoja nueva. Navegación: **n** = Siguiente, **p** = Anterior, **0** = Volver. Si la hoja temática está llena, las nuevas van a la hoja siguiente. En hojas que tienen tanto Anterior como Siguiente, **p se lista primero** y luego n.
 - El árbol TUI completo NO vive aquí: ver @README.md.
 
 ## Subagentes
@@ -302,16 +303,17 @@ Se consulta bajo demanda según la necesidad:
 | Geocodificación / por qué localidad es NULL | `docs/geocodificacion_reversa.md` | Estrategias y alternativas |
 | Documentos de diseño | `docs/` (arquitectura_motor, flujo_de_medios, linea_de_tiempo, semantica_color, calculo_astronomico, visualizaciones, limpieza_tandas_resultados, ideas_externas, lecciones_elecciones_td, inferencia_autor, armado_de_tandas) | Entender el "por qué" del diseño |
 | Concepto / roadmap / config OpenCode | `VISION.md`, `ROADMAP.md`, `opencode.json` | Visión de la instalación, prioridades, configuración |
-| Scripts TouchDesigner | `td/osc_callbacks.dat`, `td/nube_generar.dat` | Callbacks OSC y nube de tags (ver operadores esperados abajo) |
+| Scripts TouchDesigner | `td/osc_callbacks.dat`, `td/elecciones_ui.dat` | Callbacks OSC y UI de elecciones (ver operadores esperados abajo) |
 | Riesgos operativos (archivos movidos externamente, timeouts de API, espacio en disco) | `README.md` | Mitigaciones |
 
-**Estructura de nombres de operadores TD esperados:**
+**Estructura de nombres de operadores TD esperados (mapa REAL, verificado por export OP Find en `td/opfind1.tsv`):**
 - `osc_in1` — OSC In DAT (puerto 9000); `osc_in1/osc_in1_callbacks` — DAT interno con `File` → `td/osc_callbacks.dat`, `Sync to File` = ON
-- `osc_out1` — OSC Out DAT (**TD → Python**), destino `127.0.0.1:9001; creado UNA SOLA VEZ a mano (no lo genera ningún script); usado por el callback de `elecciones_exec` para `/flujos/seleccion <grupo> <valor> 1|0`
-- `generar_nube` — Script DAT; `generar_nube/generar_nube_callbacks` — DAT interno con `File` → `td/nube_generar.dat`, `Sync to File` = ON
-- `tabla_colores` — Table DAT con lista de colores; `nube_datos` — Table DAT con columnas [palabra, frecuencia, peso]
-- `movie1` — Movie File In TOP para slideshow de imágenes; `nube_container` — Base COMP contenedor de Text TOPs de la nube
-- `color_actual`, `seleccion_actual`, `info_imagen` — Text DATs para estado
+- `osc_out1` — OSC Out DAT (**TD → Python**), destino `127.0.0.1:9001; creado UNA SOLA VEZ a mano (no lo genera ningún script); lo usan los `panelexec1` de los botones para `/flujos/seleccion/<grupo> <valor>` (grupo en la dirección + un solo valor; verificado con `osc_probe.py`)
+- `elec_<id>` — Table DAT por grupo de elecciones (`elec_horas`, `elec_tags`, `elec_colores`, `elec_municipios`); las llena `osc_callbacks.dat` desde `/flujos/elecciones/<id>` (columnas `[titulo, valor, peso]`)
+- `elec_<id>_container<N>` — Container COMP por grupo; dentro cada uno tiene `replicator1` (Replicator COMP) que clona `boton_<id>_N`
+- `boton_<id>_0` — Button COMP "semilla"/template en la raíz de `/project2`; los `boton_<id>_N` (uno por opción del grupo) viven dentro del container del grupo
+- Hijos fijos de cada botón: `par1` (Parameter CHOP → lee la fila de `elec_<id>`), `text` (Text COMP → etiqueta), `parexec1` (Parameter Execute DAT), `panelexec1` (Panel Execute DAT) → dispara `/flujos/seleccion/<grupo> <valor>` por `osc_out1`
+- **NO existen** (eliminados o legacy): `movie1`, `tabla_colores`, `nube_container`, `nube_datos`, `color_actual`, `seleccion_actual`, `info_imagen`. Los handlers de `osc_callbacks.dat` para colores/slideshow apuntan a ops todavía no recreadas (pipeline visual en construcción); el de la nube quedó como código muerto
 
 ## Riesgos conocidos
 

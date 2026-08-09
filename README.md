@@ -18,7 +18,7 @@ Medios crudos
      ▼
 ┌─────────────────────────────┐
 │ 1. PREPARAR                 │  limpiar_tandas.py (opcional, elimina bursts)
-│    └─ Limpieza de tandas    │
+│    └─ Limpieza de tandas de fotografías    │
 └─────────────────────────────┘
      │
      ▼
@@ -50,7 +50,7 @@ Medios crudos
 │    ├─ geocode.py            │  Provincia/municipio/localidad (Georef)
 │    ├─ gradiente.py          │  Distancia, elevación, pendiente GPS
 │    ├─ astronomia.py         │  Posición del sol, clasificación twilight
-│    ├─ keywords_transcripciones.py │  Keywords del sentido de lo dicho (Ollama texto)
+│    ├─ keywords_transcripciones.py │  Keywords del sentido (transcripciones y textos, Ollama texto)
 │    └─ audio_tagging.py      │  Sonidos ambientales (sherpa-onnx CED-mini)
 └─────────────────────────────┘
      │
@@ -108,12 +108,14 @@ Al ejecutar `python flujos.py` sin argumentos se ingresa al menú TUI:
 
 ```
 1. Preparar medios
-  └─ 1. Limpieza de tandas
+  └─ 1. Limpieza de tandas de fotografías
 
 2. Ingesta
-  ├─ 1. Hacer ingesta (medios)
+  ├─ 1. Ingerir multimedia (fotos, sonidos, videos, etc.)
   ├─ 2. Ingerir track GPS (GPX)
-  └─ 3. Deshacer ingesta
+  ├─ 3. Ingerir textos (.md)
+  ├─ 4. Ingerir chat de Telegram
+  └─ 5. Deshacer ingesta
 
 3. Mejorar base de datos
   ├─ Hoja 1: IA y color
@@ -123,29 +125,36 @@ Al ejecutar `python flujos.py` sin argumentos se ingresa al menú TUI:
   │  ├─ 4. Keywords con IA
   │  ├─ 5. Descripción con IA
   │  ├─ 6. Keywords + Descripción
-  │  ├─ 7. Refinar keywords (normaliza + sinónimos)
+  │  ├─ 7. Audio tagging (sonidos ambientales)
   │  ├─ 8. Transcripción
   │  ├─ 9. Keypoints
   │  ├─ n. Siguiente >> → Hoja 2
   │  └─ 0. Volver
-  ├─ Hoja 2: Inferencia y enriquecimiento
-  │  ├─ 1. Inferir timestamps
-  │  ├─ 2. Inferir GPS
-  │  ├─ 3. Calcular gradientes de ruta
-  │  ├─ 4. Localización (geocode)
-  │  ├─ 5. Condiciones climáticas
-  │  ├─ 6. Día de la semana
-  │  ├─ 7. Posición del sol (astronomía)
-  │  ├─ 8. Embeddings
-  │  │   ├─ 1. Generar embeddings
-  │  │   ├─ 2. Previsualizar (dry-run)
+  ├─ Hoja 2: Etiquetado + inferencia y ubicación
+  │  ├─ 1. Keywords desde textos y transcripciones
+  │  │   ├─ 1. Desde transcripciones (audio/video)
+  │  │   ├─ 2. Desde textos (.md ingresados)
   │  │   └─ 0. Volver
-  │  ├─ 9. Keywords desde transcripciones
-  │  ├─ n. Siguiente >> → Hoja 3
+  │  ├─ 2. Refinar keywords (normaliza + sinónimos)
+  │  │   ├─ 1. Imágenes (ia_keywords)
+  │  │   ├─ 2. Transcripciones (ia_keywords_transcripcion)
+  │  │   ├─ 3. Textos (ia_keywords_texto)
+  │  │   └─ 0. Volver
+  │  ├─ 3. Inferir timestamps
+  │  ├─ 4. Inferir GPS
+  │  ├─ 5. Calcular gradientes de ruta
+  │  ├─ 6. Localización (geocode)
+  │  ├─ 7. Condiciones climáticas
+  │  ├─ 8. Día de la semana
+  │  ├─ 9. Posición del sol (astronomía)
   │  ├─ p. << Anterior → Hoja 1
+  │  ├─ n. Siguiente >> → Hoja 3
   │  └─ 0. Volver
-  └─ Hoja 3: Audio/video IA
-     ├─ 1. Audio tagging (sonidos ambientales)
+  └─ Hoja 3: Cierre
+     ├─ 1. Embeddings
+     │   ├─ 1. Generar embeddings
+     │   ├─ 2. Previsualizar (dry-run)
+     │   └─ 0. Volver
      ├─ p. << Anterior → Hoja 2
      └─ 0. Volver
 
@@ -217,9 +226,9 @@ Todas las operaciones que modifican la DB preguntan el modo
 | `batch_selector.py` | Selección de mejor imagen de tanda con IA |
 | `clustering.py` | Agrupamiento por tags o embeddings |
 | `generate_embeddings.py` | Embeddings vectoriales (nomic-embed-text) |
-| `refinar_keywords.py` | Refina y unifica keywords IA (léxico + sinónimos, sin género) |
+| `refinar_keywords.py` | Refina y unifica keywords IA por familia (léxico + sinónimos, sin género) — `--clave` (imágenes/transcripciones/textos) |
 | `traducir_metadata.py` | Traduce metadata de IA EN → ES sobre la DB (keywords/descripciones) |
-| `keywords_transcripciones.py` | Keywords del sentido de transcripciones (qwen2.5:3b) → `ia_keywords_transcripcion` |
+| `keywords_transcripciones.py` | Keywords del sentido (qwen2.5:3b): `--origen transcripcion` → `ia_keywords_transcripcion`; `--origen texto` → `ia_keywords_texto` |
 | `audio_tagging.py` | Sonidos ambientales (sherpa-onnx CED-mini, local) → `ia_keywords_sonido` |
 | `proxy.py` | Redimensiona imágenes a ~800px para IA |
 | `loop_engine.py` | Motor de loop: núcleo puro (arcos horarios N→N−1, cruce de medianoche, posición de medios `t_loop`) |
@@ -639,7 +648,7 @@ pip install torch --index-url https://download.pytorch.org/whl/cu121
 │   ├── dia_semana.py          # Día de la semana
 │   ├── astronomia.py          # Posición del sol, twilight
 │   ├── color_utils.py         # Colores dominantes
-│   ├── limpiar_tandas.py      # Limpieza de tandas
+│   ├── limpiar_tandas.py      # Limpieza de tandas de fotografías
 │   ├── mover_descartadas.py   # Mover descartadas
 │   ├── puente_td.py           # Puente BD → TouchDesigner (OSC)
 │   ├── mapa_ruta.py           # Mapa interactivo (Folium)
@@ -670,7 +679,7 @@ pip install torch --index-url https://download.pytorch.org/whl/cu121
 │
 ├── td/                        # Scripts TouchDesigner
 │   ├── osc_callbacks.dat      # Callbacks OSC In DAT
-│   └── nube_generar.dat       # Generación de nube de etiquetas
+│   └── elecciones_ui.dat      # Generación de UI de elecciones (botones)
 │
 ├── docs/                      # Documentos de diseño
 └── .opencode/

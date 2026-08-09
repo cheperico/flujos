@@ -80,10 +80,6 @@ COMANDOS:
               registro con GPS + timestamp.
               Ej: python flujos.py astronomia --dry-run --verbose
 
-  astronomia  Calcular posición del sol y clasificar twilight (NOAA).
-              Calcula elevación, azimut y momento del día para cada registro GPS.
-              Ej: python flujos.py astronomia --dry-run --verbose
-
   undo-ingest       Deshacer una ingesta por batch ID.
 
   backfill-end-time Calcular end_time para registros existentes
@@ -195,7 +191,7 @@ def opcion_preparar(db_path: str | None = None):
     while True:
         limpiar_pantalla()
         print("=== PREPARAR MEDIOS ===\n")
-        print("  1) Limpieza de tandas")
+        print("  1) Limpieza de tandas de fotografias")
         print("  0) Volver\n")
 
         opc = input("  Opcion: ").strip()
@@ -225,11 +221,11 @@ def opcion_ingesta(db_path: str | None = None):
     while True:
         limpiar_pantalla()
         print("=== INGESTA ===\n")
-        print("  1) Hacer ingesta (medios)")
+        print("  1) Ingerir multimedia (fotos, sonidos, videos, etc.)")
         print("  2) Ingerir track GPS (GPX)")
-        print("  3) Deshacer ingesta")
-        print("  4) Importar chat de Telegram")
-        print("  5) Ingerir textos (.md)")
+        print("  3) Ingerir textos (.md)")
+        print("  4) Ingerir chat de Telegram")
+        print("  5) Deshacer ingesta")
         print("  0) Volver\n")
 
         opc = input("  Opcion: ").strip()
@@ -299,13 +295,13 @@ def opcion_ingesta(db_path: str | None = None):
             opcion_ingestar_gpx(db_path)
 
         elif opc == "3":
-            opcion_undo_ingest(db_path)
+            opcion_ingestar_textos(db_path)
 
         elif opc == "4":
             opcion_importar_telegram(db_path)
 
         elif opc == "5":
-            opcion_ingestar_textos(db_path)
+            opcion_undo_ingest(db_path)
 
         elif opc == "0":
             break
@@ -971,6 +967,22 @@ def _auto_backup(db_path: str) -> str | None:
         return None
 
 
+def _crear_backup_manual(db_path: str) -> str | None:
+    """Crea backup con timestamp junto a la DB. Retorna la ruta o None."""
+    import shutil
+    from datetime import datetime
+    db_dir = os.path.dirname(db_path)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_name = f"flujos_backup_{ts}.db"
+    backup_path = os.path.join(db_dir, backup_name)
+    try:
+        shutil.copy2(db_path, backup_path)
+        return backup_path
+    except Exception as e:
+        print(f"  Error creando backup: {e}")
+        return None
+
+
 def _preguntar_modo(db_path: str | None = None):
     """Pregunta modo de ejecución y lo devuelve como string.
     Retorna None si el usuario cancela la operación.
@@ -998,10 +1010,14 @@ def opcion_improve_db():
     """Menu para ejecutar pasos de mejora sobre la DB (hojas paginadas).
     Regla de navegacion: hasta 9 opciones por hoja (1-9); cuando se superan,
     se crea una hoja nueva. n = Siguiente >>, p = << Anterior, 0 = Volver.
-    Distribucion: Hoja 1 (IA y color, 9 opc), Hoja 2 (inferencia y
-    enriquecimiento, 9 opc), Hoja 3 (cierre, 1 opc: embeddings)."""
+    En hojas con Anterior y Siguiente, p se lista primero, luego n.
+    Distribucion: Hoja 1 (IA y color, 9 opc: audio 7-9 con Audio tagging
+    primero, seguido de Transcripcion y Keypoints), Hoja 2 (etiquetado +
+    inferencia y ubicacion, 9 opc: Keywords desde textos y transcripciones 1 y Refinar
+    keywords 2 = fin de la seccion de etiquetado, antes de timestamps/GPS),
+    Hoja 3 (cierre, 1 opc: embeddings)."""
     db_path = leer_db()
-    hoja = 1  # 1: IA y color, 2: inferencia y enriquecimiento, 3: audio/video IA
+    hoja = 1  # 1: IA y color, 2: etiquetado + inferencia y ubicacion, 3: cierre
     while True:
         limpiar_pantalla()
         print("=== MEJORAR BASE DE DATOS ===\n")
@@ -1014,24 +1030,24 @@ def opcion_improve_db():
             print("  4) Keywords con IA")
             print("  5) Descripcion con IA")
             print("  6) Keywords + Descripcion (pasada unica, mas lenta)")
-            print("  7) Refinar keywords (normalizar + sinonimos)")
+            print("  7) Audio tagging (sonidos ambientales)")
             print("  8) Transcripcion (audios/videos)")
             print("  9) Keypoints de transcripciones")
             print("  n) Siguiente >>")
             print("  0) Volver\n")
         elif hoja == 2:
-            print("  -- Pasos de inferencia y enriquecimiento --\n")
-            print("  1) Inferir timestamps")
-            print("  2) Inferir GPS")
-            print("  3) Calcular gradientes de ruta")
-            print("  4) Localizacion (provincia, municipio, localidad)")
-            print("  5) Condiciones climaticas")
-            print("  6) Dia de la semana")
-            print("  7) Posicion del sol (astronomia)")
-            print("  8) Keywords desde transcripciones")
-            print("  9) Audio tagging (sonidos ambientales)")
-            print("  n) Siguiente >>")
+            print("  -- Etiquetado + inferencia y ubicacion --\n")
+            print("  1) Keywords desde textos y transcripciones")
+            print("  2) Refinar keywords (normalizar + sinonimos)")
+            print("  3) Inferir timestamps")
+            print("  4) Inferir GPS")
+            print("  5) Calcular gradientes de ruta")
+            print("  6) Localizacion (provincia, municipio, localidad)")
+            print("  7) Condiciones climaticas")
+            print("  8) Dia de la semana")
+            print("  9) Posicion del sol (astronomia)")
             print("  p) << Anterior")
+            print("  n) Siguiente >>")
             print("  0) Volver\n")
         else:
             print("  -- Pasos de cierre --\n")
@@ -1093,8 +1109,7 @@ def opcion_improve_db():
                 _ejecutar_improve_db(pasos="keywords,descriptions", modo=modo)
                 pausa()
             elif opc == "7":
-                opcion_refinar_keywords(db_path)
-                pausa()
+                opcion_audio_tagging(db_path)
             elif opc == "8":
                 modo = _preguntar_modo(db_path)
                 if modo is None:
@@ -1121,6 +1136,10 @@ def opcion_improve_db():
 
         elif hoja == 2:
             if opc == "1":
+                opcion_keywords_transcripciones(db_path)
+            elif opc == "2":
+                opcion_refinar_keywords(db_path)
+            elif opc == "3":
                 modo = _preguntar_modo(db_path)
                 if modo is None:
                     print("  Cancelado.")
@@ -1128,7 +1147,7 @@ def opcion_improve_db():
                     continue
                 _ejecutar_improve_db(pasos="timestamps", modo=modo)
                 pausa()
-            elif opc == "2":
+            elif opc == "4":
                 modo = _preguntar_modo(db_path)
                 if modo is None:
                     print("  Cancelado.")
@@ -1136,24 +1155,20 @@ def opcion_improve_db():
                     continue
                 _ejecutar_improve_db(pasos="gps", modo=modo)
                 pausa()
-            elif opc == "3":
-                opcion_gradient()
-            elif opc == "4":
-                opcion_geocode()
             elif opc == "5":
-                opcion_weather()
+                opcion_gradient()
             elif opc == "6":
-                opcion_dia_semana()
+                opcion_geocode()
             elif opc == "7":
-                opcion_astronomia()
+                opcion_weather()
             elif opc == "8":
-                opcion_keywords_transcripciones(db_path)
+                opcion_dia_semana()
             elif opc == "9":
-                opcion_audio_tagging(db_path)
-            elif opc.lower() in ("n", "next"):
-                hoja = 3
+                opcion_astronomia()
             elif opc.lower() in ("p", "prev"):
                 hoja = 1
+            elif opc.lower() in ("n", "next"):
+                hoja = 3
             elif opc == "0":
                 break
             else:
@@ -1269,61 +1284,120 @@ def opcion_refinar_keywords(db_path: str | None = None):
     """
     Refina las keywords de IA: normaliza (léxico) y unifica sinónimos del
     dominio (diccionario). La capa semántica con embeddings fue eliminada
-    (Ago 2026): introducía falsos sinónimos.
+    (Ago 2026): introducía falsos sinónimos. Submenu de familia de keywords
+    (imagenes, transcripciones, textos); por cada familia, elegir modo
+    (update/dry-run) pasando --clave al script refinar_keywords.py.
     """
     import subprocess
     script = os.path.join(os.path.dirname(__file__), "scripts", "ai_media", "refinar_keywords.py")
     db_flag = ["--db", db_path or leer_db()]
 
-    limpiar_pantalla()
-    print("=== REFINAR KEYWORDS ===\n")
-    print("  Normaliza y unifica las keywords generadas por IA (léxico + diccionario):\n")
-    print("  1) Refinar todos (update)")
-    print("  2) Previsualizar (dry-run)")
-    print("  0) Volver\n")
+    familias = {
+        "1": ("ia_keywords", "IMAGENES (ia_keywords)"),
+        "2": ("ia_keywords_transcripcion", "TRANSCRIPCIONES (ia_keywords_transcripcion)"),
+        "3": ("ia_keywords_texto", "TEXTOS (ia_keywords_texto)"),
+    }
 
-    opc = input("  Opcion: ").strip()
+    while True:
+        limpiar_pantalla()
+        print("=== REFINAR KEYWORDS ===\n")
+        print("  Normaliza y unifica las keywords por familia (léxico + diccionario):\n")
+        print("  1) Imagenes (ia_keywords)")
+        print("  2) Transcripciones (ia_keywords_transcripcion)")
+        print("  3) Textos (ia_keywords_texto)")
+        print("  0) Volver\n")
 
-    if opc == "1":
-        subprocess.run([sys.executable, script] + db_flag + ["--mode", "update"])
-    elif opc == "2":
-        subprocess.run([sys.executable, script] + db_flag + ["--dry-run"])
-    elif opc == "0":
-        return
+        opc = input("  Opcion: ").strip()
+        if opc not in familias:
+            if opc == "0":
+                return
+            print("  Opcion invalida.")
+            pausa()
+            continue
 
-    pausa()
+        clave, titulo = familias[opc]
+        while True:
+            limpiar_pantalla()
+            print(f"=== REFINAR {titulo} ===\n")
+            print("  1) Refinar todos (update)")
+            print("  2) Previsualizar (dry-run)")
+            print("  0) Volver\n")
+
+            sub_opcion = input("  Opcion: ").strip()
+            if sub_opcion == "1":
+                subprocess.run([sys.executable, script] + db_flag
+                               + ["--clave", clave, "--mode", "update"])
+                pausa()
+                break
+            if sub_opcion == "2":
+                subprocess.run([sys.executable, script] + db_flag
+                               + ["--clave", clave, "--dry-run"])
+                pausa()
+                break
+            if sub_opcion == "0":
+                break
+            print("  Opcion invalida.")
+            pausa()
 
 
 def opcion_keywords_transcripciones(db_path: str | None = None):
     """
-    Extrae keywords desde transcripciones (whisper_segments) con un modelo de
-    texto (qwen2.5:3b). Guarda en media_metadata clave 'ia_keywords_transcripcion'.
+    Extrae keywords del SENTIDO desde transcripciones (audio/video) o desde
+    textos ingresados (.md). Submenu de origen primero; por cada origen, el
+    flujo de modos (skip/update/replace/dry-run) pasando --origen al script
+    keywords_transcripciones.py.
     """
     import subprocess
     script = os.path.join(os.path.dirname(__file__), "scripts", "ai_media", "keywords_transcripciones.py")
     db_flag = ["--db", db_path or leer_db()]
 
-    limpiar_pantalla()
-    print("=== KEYWORDS DESDE TRANSCRIPCIONES ===\n")
-    print("  Extrae keywords del SENTIDO de las transcripciones de audio/video\n"
-          "  (no solo palabras literales). Usa Ollama (qwen2.5:3b).\n")
-    print("  1) Procesar (solo pendientes)")
-    print("  2) Re-procesar todos (update)")
-    print("  3) Limpiar y regenerar (replace)")
-    print("  4) Previsualizar (dry-run)")
-    print("  0) Volver\n")
+    origenes = {"1": "transcripcion", "2": "texto"}
+    titulos = {"transcripcion": "TRANSCRIPCIONES (audio/video)",
+               "texto": "TEXTOS (.md)"}
+    modos = {"1": "skip", "2": "update", "3": "replace"}
 
-    opc = input("  Opcion: ").strip()
+    while True:
+        limpiar_pantalla()
+        print("=== KEYWORDS DESDE TEXTOS Y TRANSCRIPCIONES ===\n")
+        print("  Extrae keywords del SENTIDO de las transcripciones de audio/video\n"
+              "  o de los textos ingresados (.md). Usa Ollama (qwen2.5:3b).\n")
+        print("  1) Desde transcripciones (audio/video)")
+        print("  2) Desde textos (.md ingresados)")
+        print("  0) Volver\n")
 
-    if opc in ("1", "2", "3"):
-        modos = {"1": "skip", "2": "update", "3": "replace"}
-        subprocess.run([sys.executable, script] + db_flag + ["--mode", modos[opc]])
-    elif opc == "4":
-        subprocess.run([sys.executable, script] + db_flag + ["--dry-run"])
-    elif opc == "0":
-        return
+        opc = input("  Opcion: ").strip()
+        if opc not in origenes:
+            if opc == "0":
+                return
+            print("  Opcion invalida.")
+            pausa()
+            continue
 
-    pausa()
+        origen = origenes[opc]
+        while True:
+            limpiar_pantalla()
+            print(f"=== KEYWORDS DESDE {titulos[origen]} ===\n")
+            print("  1) Procesar (solo pendientes)")
+            print("  2) Re-procesar todos (update)")
+            print("  3) Limpiar y regenerar (replace)")
+            print("  4) Previsualizar (dry-run)")
+            print("  0) Volver\n")
+
+            sub_opcion = input("  Opcion: ").strip()
+            if sub_opcion in modos:
+                subprocess.run([sys.executable, script] + db_flag
+                               + ["--origen", origen, "--mode", modos[sub_opcion]])
+                pausa()
+                break
+            if sub_opcion == "4":
+                subprocess.run([sys.executable, script] + db_flag
+                               + ["--origen", origen, "--dry-run"])
+                pausa()
+                break
+            if sub_opcion == "0":
+                break
+            print("  Opcion invalida.")
+            pausa()
 
 
 def opcion_audio_tagging(db_path: str | None = None):
@@ -1474,13 +1548,11 @@ def opcion_ingestar_gpx(db_path: str | None = None):
         return
 
     # Modo de backfill de altitud
-    print("\n  Modo de backfill de altitud:")
-    print("    s) skip — solo medios sin altitud")
-    print("    u) update — todos los medios (sobrescribe)")
-    print("    r) replace — limpia y reprocesa")
-    modo = input("  Modo [s]: ").strip().lower() or "s"
-    mapa_modo = {"s": "skip", "u": "update", "r": "replace"}
-    modo_str = mapa_modo.get(modo, "skip")
+    modo_str = _preguntar_modo(db_path)
+    if modo_str is None:
+        print("  Cancelado.")
+        pausa()
+        return
 
     omitir_wpts = input("  ?Omitir waypoints? (s/N): ").strip().lower() == "s"
     omitir_alt = input("  ?Omitir backfill de altitud? (s/N): ").strip().lower() == "s"
@@ -1529,7 +1601,7 @@ def opcion_mover_media(db_path: str | None = None):
 
     new_root = input("  Nueva raíz de archivos: ").strip()
     if not new_root:
-        log.error("Debe especificar una raíz.")
+        print("  Debe especificar una raíz.")
         pausa()
         return
 
@@ -1598,15 +1670,15 @@ def opcion_ayuda():
             print(AYUDA)
             pausa()
         elif opc == "2":
-            import ingest
+            from scripts import ingest
             ingest.main(["--help"])
             pausa()
         elif opc == "3":
-            import query
+            from scripts import query
             query.main(["--help"])
             pausa()
         elif opc == "4":
-            import relocate
+            from scripts import relocate
             relocate.main(["--help"])
             pausa()
         elif opc == "5":
@@ -1877,32 +1949,23 @@ def opcion_backup_db(db_path: str | None = None):
         pausa()
         return
 
-    from datetime import datetime
-    import shutil
-
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    db_dir = os.path.dirname(db_path)
-    backup_name = f"flujos_backup_{ts}.db"
-    backup_path = os.path.join(db_dir, backup_name)
-
     conn = sqlite3.connect(db_path)
     total = conn.execute("SELECT COUNT(*) FROM media").fetchone()[0]
     conn.close()
 
     print(f"\n  DB actual:    {db_path}")
     print(f"  Registros:    {total}")
-    print(f"  Backup:       {backup_name}")
     r = input("\n  ?Crear backup? (s/N): ").strip().lower()
     if r != "s":
         print("  Cancelado.")
         pausa()
         return
 
-    try:
-        shutil.copy2(db_path, backup_path)
-        print(f"  ✅ Backup creado: {backup_name}")
-    except Exception as e:
-        print(f"  ❌ Error creando backup: {e}")
+    ruta = _crear_backup_manual(db_path)
+    if ruta:
+        print(f"  ✅ Backup creado: {os.path.basename(ruta)}")
+    else:
+        print("  Backup no creado.")
 
     pausa()
 
@@ -1961,7 +2024,6 @@ def opcion_restore_db(db_path: str | None = None):
 def opcion_reset_db(db_path: str | None = None):
     """Hace backup de la DB actual y crea una nueva desde cero."""
     db_path = leer_db(db_path)
-    db_dir = os.path.dirname(db_path)
 
     if not os.path.isfile(db_path):
         print("  No hay base de datos que respaldar.")
@@ -1993,17 +2055,8 @@ def opcion_reset_db(db_path: str | None = None):
         return
 
     # Backup
-    from datetime import datetime
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_name = f"flujos_backup_{ts}.db"
-    backup_path = os.path.join(db_dir, backup_name)
-
-    import shutil
-    try:
-        shutil.copy2(db_path, backup_path)
-        print(f"  Backup creado: {backup_name}")
-    except Exception as e:
-        print(f"  Error creando backup: {e}")
+    ruta = _crear_backup_manual(db_path)
+    if ruta is None:
         r = input("  ?Continuar igual? (s/N): ").strip().lower()
         if r != "s":
             return

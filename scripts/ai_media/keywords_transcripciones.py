@@ -1,34 +1,41 @@
 #!/usr/bin/env python3
 """
-keywords_transcripciones.py — Extrae keywords desde transcripciones de audio/video.
+keywords_transcripciones.py — Extrae keywords del SENTIDO desde transcripciones
+de audio/video o desde los textos ingresados (.md).
 
-Las transcripciones de audios y videos existen en `media_metadata` con la clave
-`whisper_segments` (JSON array de segmentos `{"inicio": ..., "fin": ..., "texto": ...}`).
-Este script combina los textos de los segmentos en un solo texto (en orden por
-`inicio`) y llama a un modelo de texto de Ollama (qwen2.5:3b) para extraer las
-keywords relevantes en español.
+La lógica de extracción (prompt, parse, limpieza, modos skip/update/replace,
+checkpoint) es agnóstica de la fuente. El origen se elige con `--origen` y
+parametriza 4 cosas: (1) la fuente de texto, (2) la query de medios, (3) la
+clave de salida en `media_metadata` y (4) el encabezado del prompt.
 
-El resultado se guarda en `media_metadata` con la clave NUEVA
-`ia_keywords_transcripcion` (NO se mezcla con `ia_keywords`, que es de visión
-para imágenes).
+  - `transcripcion` (default): lee `whisper_segments` (JSON array de segmentos
+    `{"inicio": ..., "fin": ..., "texto": ...}`) de audios/videos, combina los
+    textos en orden por `inicio` y guarda en `ia_keywords_transcripcion`.
+  - `texto`: lee directo el valor de `texto_completo` de los medios
+    `type='text'` y guarda en `ia_keywords_texto`.
+
+En ambos casos llama a un modelo de texto de Ollama (qwen2.5:3b) para extraer
+las keywords del SENTIDO en español (5-8: temas, conceptos, lugares, personas,
+clima, emociones... no solo palabras literales). Las claves de salida NO se
+mezclan con `ia_keywords`, que es de visión para imágenes.
 
 Uso:
-    python scripts/ai_media/keywords_transcripciones.py                  # skip: solo pendientes
-    python scripts/ai_media/keywords_transcripciones.py --mode update    # re-procesa todos
-    python scripts/ai_media/keywords_transcripciones.py --mode replace   # limpia y regenera
-    python scripts/ai_media/keywords_transcripciones.py --dry-run        # previsualiza sin escribir
-    python scripts/ai_media/keywords_transcripciones.py --dry-run --probar-ollama  # + llama al modelo
-    python scripts/ai_media/keywords_transcripciones.py --limit 5        # procesa solo 5 registros
+    python scripts/ai_media/keywords_transcripciones.py                               # transcripciones, solo pendientes (default)
+    python scripts/ai_media/keywords_transcripciones.py --origen texto            # desde textos .md (media type='text')
+    python scripts/ai_media/keywords_transcripciones.py --mode update             # re-procesa todos los del origen
+    python scripts/ai_media/keywords_transcripciones.py --mode replace            # limpia la clave del origen y regenera
+    python scripts/ai_media/keywords_transcripciones.py --dry-run --origen texto  # previsualiza los textos sin escribir
+    python scripts/ai_media/keywords_transcripciones.py --dry-run --origen texto --probar-ollama  # además llama al modelo
+    python scripts/ai_media/keywords_transcripciones.py --limit 5                 # procesa solo 5 registros
     python scripts/ai_media/keywords_transcripciones.py --modelo qwen3.5:4b
 
 Modos:
-    skip    → solo audios/videos con whisper_segments que aún NO tienen
-              ia_keywords_transcripcion (default)
-    update  → re-procesa TODOS los con whisper_segments (sobrescribe)
-    replace → limpia el ia_keywords_transcripcion existente y regenera
+    skip    → solo los del origen que aún NO tienen su clave de salida (default)
+    update  → re-procesa TODOS los del origen (sobrescribe)
+    replace → limpia la clave del origen existente y regenera
 
-Nota: si el texto combinado es vacío o tiene menos de MIN_TEXTO_LEN (15) caracteres,
-el registro se salta y se loguea (no hay contenido útil para extraer keywords).
+Nota: si el texto (combinado o directo) es vacío o tiene menos de MIN_TEXTO_LEN
+(40) caracteres, el registro se salta y se loguea (no hay contenido útil).
 """
 
 import argparse
@@ -44,18 +51,20 @@ log = logging.getLogger(__name__)
 
 # ── Claves en DB ─────────────────────────────────────────────────────────────
 CLAVE_SEGMENTOS = "whisper_segments"           # clave de entrada (transcripción)
-CLAVE_SALIDA = "ia_keywords_transcripcion"     # clave de salida (keywords)
+CLAVE_SALIDA_TRANSCRIPCION = "ia_keywords_transcripcion"  # salida (keywords transcripción)
+CLAVE_TEXTO_COMPLETO = "texto_completo"        # clave de entrada (textos .md)
+CLAVE_SALIDA_TEXTO = "ia_keywords_texto"       # salida (keywords textos)
 
 # ── Modelo de texto para extracción de keywords ──────────────────────────────
 MODELO_TEXTO_DEFAULT = "qwen2.5:3b"
 
 # ── Umbrales ─────────────────────────────────────────────────────────────────
-MIN_TEXTO_LEN = 40            # menos caracteres → no hay contenido útil
+MIN_TEXTO_LEN = 40            # menos de N caracteres → no hay contenido útil
 MAX_TEXTO_CHARS = 6000        # truncar el texto que se envía al modelo
 MAX_KEYWORDS = 8              # recortar a 8 keywords como máximo
 TIMEOUT_SEG = 120             # timeout de la llamada a Ollama
 
-# ── Prompt de extracción ─────────────────────────────────────────────────────
+# ── Prompts de extracción (mismas reglas; cambia la cabecera) ────────────────
 PROMPT_KEYWORDS_TRANSCRIPCION = (
     "Leé esta transcripción de audio/video y entendé el SENTIDO GENERAL de lo que "
     "se está diciendo (de qué trata realmente, el contexto, la situación).\n"
@@ -73,14 +82,31 @@ PROMPT_KEYWORDS_TRANSCRIPCION = (
     "Transcripción:\n"
 )
 
-# Muletillas / ruido común del habla que el modelo podría dejar pasar
+PROMPT_KEYWORDS_TEXTO = (
+    "Leé este **texto** y entendé el SENTIDO GENERAL de lo que se dice "
+    "(de qué trata realmente, el contexto, la situación).\n"
+    "Reglas:\n"
+    "1. Devolvé SOLO entre 5 y 8 keywords, en ESPAÑOL, separadas por comas.\n"
+    "2. Las keywords deben capturar el SIGNIFICADO, no solo palabras literales: "
+    "temas centrales, conceptos, lugares, actividades, personas, clima, emociones, "
+    "objetos, transporte, comida, sensaciones. Si se habla de 'la subida al cerro "
+    "fue dura, las piernas no daban más', sirve 'esfuerzo' o 'cansancio' aunque no "
+    "sean palabras textuales.\n"
+    "3. Filtrá el ruido del texto: muletillas ('mmm', 'este', 'eh', 'bueno', "
+    "'digamos', repeticiones), fragmentos sin contenido y nombres propios sueltos "
+    "sin contexto.\n"
+    '4. Respondé SOLO con la lista de keywords, sin texto adicional ni explicaciones.\n\n'
+    "Texto:\n"
+)
+
+# Muletillas / ruido común del habla humano que el modelo podría dejar pasar
 MULETILLAS = {
     "mmm", "mm", "eh", "este", "bueno", "digamos", "o sea", "sabés", "sabes",
     "viste", "mirá", "mirá vos", "básicamente", "obviamente", "tipo",
     "como que", "no sé", "y", "o", "que", "a", "en", "de", "la", "el", "un",
 }
 
-# Patrones basura que a veces regurgita el modelo (parte del prompt)
+# Patrones basura que a veces regurgita el modelo (restos del prompt)
 PATRONES_BASURA = [
     r"^keywords?\s*[:：]",
     r"^lista\s*[:：]",
@@ -91,6 +117,42 @@ PATRONES_BASURA = [
     r"^\d+[.)]\s*",           # numeración "1. perro"
     r"^[\"'.*-]+",
 ]
+
+
+# ── Configuración por origen ─────────────────────────────────────────────────
+# Cada origen es una familia de keywords: fuente de texto, clave de salida,
+# tipos de medio involucrados y prompt. La lógica de procesado es la misma.
+ORIGEN_TRANSCRIPCION = "transcripcion"
+ORIGEN_TEXTO = "texto"
+
+ORIGENES: dict[str, dict] = {
+    ORIGEN_TRANSCRIPCION: {
+        "clave_entrada": CLAVE_SEGMENTOS,
+        "clave_salida": CLAVE_SALIDA_TRANSCRIPCION,
+        "tipos": ("audio", "video"),
+        "prompt": PROMPT_KEYWORDS_TRANSCRIPCION,
+        "etiqueta": "transcripciones",
+    },
+    ORIGEN_TEXTO: {
+        "clave_entrada": CLAVE_TEXTO_COMPLETO,
+        "clave_salida": CLAVE_SALIDA_TEXTO,
+        "tipos": ("text",),
+        "prompt": PROMPT_KEYWORDS_TEXTO,
+        "etiqueta": "textos",
+    },
+}
+
+
+def _config_origen(origen: str) -> dict:
+    """
+    Valida el origen elegido y devuelve su configuración (claves, tipos,
+    prompt). Eleva ValueError si el origen no existe.
+    """
+    if origen not in ORIGENES:
+        raise ValueError(
+            f"Origen inválido: {origen!r}. Válidos: {', '.join(ORIGENES)}"
+        )
+    return ORIGENES[origen]
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -117,7 +179,7 @@ def combinar_texto_segmentos(segmentos_json: str) -> str:
         log.warning("  whisper_segments no es una lista.")
         return ""
 
-    # Ordenar por inicio (float/int) y concatenar respetando ese orden
+    # Ordenar por inicio (float/int) y concatenar en ese orden
     textos: list[tuple[float, str]] = []
     for seg in segmentos:
         if not isinstance(seg, dict):
@@ -135,12 +197,25 @@ def combinar_texto_segmentos(segmentos_json: str) -> str:
     return " ".join(t for _, t in textos).strip()
 
 
+def _texto_desde_fila(fila, origen: str) -> str:
+    """
+    Devuelve el texto fuente a extrear según el origen.
+
+    - transcript: concatena los segmentos JSON de `whisper_segments`.
+    - texto: el valor directo de la clave `texto_completo`.
+    """
+    valor = fila["texto_origen"]
+    if origen == ORIGEN_TEXTO:
+        return (valor or "").strip()
+    return combinar_texto_segmentos(valor)
+
+
 def _limpiar_keyword(palabra: str) -> str:
     """Limpia una keyword individual (espacios, puntuación, numeración)."""
     p = palabra.strip().lower()
     for pat in PATRONES_BASURA:
         p = re.sub(pat, "", p)
-    p = p.strip(" ,.;:-—_\"'()[]{}").strip()
+    p = p.strip(" ,.;:—_\"'()[]{}").strip()
     return p
 
 
@@ -160,7 +235,7 @@ def _es_basura(palabra: str) -> bool:
 
 def _parsear_keywords(respuesta: str) -> list[str]:
     """
-    Convierte la respuesta del modelo en lista de keywords.
+    Convierte la respuesta del modelo en lista de keywords limpias.
 
     Soporta tres formatos:
       - JSON:  ["perro", "ruta"]  o  {"keywords": ["perro", "ruta"]}
@@ -190,7 +265,7 @@ def _parsear_keywords(respuesta: str) -> list[str]:
     except (json.JSONDecodeError, TypeError):
         partes = []
 
-    # 2. Fallback: separar por comas / saltos de línea
+    # 2. Fallback: separar por comas / saltos
     if not partes:
         partes = re.split(r"[,;\n]+", texto)
 
@@ -206,53 +281,77 @@ def extraer_keywords_transcripcion(
     cliente,
     texto: str,
     modelo: str,
+    prompt: str | None = None,
 ) -> list[str]:
     """
-    Llama al modelo de texto y devuelve las keywords de la transcripción.
+    Llama al modelo de texto y devuelve las keywords del texto fuente.
 
     Args:
         cliente: ollama.Client
-        texto: Texto combinado de la transcripción.
+        texto: Texto fuente (transcripción combinada o texto_completo directo).
         modelo: Nombre del modelo de texto (ej: qwen2.5:3b).
+        prompt: Template del prompt. Si no se pasa, se usa el de transcripciones.
 
     Returns:
         Lista de keywords en español.
     """
+    if prompt is None:
+        prompt = PROMPT_KEYWORDS_TRANSCRIPCION
+
     # Truncar textos muy largos (protección de contexto)
     if len(texto) > MAX_TEXTO_CHARS:
         log.debug("  Texto truncado a %d caracteres (original: %d)", MAX_TEXTO_CHARS, len(texto))
         texto = texto[:MAX_TEXTO_CHARS]
 
-    # Concatenación directa (evita problemas si el texto transcrito contiene llaves)
-    prompt = PROMPT_KEYWORDS_TRANSCRIPCION + texto
+    # Concatenación directa (evita problemas si el texto contiene llaves)
+    prompt_final = prompt + texto
     respuesta = cliente.chat(
         model=modelo,
-        messages=[{"role": "user", "content": prompt}],
+        messages=[{"role": "user", "content": prompt_final}],
         options={"num_ctx": 4096, "temperature": 0.2},
     ).message.content.strip()
 
     return _parsear_keywords(respuesta)[:MAX_KEYWORDS]
 
 
-# ── Queries según modo ───────────────────────────────────────────────────────
+# ── Queries según modo y origen ──────────────────────────────────────────────
 
 
-def _query_segun_modo(mode: str) -> tuple[str, list]:
+def _query_segun_modo(mode: str, origen: str) -> tuple[str, list]:
     """
-    Devuelve (query, params) para listar los medios a procesar según el modo.
+    Devuelve (query, params) para listar los medios a procesar según el modo
+    y el origen de texto.
 
-    skip    → audios/videos con whisper_segments y SIN ia_keywords_transcripcion
-    update  → audios/videos con whisper_segments (todos)
-    replace → audios/videos con whisper_segments (todos; el clean va aparte)
+    transcripcion → audios/videos con `whisper_segments`
+    texto         → media type='text' con `texto_completo`
+
+    skip    → solo registros SIN la clave de salida del origen
+    update  → todos los de la fuente (sobrescribe)
+    replace → todos los de la fuente (el clean va aparte)
     """
-    base = """
-        SELECT m.id, m.filename_original, m.type,
-               mm.value AS segments_json
-        FROM media m
-        JOIN media_metadata mm
-          ON mm.media_id = m.id AND mm.key = ?
-        WHERE m.type IN ('audio', 'video')
-    """
+    cfg = _config_origen(origen)
+    clave_entrada = cfg["clave_entrada"]
+    clave_salida = cfg["clave_salida"]
+
+    if origen == ORIGEN_TEXTO:
+        base = """
+            SELECT m.id, m.filename_original, m.type, mm.value AS texto_origen
+            FROM media m
+            JOIN media_metadata mm
+              ON mm.media_id = m.id AND mm.key = ?
+            WHERE m.type = ?
+        """
+        params_base = [clave_entrada, cfg["tipos"][0]]
+    else:
+        base = """
+            SELECT m.id, m.filename_original, m.type, mm.value AS texto_origen
+            FROM media m
+            JOIN media_metadata mm
+              ON mm.media_id = m.id AND mm.key = ?
+            WHERE m.type IN ('audio', 'video')
+        """
+        params_base = [clave_entrada]
+
     if mode == "skip":
         query = base + """
             AND NOT EXISTS (
@@ -261,8 +360,8 @@ def _query_segun_modo(mode: str) -> tuple[str, list]:
             )
             ORDER BY m.id
         """
-        return query, [CLAVE_SEGMENTOS, CLAVE_SALIDA]
-    return base + " ORDER BY m.id", [CLAVE_SEGMENTOS]
+        return query, params_base + [clave_salida]
+    return base + " ORDER BY m.id", params_base
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
@@ -270,11 +369,15 @@ def _query_segun_modo(mode: str) -> tuple[str, list]:
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
-        description="Extrae keywords de transcripciones de audio/video (whisper_segments) "
-                    "y las guarda en media_metadata con clave 'ia_keywords_transcripcion'.",
+        description="Extrae keywords del SENTIDO de transcripciones (whisper_segments) "
+                    "o de textos ingresados (texto_completo) y las guarda en "
+                    "media_metadata con clave 'ia_keywords_transcripcion' o 'ia_keywords_texto'.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--db", default=None, help="Ruta a la base de datos (default: db/flujos.db)")
+    parser.add_argument("--origen", default=ORIGEN_TRANSCRIPCION, choices=list(ORIGENES),
+                        help="Fuente del texto: 'transcripcion' (default, audios/videos con "
+                             "whisper_segments) o 'texto' (media type='text' con texto_completo).")
     parser.add_argument("--mode", default="skip", choices=["skip", "update", "replace"],
                         help="skip: solo sin keywords (default) | update: todos | replace: limpia y regenera")
     parser.add_argument("--modelo", default=MODELO_TEXTO_DEFAULT,
@@ -307,38 +410,40 @@ def main(argv: list[str] | None = None) -> None:
         log.error("No existe la DB: %s", db_path)
         sys.exit(1)
 
+    cfg = _config_origen(args.origen)
+
     conn = abrir(db_path)
     conn.row_factory = sqlite3.Row
 
-    # ── Modo replace: limpiar la clave de salida antes de regenerar ──
+    # ── Modo replace: limpiar la clave de salida del origen antes de regenerar ──
     if args.mode == "replace":
         conn.execute(
-            "DELETE FROM media_metadata WHERE key = ?", (CLAVE_SALIDA,)
+            "DELETE FROM media_metadata WHERE key = ?", (cfg["clave_salida"],)
         )
         conn.commit()
-        log.info("  [replace] Limpiado ia_keywords_transcripcion de la DB.")
+        log.info("  [replace] Limpiado %s de la DB.", cfg["clave_salida"])
 
-    query, params = _query_segun_modo(args.mode)
+    query, params = _query_segun_modo(args.mode, args.origen)
     rows = conn.execute(query, params).fetchall()
     if args.limit:
         rows = rows[:args.limit]
 
     if not rows:
-        print("  No hay registros con whisper_segments para procesar.")
+        print(f"  No hay registros con {cfg['clave_entrada']} (origen={args.origen}) para procesar.")
         conn.close()
         return
 
-    log.info("  Registros con whisper_segments: %d (mode=%s, modelo=%s)",
-             len(rows), args.mode, args.modelo)
+    log.info("  Registros con %s: %d (origen=%s, mode=%s, modelo=%s)",
+             cfg["clave_entrada"], len(rows), args.origen, args.mode, args.modelo)
 
     # ── Dry-run (sin escribir) ──
     if args.dry_run:
-        print("\n  [DRY-RUN] Registros a procesar (máx 5):")
+        print(f"\n  [DRY-RUN] Registros a procesar (origen={args.origen}, máx 5):")
         for r in rows[:5]:
-            texto = combinar_texto_segmentos(r["segments_json"])
+            texto = _texto_desde_fila(r, args.origen)
             estado = "OK" if len(texto) >= MIN_TEXTO_LEN else "SKIP (texto corto)"
             print(f"\n  media {r['id']} [{r['type']}] {r['filename_original']}")
-            print(f"    estado: {estado} | texto: {len(texto)} chars")
+            print(f"    estado: {estado} | longitud: {len(texto)} chars")
             print(f"    preview: {texto[:150]}...")
 
             if args.probar_ollama and len(texto) >= MIN_TEXTO_LEN:
@@ -348,7 +453,7 @@ def main(argv: list[str] | None = None) -> None:
                     if asegurar_ollama():
                         cliente = ollama.Client(timeout=TIMEOUT_SEG)
                         keywords = extraer_keywords_transcripcion(
-                            cliente, texto, args.modelo)
+                            cliente, texto, args.modelo, prompt=cfg["prompt"])
                         print(f"    keywords propuestas: {', '.join(keywords) if keywords else '—'}")
                     else:
                         print("    ⚠ Ollama no disponible, no se probó la llamada.")
@@ -360,7 +465,7 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     # ── Modo real: procesar (envuelto en manejar_interrupcion) ──
-    # Al cortar con Ctrl+C se commitean los pendientes (el guardado ya es por
+    # Al cortar con Ctrl+C se commitean los pendientes (el guardado es por
     # ítem cada 25) y se sale con mensaje claro, sin traceback.
     from scripts.ai_media.checkpoint import manejar_interrupcion
     with manejar_interrupcion(conn=conn, etiqueta="keywords_transcripciones"):
@@ -369,12 +474,14 @@ def main(argv: list[str] | None = None) -> None:
 
 def _ejecutar(conn, args, rows) -> None:
     """
-    Extrae las keywords de las transcripciones y las escribe en la DB.
+    Extrae las keywords de los registros del origen y las escribe en la DB.
 
     Separado de main() para poder envolverlo en manejar_interrupcion sin
-    re-indentar el cuerpo (mismo nivel de indentación de función). El
-    guardado por ítem (cada 25) ya existía y no se modifica.
+    re-indentar el cuerpo (mismo nivel de indentación). El guardado por ítem
+    (cada 25) es el mismo que tenía el script.
     """
+    cfg = _config_origen(args.origen)
+
     # ── Modo real: importar ollama y asegurar que el servidor esté corriendo ──
     try:
         import ollama
@@ -397,7 +504,7 @@ def _ejecutar(conn, args, rows) -> None:
     t_inicio = time.perf_counter()
     for i, r in enumerate(rows, 1):
         mid = r["id"]
-        texto = combinar_texto_segmentos(r["segments_json"])
+        texto = _texto_desde_fila(r, args.origen)
 
         if len(texto) < MIN_TEXTO_LEN:
             log.info("  [media %s] texto demasiado corto (%d chars), skip.", mid, len(texto))
@@ -405,7 +512,8 @@ def _ejecutar(conn, args, rows) -> None:
             continue
 
         try:
-            keywords = extraer_keywords_transcripcion(cliente, texto, args.modelo)
+            keywords = extraer_keywords_transcripcion(
+                cliente, texto, args.modelo, prompt=cfg["prompt"])
         except Exception as e:
             log.warning("  ⚠ Error extrayendo keywords de media %s: %s", mid, e)
             errors += 1
@@ -418,7 +526,7 @@ def _ejecutar(conn, args, rows) -> None:
 
         conn.execute(
             "INSERT OR REPLACE INTO media_metadata (media_id, key, value) VALUES (?, ?, ?)",
-            (mid, CLAVE_SALIDA, ", ".join(keywords)),
+            (mid, cfg["clave_salida"], ", ".join(keywords)),
         )
         ok += 1
         if args.verbose:
@@ -429,8 +537,8 @@ def _ejecutar(conn, args, rows) -> None:
 
     conn.commit()
     total = time.perf_counter() - t_inicio
-    log.info("  ✅ Keywords de transcripciones: %d ok | %d errores | %d vacíos | %.1fs (%.2fs/media)",
-             ok, errors, vacios, total, total / max(1, len(rows)))
+    log.info("  ✅ Keywords %s: %d ok | %d errores | %d vacíos | %.1fs (%.2fs/media)",
+             args.origen, ok, errors, vacios, total, total / max(1, len(rows)))
     conn.close()
 
 

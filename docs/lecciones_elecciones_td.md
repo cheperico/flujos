@@ -176,8 +176,10 @@ base estaba sano.
 
 ### 3. La arquitectura de callbacks externos ya estaba probada en el proyecto
 El patrón **File + Sync to File = ON** sobre el DAT interno ya se usaba con
-`osc_callbacks.dat` y `nube_generar.dat`. La solución de la Lección 1 reusa ese
-mecanismo conocido en vez de inventar otro.
+`osc_callbacks.dat`. La solución de la Lección 1 reusa ese
+mecanismo conocido en vez de inventar otro. (Nota 2026: `nube_generar.dat`,
+la nube estática de Text TOPs, se eliminó por obsoleta — quedó solo
+`elecciones_ui.dat` como generador de nubes clicables.)
 
 ### 4. La verificación de sintaxis con `ast` atrapó errores antes de TD
 Correr el `.dat` por `ast.parse()` (Python) después de cada edición detectó
@@ -194,8 +196,9 @@ El docstring de `elecciones_ui.dat` ya advertía la condición para ver los boto
 doc existente primero ahorró tiempo de investigación.
 
 ### 7. Decisiones de diseño correctas que no hay que tocar
-- **Modelo de datos en tablas `elec_*`** (texto + frecuencia/peso) — la nube ya
-  tiene la fuente de datos lista para el `generar_nube`/textos.
+- **Modelo de datos en tablas `elec_*`** (texto + frecuencia/peso) — la fuente
+  de datos que alimenta la UI de botones (`elecciones_ui`, no el `nube_generar`
+  eliminado).
 - **Separación `osc_in` (entrada) / `osc_out` (salida)** — cada dirección con su
   puerto y su operador; evita acoplarlos (Lección 2).
 - **Idioma español + convenciones del proyecto** en el script TD (docstrings,
@@ -216,21 +219,119 @@ doc existente primero ahorró tiempo de investigación.
 - `_asegurar_render` — usa clase global (`["tprender", "toprender"]`) en vez de strings
 - `crear_ui()` — llama `_asegurar_exec(cont)` (container, no Panel CHOP)
 
-## Checklist de setup en TD (desde cero)
+## ⚠️ Mapa REAL verificado (2026-08-08, export OP Find en `td/opfind1.tsv`)
+
+El toe actual **ya no coincide con el diseño que generaba `elecciones_ui.dat`**
+(grupos `ui_<id>` + `w_<grupo>_###` + `elecciones_panelchop`). Hoy la UI de
+elecciones está armada con **Replicator COMPs**:
+
+```
+/project2/
+├── osc_in1 (OSC In DAT 9000) + osc_in1_callbacks  → osc_callbacks.dat
+├── osc_out1 (OSC Out DAT → 127.0.0.1:9001)        # TD → Python
+├── elec_horas | elec_tags | elec_colores | elec_municipios   (Table DAT, datos)
+├── boton_horas_0 / boton_tags_0 / boton_colores_0 / boton_municipios_0  (Button COMP "semilla")
+└── elec_horas_container / elec_tags_container3 / elec_colores_container2 / elec_municipios_container1
+    └── replicator1 (Replicator COMP) + replicator1_callbacks
+        └── boton_<grupo>_N ... (Button COMP, uno por fila de la tabla)
+            ├── par1        (Parameter CHOP)
+            ├── text        (Text COMP → etiqueta)
+            ├── parexec1    (Parameter Execute DAT)
+            └── panelexec1  (Panel Execute DAT → envía `/flujos/seleccion/<grupo> <valor>`)
+```
+
+**Implicancias**:
+- Los botones **existen** (80 Button COMPs, cada uno con sus hijos fijos). La
+  Lección 6 (no se veían) quedó resuelta en esta arquitectura: el replicador
+  posiciona cada botón en el container y el Panel Execute va **por botón**
+  (`panelexec1`), no un exec global del container.
+- El **pipeline visual** (movie1 / render / salida) todavía **no está armado** en
+  el toe: `osc_callbacks.dat` conserva handlers para `tabla_colores`,
+  `color_actual`, `movie1`, `info_imagen` y `seleccion_actual` apuntando a ops a
+  recrear — ninguna de esas ops existe por ahora.
+- `elecciones_ui.dat` sigue siendo el generador **legacy**: no genera réplicas. Para
+  agregar un grupo con la arquitectura actual: Table DAT `elec_<id>` + container
+  `elec_<id>_container<N>` + Replicator apuntando a la "semilla" `boton_<id>_0`.
+
+## Checklist de setup en TD (desde cero, versión replicator)
 
 - [ ] `/project1` renombrado a `/project2` (coincide con `_ROOT` en los .dat)
-- [ ] Script DAT `elecciones_ui` → callbacks interno → File `elecciones_ui.dat`, sync ON
 - [ ] `osc_in` (OSC In DAT, puerto 9000) → callbacks interno → File `osc_callbacks.dat`, sync ON
 - [ ] `osc_out` (OSC Out DAT, `127.0.0.1:9001`)
 - [ ] Tablas `elec_horas`, `elec_municipios`, `elec_colores`, `elec_tags`, ...
-- [ ] `elecciones_exec` (Panel Execute DAT → container, state, off/on)
-- [ ] Ver el container: `elecciones_render` a pantalla o Node Viewer Control Panel
+- [ ] Por grupo: `elec_<id>_container<N>` + `replicator1` + semilla `boton_<id>_0`
+- [ ] `opview1` (OP Viewer) → container del grupo o render COMP para ver/interactuar
 
 ## Para la próxima sesión (orden sugerido)
 
-1. **Ver los botones**: resolver Lección 6 (render o Control Panel)
+1. **Confirmar la existencia del render**: los botones existen (OP Find), falta
+   componerlos (Viewer/Render TOP) para el pipeline de salida
 2. **Validar el clic → OSC**: clickear un botón y confirmar que Python recibe
    `/flujos/seleccion` (o que al menos el Textport muestra el send)
-3. Si `panelexecuteDAT` no se resuelve como identificador global, crear el
-   Panel Execute DAT a mano según las instrucciones que imprime el script
-4. Actualizar `AGENTS.md` (docs/scripts TD) y `CHANGELOG.md` con lo que cierre
+3. Si se necesita un generador automático de grupos, **reescribir
+   `elecciones_ui.dat`** al patrón replicator (hoy genera `ui_<id>` +
+   `elecciones_panelchop`, que no coincide con el toe)
+4. Actualizar `AGENTS.md` (docs/scripts TD) y `CHANGELOG.md` cuando cierre
+
+---
+
+## Decisiones de diseño (2026-08-08)
+
+### 1. `elecciones_ui.dat` vs armado manual — diferido
+
+Dos opciones posibles para construir la UI de elecciones:
+
+- **A)** Actualizar `elecciones_ui.dat` para que genere lo mismo que se armó a
+  mano (Replicator COMP + `elec_<id>_container<N>` + `boton_<id>_N` + hijos
+  `par1`/`text`/`parexec1`/`panelexec1`).
+- **B)** Seguir armando los grupos manualmente en TD.
+
+**Decisión actual: B (manual)**. Es más rápido iterar; la opción A queda en
+ROADMAP (Etapa 5) como refactor diferido para "algún momento" en que convenga
+reproducir el patrón automáticamente.
+
+### 2. Comportamiento de los botones: toggle-OSC → "Fluir" (2026-08-08)
+
+**Estado actual (2026-08-08)**: cada botón manda su propio mensaje OSC al
+tocarse (`/flujos/seleccion/<grupo> <valor>` — grupo en la dirección, un solo
+valor por mensaje).
+
+**El concepto clave — "Fluir" (decidido 2026-08-08)**: al igual que en la
+visualización web (`web3/`, botón `#btn-fluir`), al visitante se le pide que
+**seleccione** (acumule) y luego presione el botón **"Fluir"**. Ese disparo
+envía **todas las elecciones juntas** — con `osc_probe.py` sobre 9001 se
+verificó la ráfaga de una selección completa (8 mensajes: 2 tags, 2 colores,
+2 municipios, 2 horas; uno por elección):
+
+```
+[OSC] /flujos/seleccion/tags       ('macarona',)
+[OSC] /flujos/seleccion/tags       ('obra',)
+[OSC] /flujos/seleccion/colores    ('rosa',)
+[OSC] /flujos/seleccion/colores    ('verde',)
+[OSC] /flujos/seleccion/municipios ('Luján',)
+[OSC] /flujos/seleccion/municipios ('Carmen de Areco',)
+[OSC] /flujos/seleccion/horas      ('13:00',)
+[OSC] /flujos/seleccion/horas      ('06:00',)
+```
+
+**Diseño deseado (futuro)**: ese mismo disparo "Fluir" debería acumular en TD
+(los toggles NO salen por OSC uno por uno) y enviar **un mensaje grande único**
+con todas las elecciones; Python responde con la serie de medios/metadatos
+derivados de ese mensaje (alimenta `loop_db.py` → spec JSON).
+
+Implicancias del diseño futuro:
+- El `panelexec1` de cada botón dejaría de enviar OSC por toggle y pasaría a
+  **marcar un estado local** (ej. fila activa en un Table DAT o flags en un CHOP).
+- El botón **"Fluir"** (análogo al de la web) es el disparador de finalización:
+  arma el payload acumulado y lo envía por `osc_out1` — ya sea como ráfaga
+  actual o como mensaje agregado (formato a definir, p.ej. lista plana o JSON).
+- En Python, el receptor del puente deja de esperar toggles individuales y
+  procesa **la selección completa** que alimenta el filtrado/loop
+  (`loop_db.py` → spec JSON ya soporta horas/municipios/colores/tags).
+- No confundir con la entrada: `/flujos/elecciones/<id>` sigue siendo Python→TD
+  para poblar las tablas; el cambio es solo en la dirección TD→Python
+  (las elecciones acumuladas se envían al "Fluir").
+
+> Pendiente de definir: formato del payload agregado (ráfaga vs un mensaje único)
+> y si el disparador es el botón "Fluir" visible en la UI de TD. Ver ROADMAP
+> (Etapa 5, "Multiselector OSC" → "Fluir").

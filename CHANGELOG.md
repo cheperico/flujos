@@ -7,7 +7,34 @@ Las versiones corresponden a entregas funcionales, no a releases semánticas.
 
 ---
 
-## [Entrega 19] — 2026-08-04
+## [Entrega 21] — 2026-08-08
+
+### Cambiado
+- **Documentación sincronizada con el mapa REAL de TouchDesigner**: export OP Find (`td/opfind1.tsv`, 459 ops) verificado. `AGENTS.md` (estructura de operadores) y `docs/lecciones_elecciones_td.md` ahora documentan la arquitectura actual del toe: `elec_<id>` Table DATs → `elec_<id>_container<N>` con `replicator1` → `boton_<id>_N` (Button COMP con hijos fijos `par1`/`text`/`parexec1`/`panelexec1`), `osc_out1` confirmado. Aclarado que `movie1`/`tabla_colores`/`nube_datos`/`nube_container`/`color_actual`/`seleccion_actual`/`info_imagen` **ya no existen** en el toe (handlers de colores/slideshow apuntan a ops por recrear; pipeline visual en construcción).
+- **Handler muerto de nube eliminado de `osc_callbacks.dat`**: `/flujos/nube/datos` escribía en `nube_datos` (Table DAT que ya no existe — la nube de Text TOPs fue reemplazada por las elecciones con replicators). El docstring ahora solo lista los handlers vivos (`/flujos/elecciones/<id>`) y los pendientes del pipeline visual.
+
+### Registrado (decisiones de diseño TD, 2026-08-08)
+- **Manual por ahora**: se decide seguir armando los grupos de elecciones manualmente en TD (Replicator + `elec_<id>_container<N>` + `boton_<id>_N`); opción A (que `elecciones_ui.dat` genere lo mismo) queda diferida en ROADMAP Etapa 5 como refactor futuro.
+- **"Fluir" como término del disparo de selección**: igual que en la web (`#btn-fluir`), en TD el visitante **acumula** elecciones y al presionar **"Fluir"** se envía **todas las selecciones juntas**. La ráfaga sobre 9001 (verificada con `osc_probe.py`) ES el "Fluir": 2 tags + 2 colores + 2 municipios + 2 horas en formato `/flujos/seleccion/<grupo> <valor>`. El diseño futuro es que el "Fluir" acumule en TD y envíe **un solo mensaje grande** (formato a definir) que Python procesa como selección completa → `loop_db.py` → spec JSON. Documentado en `docs/lecciones_elecciones_td.md` (sección 2) y ROADMAP Etapa 5.
+- **Formato OSC real verificado con `osc_probe.py` (9001)**: en 60s llegaron 8 mensajes del toe; el formato real es `/flujos/seleccion/<grupo> <valor>` (grupo en el address, un solo valor, sin flag 1|0) — **corregida la doc** que decía `/flujos/seleccion <grupo> <valor> 1|0`. Confirma el comportamiento toggle-OSC actual (un mensaje por toque).
+
+---
+
+## [Entrega 20] — 2026-08-08
+
+### Cambiado
+- **TUI Ingesta reordenado** (`flujos.py` `opcion_ingesta`, README): el orden ahora es 1) Ingerir multimedia, 2) Ingerir track GPS (GPX), 3) Ingerir textos (.md), 4) Ingerir chat de Telegram, 5) Deshacer ingesta. Antes Textos y Telegram estaban invertidos y "Deshacer" al final.
+- **Renombrado "Limpieza de tandas" → "Limpieza de tandas de fotografías"** (`flujos.py`, README): clarifica que la limpieza aplica a tandas de fotos (no a otros medios).
+- **TUI Mejorar DB: audio de corrido y etiquetado al final de la sección** (`flujos.py` `opcion_improve_db`): reorden sobre diagnóstico funcional — Audio tagging es **tagging** (no descripción), Keywords desde transcripciones es **keywords de todo tip** (luego pasará a textuales), Refinar keywords es de **toda clase de keywords**. Quedó así:
+  - Hoja 1 termina: 7) **Audio tagging** (primero de los de audio), 8) **Transcripción**, 9) **Keypoints** (audio de corrido que cruza a la Hoja 2).
+  - Hoja 2 arranca: 1) **Keywords desde textos y transcripciones** (último de los de audio; hoy también cubre keywords de textos .md vía `--origen texto` → `ia_keywords_texto`), 2) **Refinar keywords** (fin de la sección de etiquetado/multimedia; candidata a moverse antes de Embeddings — se decide más adelante); luego 3-9 inferencia y ubicación (timestamps, GPS, gradientes, localización, clima, día de semana, astronomía).
+  - Título de Hoja 2: "Etiquetado + inferencia y ubicación".
+- **Regla de navegación p antes que n** (`flujos.py` Hoja 2, AGENTS.md): en hojas con Anterior y Siguiente, la opción **p << Anterior se lista primero** y luego **n Siguiente**. Aplicado a Hoja 2 y documentado en AGENTS.md "Reglas de desarrollo (menú TUI)".
+
+### Añadido
+- **Keywords del SENTIDO para textos .md** (`scripts/ai_media/keywords_transcripciones.py`): el script ahora soporta `--origen {transcripcion,texto}` (default `transcripcion`, retrocompatible). Para `texto`, lee `texto_completo` de medios `type='text'` y escribe `ia_keywords_texto` (clave NUEVA en `media_metadata`), misma lógica/prompt (encabezado "Leé este texto...") y protecciones. TUI (Hoja 2→1) renombrada a "**Keywords desde textos y transcripciones**": submenú de origen (1 transcripciones, 2 textos) y flujo de modos pasando `--origen`. TUI **Refinar keywords** (Hoja 2→2): submenú de familia (`ia_keywords` / `ia_keywords_transcripcion` / `ia_keywords_texto`) pasando `--clave` a `refinar_keywords.py` (ya lo soportaba). AGENTS.md sincronizado (clave `ia_keywords_texto`, mapa de datos con "KEYWORDS TEXTOS", catálogo).
+
+---
 
 ### Cambiado
 - **Traductor EN→ES cambiado a `translategemma`** (`traducir_metadata.py`, `improve_db.py` `_traducir_metadata`): auditoría cruzada de keywords EN (crudo de visión) vs ES reveló que la basura (`户外`, `ripio/grava`, checklist de `banquina/manubrio/...`) la generaba el **traductor qwen2.5:3b** (colapso en checklist/chino), NO la visión (minicpm da EN limpio). Batería de 11 casos reales de la DB: qwen2.5:3b **score −2.3** (3 chino, 5 checklist, 5 slash) vs **translategemma +1.6** (0/0/0, fiel, 10/11 conteo exacto). Modelos grandes sin ventaja y más pesados (requisito: hardware limitado) → se eligió translategemma (3.3GB, 4.3B, especializado). Nuevo `MODELO_TRADUCCION_DEFAULT = "translategemma"`.

@@ -7,13 +7,14 @@ Vinculacion en TD:
   - Parametros: File -> td/osc_callbacks.dat, Sync to File = ON
 
 Mensajes manejados:
-  /flujos/colores          -> tabla_colores (lista de colores)
-  /colores                 -> color individual (alternativo)
-  /flujos/slideshow/imagen -> movie1 + info_imagen
+  /flujos/elecciones/<id>  -> elec_<id> (tablas de elecciones, VIVO: alimentan la UI de botones)
+  /flujos/colores          -> tabla_colores   (ops aun no recreadas: pipeline visual en construccion)
+  /colores                 -> color individual (idem)
+  /flujos/slideshow/imagen -> movie1 + info_imagen (idem)
   /slideshow/imagen        -> idem (alternativo)
-  /flujos/nube/datos       -> nube_datos
-  /flujos/elecciones/<id>  -> elec_<id> (nubes de elecciones)
-  /flujos/seleccion        -> seleccion_actual
+  /flujos/seleccion        -> seleccion_actual (idem)
+NOTA: el handler de /flujos/nube/datos se ELIMINO: la nube de Text TOPs fue
+reemplazada por las elecciones con botones (Replicator COMP). Ver AGENTS.md.
 """
 
 # Raiz del proyecto (cambiar si no es /project2)
@@ -96,24 +97,6 @@ def _enrutar(address, args):
             idx += 2
 
         print(f"[TD] Elecciones {grupo_id}: {n} items")
-        return
-
-    # ---- Nube de etiquetas --------------------------------------
-    if address == "/flujos/nube/datos":
-        tabla = _ROOT.op("nube_datos")
-        if not tabla:
-            return
-        tabla.clear()
-        tabla.appendRow(["palabra", "frecuencia", "peso"])
-
-        for i in range(0, len(args), 3):
-            if i + 2 < len(args):
-                palabra = str(args[i])
-                freq = int(args[i + 1]) if isinstance(args[i + 1], (int, float)) else 0
-                peso = float(args[i + 2]) if isinstance(args[i + 2], (int, float)) else 0.0
-                tabla.appendRow([palabra, str(freq), str(round(peso, 3))])
-
-        print(f"[TD] Nube: {len(args) // 3} palabras recibidas")
         return
 
     # ---- Seleccion del visitante --------------------------------

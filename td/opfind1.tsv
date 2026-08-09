@@ -1,0 +1,460 @@
+id	name	type	parentshortcut	opshortcut	path	relPath	parentPath	wirePath	depth	tags	isCOMP	nodeX	nodeY	nodeWidth	nodeHeight	dockId	recursiveChildren
+9846	local	baseCOMP			/local	local	/		1		1	-120	-110	160	130	-1	54
+9847	maps	baseCOMP			/local/maps	local/maps	/local		2		1	330	-235	160	130	-1	5
+9848	master	baseCOMP			/local/maps/master	local/maps/master	/local/maps		3		1	290	205	160	130	-1	0
+9849	select1	selectDAT			/local/maps/select1	local/maps/select1			3		0	-235	205	130	90	-1	0
+9851	replicator1	replicatorCOMP			/local/maps/replicator1	local/maps/replicator1	/local/maps		3		1	90	205	160	130	-1	0
+9852	replicator1_callbacks	textDAT			/local/maps/replicator1_callbacks	local/maps/replicator1_callbacks			3		0	90	45	160	130	9851	0
+9853	midi	baseCOMP			/local/midi	local/midi	/local		2		1	130	-235	160	130	-1	19
+31451	device	tableDAT			/local/midi/device	local/midi/device			3		0	372	-67	644	126	-1	0
+31452	template	baseCOMP			/local/midi/template	local/midi/template	/local/midi		3		1	390	115	160	130	-1	14
+31454	text1	textTOP			/local/midi/template/text1	local/midi/template/text1			4		0	65	33	130	67	-1	0
+31455	buttons	tableDAT			/local/midi/template/buttons	local/midi/template/buttons			4		0	415	245	130	90	-1	0
+31456	sliders	tableDAT			/local/midi/template/sliders	local/midi/template/sliders			4		0	235	245	130	90	-1	0
+31457	attributes	tableDAT			/local/midi/template/attributes	local/midi/template/attributes			4		0	65	245	130	90	-1	0
+31458	mapmaster1	baseCOMP			/local/midi/template/mapmaster1	local/midi/template/mapmaster1	/local/midi/template		4		1	600	65	160	130	-1	8
+31461	midiout	midioutCHOP			/local/midi/template/mapmaster1/midiout	local/midi/template/mapmaster1/midiout			5		0	655	-55	130	90	-1	0
+31463	chopexec1	chopexecuteDAT			/local/midi/template/mapmaster1/chopexec1	local/midi/template/mapmaster1/chopexec1			5		0	485	-55	130	90	-1	0
+31464	midiinmap	midiinmapCHOP			/local/midi/template/mapmaster1/midiinmap	local/midi/template/mapmaster1/midiinmap			5		0	115	70	130	90	-1	0
+31465	collect_buttons	constantCHOP			/local/midi/template/mapmaster1/collect_buttons	local/midi/template/mapmaster1/collect_buttons			5		0	115	-165	130	90	-1	0
+31466	collect_sliders	constantCHOP			/local/midi/template/mapmaster1/collect_sliders	local/midi/template/mapmaster1/collect_sliders			5		0	115	-55	130	90	-1	0
+31467	midi_inputs	tableDAT			/local/midi/midi_inputs	local/midi/midi_inputs			3		0	265	-205	130	90	-1	0
+31468	userdevices	baseCOMP			/local/midi/userdevices	local/midi/userdevices	/local/midi		3		1	880	115	160	130	-1	0
+31469	midi_outputs	tableDAT			/local/midi/midi_outputs	local/midi/midi_outputs			3		0	115	-205	130	90	-1	0
+9854	time	timeCOMP			/local/time	local/time	/local		2		1	530	-235	160	130	-1	23
+22551	rate	constantCHOP			/local/time/rate	local/time/rate			3		0	-675	485	130	90	-1	0
+22555	limit	tableDAT			/local/time/limit	local/time/limit			3		0	-535	345	130	90	-1	0
+22557	time1	timelineCHOP			/local/time/time1	local/time/time1			3		0	-1135	835	130	90	-1	0
+22561	ableton	selectDAT			/local/time/ableton	local/time/ableton			3		0	-579	1021	122	78	-1	0
+22562	getscrub	selectCHOP			/local/time/getscrub	local/time/getscrub			3		0	-185	645	130	90	-1	0
+22565	get_state	constantCHOP			/local/time/get_state	local/time/get_state			3		0	-535	715	130	90	-1	0
+22569	set_state	tableDAT			/local/time/set_state	local/time/set_state			3		0	-575	1165	130	90	-1	0
+22571	properties	tableDAT			/local/time/properties	local/time/properties			3		0	-535	245	130	90	-1	0
+22573	forcecook_override	parameterexecuteDAT			/local/time/forcecook_override	local/time/forcecook_override			3		0	-535	145	130	90	-1	0
+9855	shortcuts	fileinDAT			/local/shortcuts	local/shortcuts			2		0	390	45	130	90	-1	0
+9857	master_beat	beatCHOP			/local/master_beat	local/master_beat			2		0	115	-80	130	90	-1	0
+9858	set_variables	tableDAT			/local/set_variables	local/set_variables			2		0	90	45	130	90	-1	0
+9845	chopto1	choptoDAT			/chopto1	chopto1			1		0	65	45	130	90	-1	0
+9844	opfind1	opfindDAT			/opfind1	opfind1			1		0	265	20	130	90	-1	0
+9843	perform	windowCOMP			/perform	perform	/		1		1	-120	105	160	130	-1	0
+9343	project2	containerCOMP	Project		/project2	project2	/	project2	1		1	400	222	400	244	-1	499
+9344	osc_in1	oscinDAT			/project2/osc_in1	project2/osc_in1			2		0	-560	145	130	90	-1	0
+9345	osc_out1	oscoutDAT			/project2/osc_out1	project2/osc_out1			2		0	390	245	130	90	-1	0
+9346	elec_tags	tableDAT			/project2/elec_tags	project2/elec_tags			2		0	-285	-705	130	90	-1	0
+9347	elec_horas	tableDAT			/project2/elec_horas	project2/elec_horas			2		0	-285	145	130	90	-1	0
+9348	boton_tags_0	buttonCOMP			/project2/boton_tags_0	project2/boton_tags_0	/project2	boton_tags_0	2		1	-70	-658	160	134	-1	5
+9350	par1	parameterCHOP			/project2/boton_tags_0/par1	project2/boton_tags_0/par1			3		0	130	220	130	90	-1	0
+9351	text	textCOMP			/project2/boton_tags_0/text	project2/boton_tags_0/text	/project2/boton_tags_0	text	3		1	130	74	113	96	-1	0
+9352	parexec1	parameterexecuteDAT			/project2/boton_tags_0/parexec1	project2/boton_tags_0/parexec1			3		0	130	-50	128	66	-1	0
+9353	panelexec1	panelexecuteDAT			/project2/boton_tags_0/panelexec1	project2/boton_tags_0/panelexec1			3		0	310	-50	126	62	-1	0
+9354	elec_colores	tableDAT			/project2/elec_colores	project2/elec_colores			2		0	-285	-405	130	90	-1	0
+9355	boton_horas_0	buttonCOMP			/project2/boton_horas_0	project2/boton_horas_0	/project2	boton_horas_0	2		1	-70	242	160	134	-1	5
+9357	par1	parameterCHOP			/project2/boton_horas_0/par1	project2/boton_horas_0/par1			3		0	130	220	130	90	-1	0
+9358	text	textCOMP			/project2/boton_horas_0/text	project2/boton_horas_0/text	/project2/boton_horas_0	text	3		1	130	74	113	96	-1	0
+9359	parexec1	parameterexecuteDAT			/project2/boton_horas_0/parexec1	project2/boton_horas_0/parexec1			3		0	130	-50	128	66	-1	0
+9360	panelexec1	panelexecuteDAT			/project2/boton_horas_0/panelexec1	project2/boton_horas_0/panelexec1			3		0	310	-50	126	62	-1	0
+9361	boton_colores_0	buttonCOMP			/project2/boton_colores_0	project2/boton_colores_0	/project2	boton_colores_0	2		1	-70	-358	160	134	-1	5
+9363	par1	parameterCHOP			/project2/boton_colores_0/par1	project2/boton_colores_0/par1			3		0	130	220	130	90	-1	0
+9364	text	textCOMP			/project2/boton_colores_0/text	project2/boton_colores_0/text	/project2/boton_colores_0	text	3		1	130	74	113	96	-1	0
+9365	parexec1	parameterexecuteDAT			/project2/boton_colores_0/parexec1	project2/boton_colores_0/parexec1			3		0	130	-50	128	66	-1	0
+9366	panelexec1	panelexecuteDAT			/project2/boton_colores_0/panelexec1	project2/boton_colores_0/panelexec1			3		0	310	-50	126	62	-1	0
+9367	elec_municipios	tableDAT			/project2/elec_municipios	project2/elec_municipios			2		0	-285	-130	130	90	-1	0
+9368	osc_in1_callbacks	textDAT			/project2/osc_in1_callbacks	project2/osc_in1_callbacks			2		0	-560	20	130	90	9344	0
+9369	boton_municipios_0	buttonCOMP			/project2/boton_municipios_0	project2/boton_municipios_0	/project2	boton_municipios_0	2		1	-70	-58	160	134	-1	5
+9371	par1	parameterCHOP			/project2/boton_municipios_0/par1	project2/boton_municipios_0/par1			3		0	130	220	130	90	-1	0
+9372	text	textCOMP			/project2/boton_municipios_0/text	project2/boton_municipios_0/text	/project2/boton_municipios_0	text	3		1	130	74	113	96	-1	0
+9373	parexec1	parameterexecuteDAT			/project2/boton_municipios_0/parexec1	project2/boton_municipios_0/parexec1			3		0	130	-50	128	66	-1	0
+9374	panelexec1	panelexecuteDAT			/project2/boton_municipios_0/panelexec1	project2/boton_municipios_0/panelexec1			3		0	310	-50	126	62	-1	0
+9375	elec_horas_container	containerCOMP			/project2/elec_horas_container	project2/elec_horas_container	/project2	elec_horas_container	2		1	-70	104	160	109	-1	146
+9376	replicator1	replicatorCOMP			/project2/elec_horas_container/replicator1	project2/elec_horas_container/replicator1	/project2/elec_horas_container		3		1	505	115	160	130	-1	0
+9377	boton_horas_1	buttonCOMP			/project2/elec_horas_container/boton_horas_1	project2/elec_horas_container/boton_horas_1	/project2/elec_horas_container	boton_horas_1	3		1	505	-217	160	134	-1	5
+9379	par1	parameterCHOP			/project2/elec_horas_container/boton_horas_1/par1	project2/elec_horas_container/boton_horas_1/par1			4		0	130	220	130	90	-1	0
+9380	text	textCOMP			/project2/elec_horas_container/boton_horas_1/text	project2/elec_horas_container/boton_horas_1/text	/project2/elec_horas_container/boton_horas_1	text	4		1	130	74	113	96	-1	0
+9381	parexec1	parameterexecuteDAT			/project2/elec_horas_container/boton_horas_1/parexec1	project2/elec_horas_container/boton_horas_1/parexec1			4		0	130	-50	128	66	-1	0
+9382	panelexec1	panelexecuteDAT			/project2/elec_horas_container/boton_horas_1/panelexec1	project2/elec_horas_container/boton_horas_1/panelexec1			4		0	310	-50	126	62	-1	0
+9383	boton_horas_2	buttonCOMP			/project2/elec_horas_container/boton_horas_2	project2/elec_horas_container/boton_horas_2	/project2/elec_horas_container	boton_horas_2	3		1	755	-217	160	134	-1	5
+9385	par1	parameterCHOP			/project2/elec_horas_container/boton_horas_2/par1	project2/elec_horas_container/boton_horas_2/par1			4		0	130	220	130	90	-1	0
+9386	text	textCOMP			/project2/elec_horas_container/boton_horas_2/text	project2/elec_horas_container/boton_horas_2/text	/project2/elec_horas_container/boton_horas_2	text	4		1	130	74	113	96	-1	0
+9387	parexec1	parameterexecuteDAT			/project2/elec_horas_container/boton_horas_2/parexec1	project2/elec_horas_container/boton_horas_2/parexec1			4		0	130	-50	128	66	-1	0
+9388	panelexec1	panelexecuteDAT			/project2/elec_horas_container/boton_horas_2/panelexec1	project2/elec_horas_container/boton_horas_2/panelexec1			4		0	310	-50	126	62	-1	0
+9389	boton_horas_3	buttonCOMP			/project2/elec_horas_container/boton_horas_3	project2/elec_horas_container/boton_horas_3	/project2/elec_horas_container	boton_horas_3	3		1	1005	-217	160	134	-1	5
+9391	par1	parameterCHOP			/project2/elec_horas_container/boton_horas_3/par1	project2/elec_horas_container/boton_horas_3/par1			4		0	130	220	130	90	-1	0
+9392	text	textCOMP			/project2/elec_horas_container/boton_horas_3/text	project2/elec_horas_container/boton_horas_3/text	/project2/elec_horas_container/boton_horas_3	text	4		1	130	74	113	96	-1	0
+9393	parexec1	parameterexecuteDAT			/project2/elec_horas_container/boton_horas_3/parexec1	project2/elec_horas_container/boton_horas_3/parexec1			4		0	130	-50	128	66	-1	0
+9394	panelexec1	panelexecuteDAT			/project2/elec_horas_container/boton_horas_3/panelexec1	project2/elec_horas_container/boton_horas_3/panelexec1			4		0	310	-50	126	62	-1	0
+9395	boton_horas_4	buttonCOMP			/project2/elec_horas_container/boton_horas_4	project2/elec_horas_container/boton_horas_4	/project2/elec_horas_container	boton_horas_4	3		1	1255	-217	160	134	-1	5
+9397	par1	parameterCHOP			/project2/elec_horas_container/boton_horas_4/par1	project2/elec_horas_container/boton_horas_4/par1			4		0	130	220	130	90	-1	0
+9398	text	textCOMP			/project2/elec_horas_container/boton_horas_4/text	project2/elec_horas_container/boton_horas_4/text	/project2/elec_horas_container/boton_horas_4	text	4		1	130	74	113	96	-1	0
+9399	parexec1	parameterexecuteDAT			/project2/elec_horas_container/boton_horas_4/parexec1	project2/elec_horas_container/boton_horas_4/parexec1			4		0	130	-50	128	66	-1	0
+9400	panelexec1	panelexecuteDAT			/project2/elec_horas_container/boton_horas_4/panelexec1	project2/elec_horas_container/boton_horas_4/panelexec1			4		0	310	-50	126	62	-1	0
+9401	boton_horas_5	buttonCOMP			/project2/elec_horas_container/boton_horas_5	project2/elec_horas_container/boton_horas_5	/project2/elec_horas_container	boton_horas_5	3		1	1505	-217	160	134	-1	5
+9403	par1	parameterCHOP			/project2/elec_horas_container/boton_horas_5/par1	project2/elec_horas_container/boton_horas_5/par1			4		0	130	220	130	90	-1	0
+9404	text	textCOMP			/project2/elec_horas_container/boton_horas_5/text	project2/elec_horas_container/boton_horas_5/text	/project2/elec_horas_container/boton_horas_5	text	4		1	130	74	113	96	-1	0
+9405	parexec1	parameterexecuteDAT			/project2/elec_horas_container/boton_horas_5/parexec1	project2/elec_horas_container/boton_horas_5/parexec1			4		0	130	-50	128	66	-1	0
+9406	panelexec1	panelexecuteDAT			/project2/elec_horas_container/boton_horas_5/panelexec1	project2/elec_horas_container/boton_horas_5/panelexec1			4		0	310	-50	126	62	-1	0
+9407	boton_horas_6	buttonCOMP			/project2/elec_horas_container/boton_horas_6	project2/elec_horas_container/boton_horas_6	/project2/elec_horas_container	boton_horas_6	3		1	505	-442	160	134	-1	5
+9409	par1	parameterCHOP			/project2/elec_horas_container/boton_horas_6/par1	project2/elec_horas_container/boton_horas_6/par1			4		0	130	220	130	90	-1	0
+9410	text	textCOMP			/project2/elec_horas_container/boton_horas_6/text	project2/elec_horas_container/boton_horas_6/text	/project2/elec_horas_container/boton_horas_6	text	4		1	130	74	113	96	-1	0
+9411	parexec1	parameterexecuteDAT			/project2/elec_horas_container/boton_horas_6/parexec1	project2/elec_horas_container/boton_horas_6/parexec1			4		0	130	-50	128	66	-1	0
+9412	panelexec1	panelexecuteDAT			/project2/elec_horas_container/boton_horas_6/panelexec1	project2/elec_horas_container/boton_horas_6/panelexec1			4		0	310	-50	126	62	-1	0
+9413	boton_horas_7	buttonCOMP			/project2/elec_horas_container/boton_horas_7	project2/elec_horas_container/boton_horas_7	/project2/elec_horas_container	boton_horas_7	3		1	755	-442	160	134	-1	5
+9415	par1	parameterCHOP			/project2/elec_horas_container/boton_horas_7/par1	project2/elec_horas_container/boton_horas_7/par1			4		0	130	220	130	90	-1	0
+9416	text	textCOMP			/project2/elec_horas_container/boton_horas_7/text	project2/elec_horas_container/boton_horas_7/text	/project2/elec_horas_container/boton_horas_7	text	4		1	130	74	113	96	-1	0
+9417	parexec1	parameterexecuteDAT			/project2/elec_horas_container/boton_horas_7/parexec1	project2/elec_horas_container/boton_horas_7/parexec1			4		0	130	-50	128	66	-1	0
+9418	panelexec1	panelexecuteDAT			/project2/elec_horas_container/boton_horas_7/panelexec1	project2/elec_horas_container/boton_horas_7/panelexec1			4		0	310	-50	126	62	-1	0
+9419	boton_horas_8	buttonCOMP			/project2/elec_horas_container/boton_horas_8	project2/elec_horas_container/boton_horas_8	/project2/elec_horas_container	boton_horas_8	3		1	1005	-442	160	134	-1	5
+9421	par1	parameterCHOP			/project2/elec_horas_container/boton_horas_8/par1	project2/elec_horas_container/boton_horas_8/par1			4		0	130	220	130	90	-1	0
+9422	text	textCOMP			/project2/elec_horas_container/boton_horas_8/text	project2/elec_horas_container/boton_horas_8/text	/project2/elec_horas_container/boton_horas_8	text	4		1	130	74	113	96	-1	0
+9423	parexec1	parameterexecuteDAT			/project2/elec_horas_container/boton_horas_8/parexec1	project2/elec_horas_container/boton_horas_8/parexec1			4		0	130	-50	128	66	-1	0
+9424	panelexec1	panelexecuteDAT			/project2/elec_horas_container/boton_horas_8/panelexec1	project2/elec_horas_container/boton_horas_8/panelexec1			4		0	310	-50	126	62	-1	0
+9425	boton_horas_9	buttonCOMP			/project2/elec_horas_container/boton_horas_9	project2/elec_horas_container/boton_horas_9	/project2/elec_horas_container	boton_horas_9	3		1	1255	-442	160	134	-1	5
+9427	par1	parameterCHOP			/project2/elec_horas_container/boton_horas_9/par1	project2/elec_horas_container/boton_horas_9/par1			4		0	130	220	130	90	-1	0
+9428	text	textCOMP			/project2/elec_horas_container/boton_horas_9/text	project2/elec_horas_container/boton_horas_9/text	/project2/elec_horas_container/boton_horas_9	text	4		1	130	74	113	96	-1	0
+9429	parexec1	parameterexecuteDAT			/project2/elec_horas_container/boton_horas_9/parexec1	project2/elec_horas_container/boton_horas_9/parexec1			4		0	130	-50	128	66	-1	0
+9430	panelexec1	panelexecuteDAT			/project2/elec_horas_container/boton_horas_9/panelexec1	project2/elec_horas_container/boton_horas_9/panelexec1			4		0	310	-50	126	62	-1	0
+9431	boton_horas_10	buttonCOMP			/project2/elec_horas_container/boton_horas_10	project2/elec_horas_container/boton_horas_10	/project2/elec_horas_container	boton_horas_10	3		1	1505	-442	160	134	-1	5
+9433	par1	parameterCHOP			/project2/elec_horas_container/boton_horas_10/par1	project2/elec_horas_container/boton_horas_10/par1			4		0	130	220	130	90	-1	0
+9434	text	textCOMP			/project2/elec_horas_container/boton_horas_10/text	project2/elec_horas_container/boton_horas_10/text	/project2/elec_horas_container/boton_horas_10	text	4		1	130	74	113	96	-1	0
+9435	parexec1	parameterexecuteDAT			/project2/elec_horas_container/boton_horas_10/parexec1	project2/elec_horas_container/boton_horas_10/parexec1			4		0	130	-50	128	66	-1	0
+9436	panelexec1	panelexecuteDAT			/project2/elec_horas_container/boton_horas_10/panelexec1	project2/elec_horas_container/boton_horas_10/panelexec1			4		0	310	-50	126	62	-1	0
+9437	boton_horas_11	buttonCOMP			/project2/elec_horas_container/boton_horas_11	project2/elec_horas_container/boton_horas_11	/project2/elec_horas_container	boton_horas_11	3		1	505	-667	160	134	-1	5
+9439	par1	parameterCHOP			/project2/elec_horas_container/boton_horas_11/par1	project2/elec_horas_container/boton_horas_11/par1			4		0	130	220	130	90	-1	0
+9440	text	textCOMP			/project2/elec_horas_container/boton_horas_11/text	project2/elec_horas_container/boton_horas_11/text	/project2/elec_horas_container/boton_horas_11	text	4		1	130	74	113	96	-1	0
+9441	parexec1	parameterexecuteDAT			/project2/elec_horas_container/boton_horas_11/parexec1	project2/elec_horas_container/boton_horas_11/parexec1			4		0	130	-50	128	66	-1	0
+9442	panelexec1	panelexecuteDAT			/project2/elec_horas_container/boton_horas_11/panelexec1	project2/elec_horas_container/boton_horas_11/panelexec1			4		0	310	-50	126	62	-1	0
+9443	boton_horas_12	buttonCOMP			/project2/elec_horas_container/boton_horas_12	project2/elec_horas_container/boton_horas_12	/project2/elec_horas_container	boton_horas_12	3		1	755	-667	160	134	-1	5
+9445	par1	parameterCHOP			/project2/elec_horas_container/boton_horas_12/par1	project2/elec_horas_container/boton_horas_12/par1			4		0	130	220	130	90	-1	0
+9446	text	textCOMP			/project2/elec_horas_container/boton_horas_12/text	project2/elec_horas_container/boton_horas_12/text	/project2/elec_horas_container/boton_horas_12	text	4		1	130	74	113	96	-1	0
+9447	parexec1	parameterexecuteDAT			/project2/elec_horas_container/boton_horas_12/parexec1	project2/elec_horas_container/boton_horas_12/parexec1			4		0	130	-50	128	66	-1	0
+9448	panelexec1	panelexecuteDAT			/project2/elec_horas_container/boton_horas_12/panelexec1	project2/elec_horas_container/boton_horas_12/panelexec1			4		0	310	-50	126	62	-1	0
+9449	boton_horas_13	buttonCOMP			/project2/elec_horas_container/boton_horas_13	project2/elec_horas_container/boton_horas_13	/project2/elec_horas_container	boton_horas_13	3		1	1005	-667	160	134	-1	5
+9451	par1	parameterCHOP			/project2/elec_horas_container/boton_horas_13/par1	project2/elec_horas_container/boton_horas_13/par1			4		0	130	220	130	90	-1	0
+9452	text	textCOMP			/project2/elec_horas_container/boton_horas_13/text	project2/elec_horas_container/boton_horas_13/text	/project2/elec_horas_container/boton_horas_13	text	4		1	130	74	113	96	-1	0
+9453	parexec1	parameterexecuteDAT			/project2/elec_horas_container/boton_horas_13/parexec1	project2/elec_horas_container/boton_horas_13/parexec1			4		0	130	-50	128	66	-1	0
+9454	panelexec1	panelexecuteDAT			/project2/elec_horas_container/boton_horas_13/panelexec1	project2/elec_horas_container/boton_horas_13/panelexec1			4		0	310	-50	126	62	-1	0
+9455	boton_horas_14	buttonCOMP			/project2/elec_horas_container/boton_horas_14	project2/elec_horas_container/boton_horas_14	/project2/elec_horas_container	boton_horas_14	3		1	1255	-667	160	134	-1	5
+9457	par1	parameterCHOP			/project2/elec_horas_container/boton_horas_14/par1	project2/elec_horas_container/boton_horas_14/par1			4		0	130	220	130	90	-1	0
+9458	text	textCOMP			/project2/elec_horas_container/boton_horas_14/text	project2/elec_horas_container/boton_horas_14/text	/project2/elec_horas_container/boton_horas_14	text	4		1	130	74	113	96	-1	0
+9459	parexec1	parameterexecuteDAT			/project2/elec_horas_container/boton_horas_14/parexec1	project2/elec_horas_container/boton_horas_14/parexec1			4		0	130	-50	128	66	-1	0
+9460	panelexec1	panelexecuteDAT			/project2/elec_horas_container/boton_horas_14/panelexec1	project2/elec_horas_container/boton_horas_14/panelexec1			4		0	310	-50	126	62	-1	0
+9461	boton_horas_15	buttonCOMP			/project2/elec_horas_container/boton_horas_15	project2/elec_horas_container/boton_horas_15	/project2/elec_horas_container	boton_horas_15	3		1	1505	-667	160	134	-1	5
+9463	par1	parameterCHOP			/project2/elec_horas_container/boton_horas_15/par1	project2/elec_horas_container/boton_horas_15/par1			4		0	130	220	130	90	-1	0
+9464	text	textCOMP			/project2/elec_horas_container/boton_horas_15/text	project2/elec_horas_container/boton_horas_15/text	/project2/elec_horas_container/boton_horas_15	text	4		1	130	74	113	96	-1	0
+9465	parexec1	parameterexecuteDAT			/project2/elec_horas_container/boton_horas_15/parexec1	project2/elec_horas_container/boton_horas_15/parexec1			4		0	130	-50	128	66	-1	0
+9466	panelexec1	panelexecuteDAT			/project2/elec_horas_container/boton_horas_15/panelexec1	project2/elec_horas_container/boton_horas_15/panelexec1			4		0	310	-50	126	62	-1	0
+9467	boton_horas_16	buttonCOMP			/project2/elec_horas_container/boton_horas_16	project2/elec_horas_container/boton_horas_16	/project2/elec_horas_container	boton_horas_16	3		1	505	-892	160	134	-1	5
+9469	par1	parameterCHOP			/project2/elec_horas_container/boton_horas_16/par1	project2/elec_horas_container/boton_horas_16/par1			4		0	130	220	130	90	-1	0
+9470	text	textCOMP			/project2/elec_horas_container/boton_horas_16/text	project2/elec_horas_container/boton_horas_16/text	/project2/elec_horas_container/boton_horas_16	text	4		1	130	74	113	96	-1	0
+9471	parexec1	parameterexecuteDAT			/project2/elec_horas_container/boton_horas_16/parexec1	project2/elec_horas_container/boton_horas_16/parexec1			4		0	130	-50	128	66	-1	0
+9472	panelexec1	panelexecuteDAT			/project2/elec_horas_container/boton_horas_16/panelexec1	project2/elec_horas_container/boton_horas_16/panelexec1			4		0	310	-50	126	62	-1	0
+9473	boton_horas_17	buttonCOMP			/project2/elec_horas_container/boton_horas_17	project2/elec_horas_container/boton_horas_17	/project2/elec_horas_container	boton_horas_17	3		1	755	-892	160	134	-1	5
+9475	par1	parameterCHOP			/project2/elec_horas_container/boton_horas_17/par1	project2/elec_horas_container/boton_horas_17/par1			4		0	130	220	130	90	-1	0
+9476	text	textCOMP			/project2/elec_horas_container/boton_horas_17/text	project2/elec_horas_container/boton_horas_17/text	/project2/elec_horas_container/boton_horas_17	text	4		1	130	74	113	96	-1	0
+9477	parexec1	parameterexecuteDAT			/project2/elec_horas_container/boton_horas_17/parexec1	project2/elec_horas_container/boton_horas_17/parexec1			4		0	130	-50	128	66	-1	0
+9478	panelexec1	panelexecuteDAT			/project2/elec_horas_container/boton_horas_17/panelexec1	project2/elec_horas_container/boton_horas_17/panelexec1			4		0	310	-50	126	62	-1	0
+9479	boton_horas_18	buttonCOMP			/project2/elec_horas_container/boton_horas_18	project2/elec_horas_container/boton_horas_18	/project2/elec_horas_container	boton_horas_18	3		1	1005	-892	160	134	-1	5
+9481	par1	parameterCHOP			/project2/elec_horas_container/boton_horas_18/par1	project2/elec_horas_container/boton_horas_18/par1			4		0	130	220	130	90	-1	0
+9482	text	textCOMP			/project2/elec_horas_container/boton_horas_18/text	project2/elec_horas_container/boton_horas_18/text	/project2/elec_horas_container/boton_horas_18	text	4		1	130	74	113	96	-1	0
+9483	parexec1	parameterexecuteDAT			/project2/elec_horas_container/boton_horas_18/parexec1	project2/elec_horas_container/boton_horas_18/parexec1			4		0	130	-50	128	66	-1	0
+9484	panelexec1	panelexecuteDAT			/project2/elec_horas_container/boton_horas_18/panelexec1	project2/elec_horas_container/boton_horas_18/panelexec1			4		0	310	-50	126	62	-1	0
+9485	boton_horas_19	buttonCOMP			/project2/elec_horas_container/boton_horas_19	project2/elec_horas_container/boton_horas_19	/project2/elec_horas_container	boton_horas_19	3		1	1255	-892	160	134	-1	5
+9487	par1	parameterCHOP			/project2/elec_horas_container/boton_horas_19/par1	project2/elec_horas_container/boton_horas_19/par1			4		0	130	220	130	90	-1	0
+9488	text	textCOMP			/project2/elec_horas_container/boton_horas_19/text	project2/elec_horas_container/boton_horas_19/text	/project2/elec_horas_container/boton_horas_19	text	4		1	130	74	113	96	-1	0
+9489	parexec1	parameterexecuteDAT			/project2/elec_horas_container/boton_horas_19/parexec1	project2/elec_horas_container/boton_horas_19/parexec1			4		0	130	-50	128	66	-1	0
+9490	panelexec1	panelexecuteDAT			/project2/elec_horas_container/boton_horas_19/panelexec1	project2/elec_horas_container/boton_horas_19/panelexec1			4		0	310	-50	126	62	-1	0
+9491	boton_horas_20	buttonCOMP			/project2/elec_horas_container/boton_horas_20	project2/elec_horas_container/boton_horas_20	/project2/elec_horas_container	boton_horas_20	3		1	1505	-892	160	134	-1	5
+9493	par1	parameterCHOP			/project2/elec_horas_container/boton_horas_20/par1	project2/elec_horas_container/boton_horas_20/par1			4		0	130	220	130	90	-1	0
+9494	text	textCOMP			/project2/elec_horas_container/boton_horas_20/text	project2/elec_horas_container/boton_horas_20/text	/project2/elec_horas_container/boton_horas_20	text	4		1	130	74	113	96	-1	0
+9495	parexec1	parameterexecuteDAT			/project2/elec_horas_container/boton_horas_20/parexec1	project2/elec_horas_container/boton_horas_20/parexec1			4		0	130	-50	128	66	-1	0
+9496	panelexec1	panelexecuteDAT			/project2/elec_horas_container/boton_horas_20/panelexec1	project2/elec_horas_container/boton_horas_20/panelexec1			4		0	310	-50	126	62	-1	0
+9497	boton_horas_21	buttonCOMP			/project2/elec_horas_container/boton_horas_21	project2/elec_horas_container/boton_horas_21	/project2/elec_horas_container	boton_horas_21	3		1	505	-1117	160	134	-1	5
+9499	par1	parameterCHOP			/project2/elec_horas_container/boton_horas_21/par1	project2/elec_horas_container/boton_horas_21/par1			4		0	130	220	130	90	-1	0
+9500	text	textCOMP			/project2/elec_horas_container/boton_horas_21/text	project2/elec_horas_container/boton_horas_21/text	/project2/elec_horas_container/boton_horas_21	text	4		1	130	74	113	96	-1	0
+9501	parexec1	parameterexecuteDAT			/project2/elec_horas_container/boton_horas_21/parexec1	project2/elec_horas_container/boton_horas_21/parexec1			4		0	130	-50	128	66	-1	0
+9502	panelexec1	panelexecuteDAT			/project2/elec_horas_container/boton_horas_21/panelexec1	project2/elec_horas_container/boton_horas_21/panelexec1			4		0	310	-50	126	62	-1	0
+9503	boton_horas_22	buttonCOMP			/project2/elec_horas_container/boton_horas_22	project2/elec_horas_container/boton_horas_22	/project2/elec_horas_container	boton_horas_22	3		1	755	-1117	160	134	-1	5
+9505	par1	parameterCHOP			/project2/elec_horas_container/boton_horas_22/par1	project2/elec_horas_container/boton_horas_22/par1			4		0	130	220	130	90	-1	0
+9506	text	textCOMP			/project2/elec_horas_container/boton_horas_22/text	project2/elec_horas_container/boton_horas_22/text	/project2/elec_horas_container/boton_horas_22	text	4		1	130	74	113	96	-1	0
+9507	parexec1	parameterexecuteDAT			/project2/elec_horas_container/boton_horas_22/parexec1	project2/elec_horas_container/boton_horas_22/parexec1			4		0	130	-50	128	66	-1	0
+9508	panelexec1	panelexecuteDAT			/project2/elec_horas_container/boton_horas_22/panelexec1	project2/elec_horas_container/boton_horas_22/panelexec1			4		0	310	-50	126	62	-1	0
+9509	boton_horas_23	buttonCOMP			/project2/elec_horas_container/boton_horas_23	project2/elec_horas_container/boton_horas_23	/project2/elec_horas_container	boton_horas_23	3		1	1005	-1117	160	134	-1	5
+9511	par1	parameterCHOP			/project2/elec_horas_container/boton_horas_23/par1	project2/elec_horas_container/boton_horas_23/par1			4		0	130	220	130	90	-1	0
+9512	text	textCOMP			/project2/elec_horas_container/boton_horas_23/text	project2/elec_horas_container/boton_horas_23/text	/project2/elec_horas_container/boton_horas_23	text	4		1	130	74	113	96	-1	0
+9513	parexec1	parameterexecuteDAT			/project2/elec_horas_container/boton_horas_23/parexec1	project2/elec_horas_container/boton_horas_23/parexec1			4		0	130	-50	128	66	-1	0
+9514	panelexec1	panelexecuteDAT			/project2/elec_horas_container/boton_horas_23/panelexec1	project2/elec_horas_container/boton_horas_23/panelexec1			4		0	310	-50	126	62	-1	0
+9515	boton_horas_24	buttonCOMP			/project2/elec_horas_container/boton_horas_24	project2/elec_horas_container/boton_horas_24	/project2/elec_horas_container	boton_horas_24	3		1	1255	-1117	160	134	-1	5
+9517	par1	parameterCHOP			/project2/elec_horas_container/boton_horas_24/par1	project2/elec_horas_container/boton_horas_24/par1			4		0	130	220	130	90	-1	0
+9518	text	textCOMP			/project2/elec_horas_container/boton_horas_24/text	project2/elec_horas_container/boton_horas_24/text	/project2/elec_horas_container/boton_horas_24	text	4		1	130	74	113	96	-1	0
+9519	parexec1	parameterexecuteDAT			/project2/elec_horas_container/boton_horas_24/parexec1	project2/elec_horas_container/boton_horas_24/parexec1			4		0	130	-50	128	66	-1	0
+9520	panelexec1	panelexecuteDAT			/project2/elec_horas_container/boton_horas_24/panelexec1	project2/elec_horas_container/boton_horas_24/panelexec1			4		0	310	-50	126	62	-1	0
+9521	replicator1_callbacks	textDAT			/project2/elec_horas_container/replicator1_callbacks	project2/elec_horas_container/replicator1_callbacks			3		0	505	-45	160	130	9376	0
+9522	elec_tags_container3	containerCOMP			/project2/elec_tags_container3	project2/elec_tags_container3	/project2	elec_tags_container3	2		1	-70	-796	160	109	-1	182
+9523	replicator1	replicatorCOMP			/project2/elec_tags_container3/replicator1	project2/elec_tags_container3/replicator1	/project2/elec_tags_container3		3		1	505	115	160	130	-1	0
+9524	boton_tags_1	buttonCOMP			/project2/elec_tags_container3/boton_tags_1	project2/elec_tags_container3/boton_tags_1	/project2/elec_tags_container3	boton_tags_1	3		1	505	-217	160	134	-1	5
+9526	par1	parameterCHOP			/project2/elec_tags_container3/boton_tags_1/par1	project2/elec_tags_container3/boton_tags_1/par1			4		0	130	220	130	90	-1	0
+9527	text	textCOMP			/project2/elec_tags_container3/boton_tags_1/text	project2/elec_tags_container3/boton_tags_1/text	/project2/elec_tags_container3/boton_tags_1	text	4		1	130	74	113	96	-1	0
+9528	parexec1	parameterexecuteDAT			/project2/elec_tags_container3/boton_tags_1/parexec1	project2/elec_tags_container3/boton_tags_1/parexec1			4		0	130	-50	128	66	-1	0
+9529	panelexec1	panelexecuteDAT			/project2/elec_tags_container3/boton_tags_1/panelexec1	project2/elec_tags_container3/boton_tags_1/panelexec1			4		0	310	-50	126	62	-1	0
+9530	boton_tags_2	buttonCOMP			/project2/elec_tags_container3/boton_tags_2	project2/elec_tags_container3/boton_tags_2	/project2/elec_tags_container3	boton_tags_2	3		1	755	-217	160	134	-1	5
+9532	par1	parameterCHOP			/project2/elec_tags_container3/boton_tags_2/par1	project2/elec_tags_container3/boton_tags_2/par1			4		0	130	220	130	90	-1	0
+9533	text	textCOMP			/project2/elec_tags_container3/boton_tags_2/text	project2/elec_tags_container3/boton_tags_2/text	/project2/elec_tags_container3/boton_tags_2	text	4		1	130	74	113	96	-1	0
+9534	parexec1	parameterexecuteDAT			/project2/elec_tags_container3/boton_tags_2/parexec1	project2/elec_tags_container3/boton_tags_2/parexec1			4		0	130	-50	128	66	-1	0
+9535	panelexec1	panelexecuteDAT			/project2/elec_tags_container3/boton_tags_2/panelexec1	project2/elec_tags_container3/boton_tags_2/panelexec1			4		0	310	-50	126	62	-1	0
+9536	boton_tags_3	buttonCOMP			/project2/elec_tags_container3/boton_tags_3	project2/elec_tags_container3/boton_tags_3	/project2/elec_tags_container3	boton_tags_3	3		1	1005	-217	160	134	-1	5
+9538	par1	parameterCHOP			/project2/elec_tags_container3/boton_tags_3/par1	project2/elec_tags_container3/boton_tags_3/par1			4		0	130	220	130	90	-1	0
+9539	text	textCOMP			/project2/elec_tags_container3/boton_tags_3/text	project2/elec_tags_container3/boton_tags_3/text	/project2/elec_tags_container3/boton_tags_3	text	4		1	130	74	113	96	-1	0
+9540	parexec1	parameterexecuteDAT			/project2/elec_tags_container3/boton_tags_3/parexec1	project2/elec_tags_container3/boton_tags_3/parexec1			4		0	130	-50	128	66	-1	0
+9541	panelexec1	panelexecuteDAT			/project2/elec_tags_container3/boton_tags_3/panelexec1	project2/elec_tags_container3/boton_tags_3/panelexec1			4		0	310	-50	126	62	-1	0
+9542	boton_tags_4	buttonCOMP			/project2/elec_tags_container3/boton_tags_4	project2/elec_tags_container3/boton_tags_4	/project2/elec_tags_container3	boton_tags_4	3		1	1255	-217	160	134	-1	5
+9544	par1	parameterCHOP			/project2/elec_tags_container3/boton_tags_4/par1	project2/elec_tags_container3/boton_tags_4/par1			4		0	130	220	130	90	-1	0
+9545	text	textCOMP			/project2/elec_tags_container3/boton_tags_4/text	project2/elec_tags_container3/boton_tags_4/text	/project2/elec_tags_container3/boton_tags_4	text	4		1	130	74	113	96	-1	0
+9546	parexec1	parameterexecuteDAT			/project2/elec_tags_container3/boton_tags_4/parexec1	project2/elec_tags_container3/boton_tags_4/parexec1			4		0	130	-50	128	66	-1	0
+9547	panelexec1	panelexecuteDAT			/project2/elec_tags_container3/boton_tags_4/panelexec1	project2/elec_tags_container3/boton_tags_4/panelexec1			4		0	310	-50	126	62	-1	0
+9548	boton_tags_5	buttonCOMP			/project2/elec_tags_container3/boton_tags_5	project2/elec_tags_container3/boton_tags_5	/project2/elec_tags_container3	boton_tags_5	3		1	1505	-217	160	134	-1	5
+9550	par1	parameterCHOP			/project2/elec_tags_container3/boton_tags_5/par1	project2/elec_tags_container3/boton_tags_5/par1			4		0	130	220	130	90	-1	0
+9551	text	textCOMP			/project2/elec_tags_container3/boton_tags_5/text	project2/elec_tags_container3/boton_tags_5/text	/project2/elec_tags_container3/boton_tags_5	text	4		1	130	74	113	96	-1	0
+9552	parexec1	parameterexecuteDAT			/project2/elec_tags_container3/boton_tags_5/parexec1	project2/elec_tags_container3/boton_tags_5/parexec1			4		0	130	-50	128	66	-1	0
+9553	panelexec1	panelexecuteDAT			/project2/elec_tags_container3/boton_tags_5/panelexec1	project2/elec_tags_container3/boton_tags_5/panelexec1			4		0	310	-50	126	62	-1	0
+9554	boton_tags_6	buttonCOMP			/project2/elec_tags_container3/boton_tags_6	project2/elec_tags_container3/boton_tags_6	/project2/elec_tags_container3	boton_tags_6	3		1	1755	-217	160	134	-1	5
+9556	par1	parameterCHOP			/project2/elec_tags_container3/boton_tags_6/par1	project2/elec_tags_container3/boton_tags_6/par1			4		0	130	220	130	90	-1	0
+9557	text	textCOMP			/project2/elec_tags_container3/boton_tags_6/text	project2/elec_tags_container3/boton_tags_6/text	/project2/elec_tags_container3/boton_tags_6	text	4		1	130	74	113	96	-1	0
+9558	parexec1	parameterexecuteDAT			/project2/elec_tags_container3/boton_tags_6/parexec1	project2/elec_tags_container3/boton_tags_6/parexec1			4		0	130	-50	128	66	-1	0
+9559	panelexec1	panelexecuteDAT			/project2/elec_tags_container3/boton_tags_6/panelexec1	project2/elec_tags_container3/boton_tags_6/panelexec1			4		0	310	-50	126	62	-1	0
+9560	boton_tags_7	buttonCOMP			/project2/elec_tags_container3/boton_tags_7	project2/elec_tags_container3/boton_tags_7	/project2/elec_tags_container3	boton_tags_7	3		1	505	-442	160	134	-1	5
+9562	par1	parameterCHOP			/project2/elec_tags_container3/boton_tags_7/par1	project2/elec_tags_container3/boton_tags_7/par1			4		0	130	220	130	90	-1	0
+9563	text	textCOMP			/project2/elec_tags_container3/boton_tags_7/text	project2/elec_tags_container3/boton_tags_7/text	/project2/elec_tags_container3/boton_tags_7	text	4		1	130	74	113	96	-1	0
+9564	parexec1	parameterexecuteDAT			/project2/elec_tags_container3/boton_tags_7/parexec1	project2/elec_tags_container3/boton_tags_7/parexec1			4		0	130	-50	128	66	-1	0
+9565	panelexec1	panelexecuteDAT			/project2/elec_tags_container3/boton_tags_7/panelexec1	project2/elec_tags_container3/boton_tags_7/panelexec1			4		0	310	-50	126	62	-1	0
+9566	boton_tags_8	buttonCOMP			/project2/elec_tags_container3/boton_tags_8	project2/elec_tags_container3/boton_tags_8	/project2/elec_tags_container3	boton_tags_8	3		1	755	-442	160	134	-1	5
+9568	par1	parameterCHOP			/project2/elec_tags_container3/boton_tags_8/par1	project2/elec_tags_container3/boton_tags_8/par1			4		0	130	220	130	90	-1	0
+9569	text	textCOMP			/project2/elec_tags_container3/boton_tags_8/text	project2/elec_tags_container3/boton_tags_8/text	/project2/elec_tags_container3/boton_tags_8	text	4		1	130	74	113	96	-1	0
+9570	parexec1	parameterexecuteDAT			/project2/elec_tags_container3/boton_tags_8/parexec1	project2/elec_tags_container3/boton_tags_8/parexec1			4		0	130	-50	128	66	-1	0
+9571	panelexec1	panelexecuteDAT			/project2/elec_tags_container3/boton_tags_8/panelexec1	project2/elec_tags_container3/boton_tags_8/panelexec1			4		0	310	-50	126	62	-1	0
+9572	boton_tags_9	buttonCOMP			/project2/elec_tags_container3/boton_tags_9	project2/elec_tags_container3/boton_tags_9	/project2/elec_tags_container3	boton_tags_9	3		1	1005	-442	160	134	-1	5
+9574	par1	parameterCHOP			/project2/elec_tags_container3/boton_tags_9/par1	project2/elec_tags_container3/boton_tags_9/par1			4		0	130	220	130	90	-1	0
+9575	text	textCOMP			/project2/elec_tags_container3/boton_tags_9/text	project2/elec_tags_container3/boton_tags_9/text	/project2/elec_tags_container3/boton_tags_9	text	4		1	130	74	113	96	-1	0
+9576	parexec1	parameterexecuteDAT			/project2/elec_tags_container3/boton_tags_9/parexec1	project2/elec_tags_container3/boton_tags_9/parexec1			4		0	130	-50	128	66	-1	0
+9577	panelexec1	panelexecuteDAT			/project2/elec_tags_container3/boton_tags_9/panelexec1	project2/elec_tags_container3/boton_tags_9/panelexec1			4		0	310	-50	126	62	-1	0
+9578	boton_tags_10	buttonCOMP			/project2/elec_tags_container3/boton_tags_10	project2/elec_tags_container3/boton_tags_10	/project2/elec_tags_container3	boton_tags_10	3		1	1255	-442	160	134	-1	5
+9580	par1	parameterCHOP			/project2/elec_tags_container3/boton_tags_10/par1	project2/elec_tags_container3/boton_tags_10/par1			4		0	130	220	130	90	-1	0
+9581	text	textCOMP			/project2/elec_tags_container3/boton_tags_10/text	project2/elec_tags_container3/boton_tags_10/text	/project2/elec_tags_container3/boton_tags_10	text	4		1	130	74	113	96	-1	0
+9582	parexec1	parameterexecuteDAT			/project2/elec_tags_container3/boton_tags_10/parexec1	project2/elec_tags_container3/boton_tags_10/parexec1			4		0	130	-50	128	66	-1	0
+9583	panelexec1	panelexecuteDAT			/project2/elec_tags_container3/boton_tags_10/panelexec1	project2/elec_tags_container3/boton_tags_10/panelexec1			4		0	310	-50	126	62	-1	0
+9584	boton_tags_11	buttonCOMP			/project2/elec_tags_container3/boton_tags_11	project2/elec_tags_container3/boton_tags_11	/project2/elec_tags_container3	boton_tags_11	3		1	1505	-442	160	134	-1	5
+9586	par1	parameterCHOP			/project2/elec_tags_container3/boton_tags_11/par1	project2/elec_tags_container3/boton_tags_11/par1			4		0	130	220	130	90	-1	0
+9587	text	textCOMP			/project2/elec_tags_container3/boton_tags_11/text	project2/elec_tags_container3/boton_tags_11/text	/project2/elec_tags_container3/boton_tags_11	text	4		1	130	74	113	96	-1	0
+9588	parexec1	parameterexecuteDAT			/project2/elec_tags_container3/boton_tags_11/parexec1	project2/elec_tags_container3/boton_tags_11/parexec1			4		0	130	-50	128	66	-1	0
+9589	panelexec1	panelexecuteDAT			/project2/elec_tags_container3/boton_tags_11/panelexec1	project2/elec_tags_container3/boton_tags_11/panelexec1			4		0	310	-50	126	62	-1	0
+9590	boton_tags_12	buttonCOMP			/project2/elec_tags_container3/boton_tags_12	project2/elec_tags_container3/boton_tags_12	/project2/elec_tags_container3	boton_tags_12	3		1	1755	-442	160	134	-1	5
+9592	par1	parameterCHOP			/project2/elec_tags_container3/boton_tags_12/par1	project2/elec_tags_container3/boton_tags_12/par1			4		0	130	220	130	90	-1	0
+9593	text	textCOMP			/project2/elec_tags_container3/boton_tags_12/text	project2/elec_tags_container3/boton_tags_12/text	/project2/elec_tags_container3/boton_tags_12	text	4		1	130	74	113	96	-1	0
+9594	parexec1	parameterexecuteDAT			/project2/elec_tags_container3/boton_tags_12/parexec1	project2/elec_tags_container3/boton_tags_12/parexec1			4		0	130	-50	128	66	-1	0
+9595	panelexec1	panelexecuteDAT			/project2/elec_tags_container3/boton_tags_12/panelexec1	project2/elec_tags_container3/boton_tags_12/panelexec1			4		0	310	-50	126	62	-1	0
+9596	boton_tags_13	buttonCOMP			/project2/elec_tags_container3/boton_tags_13	project2/elec_tags_container3/boton_tags_13	/project2/elec_tags_container3	boton_tags_13	3		1	505	-667	160	134	-1	5
+9598	par1	parameterCHOP			/project2/elec_tags_container3/boton_tags_13/par1	project2/elec_tags_container3/boton_tags_13/par1			4		0	130	220	130	90	-1	0
+9599	text	textCOMP			/project2/elec_tags_container3/boton_tags_13/text	project2/elec_tags_container3/boton_tags_13/text	/project2/elec_tags_container3/boton_tags_13	text	4		1	130	74	113	96	-1	0
+9600	parexec1	parameterexecuteDAT			/project2/elec_tags_container3/boton_tags_13/parexec1	project2/elec_tags_container3/boton_tags_13/parexec1			4		0	130	-50	128	66	-1	0
+9601	panelexec1	panelexecuteDAT			/project2/elec_tags_container3/boton_tags_13/panelexec1	project2/elec_tags_container3/boton_tags_13/panelexec1			4		0	310	-50	126	62	-1	0
+9602	boton_tags_14	buttonCOMP			/project2/elec_tags_container3/boton_tags_14	project2/elec_tags_container3/boton_tags_14	/project2/elec_tags_container3	boton_tags_14	3		1	755	-667	160	134	-1	5
+9604	par1	parameterCHOP			/project2/elec_tags_container3/boton_tags_14/par1	project2/elec_tags_container3/boton_tags_14/par1			4		0	130	220	130	90	-1	0
+9605	text	textCOMP			/project2/elec_tags_container3/boton_tags_14/text	project2/elec_tags_container3/boton_tags_14/text	/project2/elec_tags_container3/boton_tags_14	text	4		1	130	74	113	96	-1	0
+9606	parexec1	parameterexecuteDAT			/project2/elec_tags_container3/boton_tags_14/parexec1	project2/elec_tags_container3/boton_tags_14/parexec1			4		0	130	-50	128	66	-1	0
+9607	panelexec1	panelexecuteDAT			/project2/elec_tags_container3/boton_tags_14/panelexec1	project2/elec_tags_container3/boton_tags_14/panelexec1			4		0	310	-50	126	62	-1	0
+9608	boton_tags_15	buttonCOMP			/project2/elec_tags_container3/boton_tags_15	project2/elec_tags_container3/boton_tags_15	/project2/elec_tags_container3	boton_tags_15	3		1	1005	-667	160	134	-1	5
+9610	par1	parameterCHOP			/project2/elec_tags_container3/boton_tags_15/par1	project2/elec_tags_container3/boton_tags_15/par1			4		0	130	220	130	90	-1	0
+9611	text	textCOMP			/project2/elec_tags_container3/boton_tags_15/text	project2/elec_tags_container3/boton_tags_15/text	/project2/elec_tags_container3/boton_tags_15	text	4		1	130	74	113	96	-1	0
+9612	parexec1	parameterexecuteDAT			/project2/elec_tags_container3/boton_tags_15/parexec1	project2/elec_tags_container3/boton_tags_15/parexec1			4		0	130	-50	128	66	-1	0
+9613	panelexec1	panelexecuteDAT			/project2/elec_tags_container3/boton_tags_15/panelexec1	project2/elec_tags_container3/boton_tags_15/panelexec1			4		0	310	-50	126	62	-1	0
+9614	boton_tags_16	buttonCOMP			/project2/elec_tags_container3/boton_tags_16	project2/elec_tags_container3/boton_tags_16	/project2/elec_tags_container3	boton_tags_16	3		1	1255	-667	160	134	-1	5
+9616	par1	parameterCHOP			/project2/elec_tags_container3/boton_tags_16/par1	project2/elec_tags_container3/boton_tags_16/par1			4		0	130	220	130	90	-1	0
+9617	text	textCOMP			/project2/elec_tags_container3/boton_tags_16/text	project2/elec_tags_container3/boton_tags_16/text	/project2/elec_tags_container3/boton_tags_16	text	4		1	130	74	113	96	-1	0
+9618	parexec1	parameterexecuteDAT			/project2/elec_tags_container3/boton_tags_16/parexec1	project2/elec_tags_container3/boton_tags_16/parexec1			4		0	130	-50	128	66	-1	0
+9619	panelexec1	panelexecuteDAT			/project2/elec_tags_container3/boton_tags_16/panelexec1	project2/elec_tags_container3/boton_tags_16/panelexec1			4		0	310	-50	126	62	-1	0
+9620	boton_tags_17	buttonCOMP			/project2/elec_tags_container3/boton_tags_17	project2/elec_tags_container3/boton_tags_17	/project2/elec_tags_container3	boton_tags_17	3		1	1505	-667	160	134	-1	5
+9622	par1	parameterCHOP			/project2/elec_tags_container3/boton_tags_17/par1	project2/elec_tags_container3/boton_tags_17/par1			4		0	130	220	130	90	-1	0
+9623	text	textCOMP			/project2/elec_tags_container3/boton_tags_17/text	project2/elec_tags_container3/boton_tags_17/text	/project2/elec_tags_container3/boton_tags_17	text	4		1	130	74	113	96	-1	0
+9624	parexec1	parameterexecuteDAT			/project2/elec_tags_container3/boton_tags_17/parexec1	project2/elec_tags_container3/boton_tags_17/parexec1			4		0	130	-50	128	66	-1	0
+9625	panelexec1	panelexecuteDAT			/project2/elec_tags_container3/boton_tags_17/panelexec1	project2/elec_tags_container3/boton_tags_17/panelexec1			4		0	310	-50	126	62	-1	0
+9626	boton_tags_18	buttonCOMP			/project2/elec_tags_container3/boton_tags_18	project2/elec_tags_container3/boton_tags_18	/project2/elec_tags_container3	boton_tags_18	3		1	1755	-667	160	134	-1	5
+9628	par1	parameterCHOP			/project2/elec_tags_container3/boton_tags_18/par1	project2/elec_tags_container3/boton_tags_18/par1			4		0	130	220	130	90	-1	0
+9629	text	textCOMP			/project2/elec_tags_container3/boton_tags_18/text	project2/elec_tags_container3/boton_tags_18/text	/project2/elec_tags_container3/boton_tags_18	text	4		1	130	74	113	96	-1	0
+9630	parexec1	parameterexecuteDAT			/project2/elec_tags_container3/boton_tags_18/parexec1	project2/elec_tags_container3/boton_tags_18/parexec1			4		0	130	-50	128	66	-1	0
+9631	panelexec1	panelexecuteDAT			/project2/elec_tags_container3/boton_tags_18/panelexec1	project2/elec_tags_container3/boton_tags_18/panelexec1			4		0	310	-50	126	62	-1	0
+9632	boton_tags_19	buttonCOMP			/project2/elec_tags_container3/boton_tags_19	project2/elec_tags_container3/boton_tags_19	/project2/elec_tags_container3	boton_tags_19	3		1	505	-892	160	134	-1	5
+9634	par1	parameterCHOP			/project2/elec_tags_container3/boton_tags_19/par1	project2/elec_tags_container3/boton_tags_19/par1			4		0	130	220	130	90	-1	0
+9635	text	textCOMP			/project2/elec_tags_container3/boton_tags_19/text	project2/elec_tags_container3/boton_tags_19/text	/project2/elec_tags_container3/boton_tags_19	text	4		1	130	74	113	96	-1	0
+9636	parexec1	parameterexecuteDAT			/project2/elec_tags_container3/boton_tags_19/parexec1	project2/elec_tags_container3/boton_tags_19/parexec1			4		0	130	-50	128	66	-1	0
+9637	panelexec1	panelexecuteDAT			/project2/elec_tags_container3/boton_tags_19/panelexec1	project2/elec_tags_container3/boton_tags_19/panelexec1			4		0	310	-50	126	62	-1	0
+9638	boton_tags_20	buttonCOMP			/project2/elec_tags_container3/boton_tags_20	project2/elec_tags_container3/boton_tags_20	/project2/elec_tags_container3	boton_tags_20	3		1	755	-892	160	134	-1	5
+9640	par1	parameterCHOP			/project2/elec_tags_container3/boton_tags_20/par1	project2/elec_tags_container3/boton_tags_20/par1			4		0	130	220	130	90	-1	0
+9641	text	textCOMP			/project2/elec_tags_container3/boton_tags_20/text	project2/elec_tags_container3/boton_tags_20/text	/project2/elec_tags_container3/boton_tags_20	text	4		1	130	74	113	96	-1	0
+9642	parexec1	parameterexecuteDAT			/project2/elec_tags_container3/boton_tags_20/parexec1	project2/elec_tags_container3/boton_tags_20/parexec1			4		0	130	-50	128	66	-1	0
+9643	panelexec1	panelexecuteDAT			/project2/elec_tags_container3/boton_tags_20/panelexec1	project2/elec_tags_container3/boton_tags_20/panelexec1			4		0	310	-50	126	62	-1	0
+9644	boton_tags_21	buttonCOMP			/project2/elec_tags_container3/boton_tags_21	project2/elec_tags_container3/boton_tags_21	/project2/elec_tags_container3	boton_tags_21	3		1	1005	-892	160	134	-1	5
+9646	par1	parameterCHOP			/project2/elec_tags_container3/boton_tags_21/par1	project2/elec_tags_container3/boton_tags_21/par1			4		0	130	220	130	90	-1	0
+9647	text	textCOMP			/project2/elec_tags_container3/boton_tags_21/text	project2/elec_tags_container3/boton_tags_21/text	/project2/elec_tags_container3/boton_tags_21	text	4		1	130	74	113	96	-1	0
+9648	parexec1	parameterexecuteDAT			/project2/elec_tags_container3/boton_tags_21/parexec1	project2/elec_tags_container3/boton_tags_21/parexec1			4		0	130	-50	128	66	-1	0
+9649	panelexec1	panelexecuteDAT			/project2/elec_tags_container3/boton_tags_21/panelexec1	project2/elec_tags_container3/boton_tags_21/panelexec1			4		0	310	-50	126	62	-1	0
+9650	boton_tags_22	buttonCOMP			/project2/elec_tags_container3/boton_tags_22	project2/elec_tags_container3/boton_tags_22	/project2/elec_tags_container3	boton_tags_22	3		1	1255	-892	160	134	-1	5
+9652	par1	parameterCHOP			/project2/elec_tags_container3/boton_tags_22/par1	project2/elec_tags_container3/boton_tags_22/par1			4		0	130	220	130	90	-1	0
+9653	text	textCOMP			/project2/elec_tags_container3/boton_tags_22/text	project2/elec_tags_container3/boton_tags_22/text	/project2/elec_tags_container3/boton_tags_22	text	4		1	130	74	113	96	-1	0
+9654	parexec1	parameterexecuteDAT			/project2/elec_tags_container3/boton_tags_22/parexec1	project2/elec_tags_container3/boton_tags_22/parexec1			4		0	130	-50	128	66	-1	0
+9655	panelexec1	panelexecuteDAT			/project2/elec_tags_container3/boton_tags_22/panelexec1	project2/elec_tags_container3/boton_tags_22/panelexec1			4		0	310	-50	126	62	-1	0
+9656	boton_tags_23	buttonCOMP			/project2/elec_tags_container3/boton_tags_23	project2/elec_tags_container3/boton_tags_23	/project2/elec_tags_container3	boton_tags_23	3		1	1505	-892	160	134	-1	5
+9658	par1	parameterCHOP			/project2/elec_tags_container3/boton_tags_23/par1	project2/elec_tags_container3/boton_tags_23/par1			4		0	130	220	130	90	-1	0
+9659	text	textCOMP			/project2/elec_tags_container3/boton_tags_23/text	project2/elec_tags_container3/boton_tags_23/text	/project2/elec_tags_container3/boton_tags_23	text	4		1	130	74	113	96	-1	0
+9660	parexec1	parameterexecuteDAT			/project2/elec_tags_container3/boton_tags_23/parexec1	project2/elec_tags_container3/boton_tags_23/parexec1			4		0	130	-50	128	66	-1	0
+9661	panelexec1	panelexecuteDAT			/project2/elec_tags_container3/boton_tags_23/panelexec1	project2/elec_tags_container3/boton_tags_23/panelexec1			4		0	310	-50	126	62	-1	0
+9662	boton_tags_24	buttonCOMP			/project2/elec_tags_container3/boton_tags_24	project2/elec_tags_container3/boton_tags_24	/project2/elec_tags_container3	boton_tags_24	3		1	1755	-892	160	134	-1	5
+9664	par1	parameterCHOP			/project2/elec_tags_container3/boton_tags_24/par1	project2/elec_tags_container3/boton_tags_24/par1			4		0	130	220	130	90	-1	0
+9665	text	textCOMP			/project2/elec_tags_container3/boton_tags_24/text	project2/elec_tags_container3/boton_tags_24/text	/project2/elec_tags_container3/boton_tags_24	text	4		1	130	74	113	96	-1	0
+9666	parexec1	parameterexecuteDAT			/project2/elec_tags_container3/boton_tags_24/parexec1	project2/elec_tags_container3/boton_tags_24/parexec1			4		0	130	-50	128	66	-1	0
+9667	panelexec1	panelexecuteDAT			/project2/elec_tags_container3/boton_tags_24/panelexec1	project2/elec_tags_container3/boton_tags_24/panelexec1			4		0	310	-50	126	62	-1	0
+9668	boton_tags_25	buttonCOMP			/project2/elec_tags_container3/boton_tags_25	project2/elec_tags_container3/boton_tags_25	/project2/elec_tags_container3	boton_tags_25	3		1	505	-1117	160	134	-1	5
+9670	par1	parameterCHOP			/project2/elec_tags_container3/boton_tags_25/par1	project2/elec_tags_container3/boton_tags_25/par1			4		0	130	220	130	90	-1	0
+9671	text	textCOMP			/project2/elec_tags_container3/boton_tags_25/text	project2/elec_tags_container3/boton_tags_25/text	/project2/elec_tags_container3/boton_tags_25	text	4		1	130	74	113	96	-1	0
+9672	parexec1	parameterexecuteDAT			/project2/elec_tags_container3/boton_tags_25/parexec1	project2/elec_tags_container3/boton_tags_25/parexec1			4		0	130	-50	128	66	-1	0
+9673	panelexec1	panelexecuteDAT			/project2/elec_tags_container3/boton_tags_25/panelexec1	project2/elec_tags_container3/boton_tags_25/panelexec1			4		0	310	-50	126	62	-1	0
+9674	boton_tags_26	buttonCOMP			/project2/elec_tags_container3/boton_tags_26	project2/elec_tags_container3/boton_tags_26	/project2/elec_tags_container3	boton_tags_26	3		1	755	-1117	160	134	-1	5
+9676	par1	parameterCHOP			/project2/elec_tags_container3/boton_tags_26/par1	project2/elec_tags_container3/boton_tags_26/par1			4		0	130	220	130	90	-1	0
+9677	text	textCOMP			/project2/elec_tags_container3/boton_tags_26/text	project2/elec_tags_container3/boton_tags_26/text	/project2/elec_tags_container3/boton_tags_26	text	4		1	130	74	113	96	-1	0
+9678	parexec1	parameterexecuteDAT			/project2/elec_tags_container3/boton_tags_26/parexec1	project2/elec_tags_container3/boton_tags_26/parexec1			4		0	130	-50	128	66	-1	0
+9679	panelexec1	panelexecuteDAT			/project2/elec_tags_container3/boton_tags_26/panelexec1	project2/elec_tags_container3/boton_tags_26/panelexec1			4		0	310	-50	126	62	-1	0
+9680	boton_tags_27	buttonCOMP			/project2/elec_tags_container3/boton_tags_27	project2/elec_tags_container3/boton_tags_27	/project2/elec_tags_container3	boton_tags_27	3		1	1005	-1117	160	134	-1	5
+9682	par1	parameterCHOP			/project2/elec_tags_container3/boton_tags_27/par1	project2/elec_tags_container3/boton_tags_27/par1			4		0	130	220	130	90	-1	0
+9683	text	textCOMP			/project2/elec_tags_container3/boton_tags_27/text	project2/elec_tags_container3/boton_tags_27/text	/project2/elec_tags_container3/boton_tags_27	text	4		1	130	74	113	96	-1	0
+9684	parexec1	parameterexecuteDAT			/project2/elec_tags_container3/boton_tags_27/parexec1	project2/elec_tags_container3/boton_tags_27/parexec1			4		0	130	-50	128	66	-1	0
+9685	panelexec1	panelexecuteDAT			/project2/elec_tags_container3/boton_tags_27/panelexec1	project2/elec_tags_container3/boton_tags_27/panelexec1			4		0	310	-50	126	62	-1	0
+9686	boton_tags_28	buttonCOMP			/project2/elec_tags_container3/boton_tags_28	project2/elec_tags_container3/boton_tags_28	/project2/elec_tags_container3	boton_tags_28	3		1	1255	-1117	160	134	-1	5
+9688	par1	parameterCHOP			/project2/elec_tags_container3/boton_tags_28/par1	project2/elec_tags_container3/boton_tags_28/par1			4		0	130	220	130	90	-1	0
+9689	text	textCOMP			/project2/elec_tags_container3/boton_tags_28/text	project2/elec_tags_container3/boton_tags_28/text	/project2/elec_tags_container3/boton_tags_28	text	4		1	130	74	113	96	-1	0
+9690	parexec1	parameterexecuteDAT			/project2/elec_tags_container3/boton_tags_28/parexec1	project2/elec_tags_container3/boton_tags_28/parexec1			4		0	130	-50	128	66	-1	0
+9691	panelexec1	panelexecuteDAT			/project2/elec_tags_container3/boton_tags_28/panelexec1	project2/elec_tags_container3/boton_tags_28/panelexec1			4		0	310	-50	126	62	-1	0
+9692	boton_tags_29	buttonCOMP			/project2/elec_tags_container3/boton_tags_29	project2/elec_tags_container3/boton_tags_29	/project2/elec_tags_container3	boton_tags_29	3		1	1505	-1117	160	134	-1	5
+9694	par1	parameterCHOP			/project2/elec_tags_container3/boton_tags_29/par1	project2/elec_tags_container3/boton_tags_29/par1			4		0	130	220	130	90	-1	0
+9695	text	textCOMP			/project2/elec_tags_container3/boton_tags_29/text	project2/elec_tags_container3/boton_tags_29/text	/project2/elec_tags_container3/boton_tags_29	text	4		1	130	74	113	96	-1	0
+9696	parexec1	parameterexecuteDAT			/project2/elec_tags_container3/boton_tags_29/parexec1	project2/elec_tags_container3/boton_tags_29/parexec1			4		0	130	-50	128	66	-1	0
+9697	panelexec1	panelexecuteDAT			/project2/elec_tags_container3/boton_tags_29/panelexec1	project2/elec_tags_container3/boton_tags_29/panelexec1			4		0	310	-50	126	62	-1	0
+9698	boton_tags_30	buttonCOMP			/project2/elec_tags_container3/boton_tags_30	project2/elec_tags_container3/boton_tags_30	/project2/elec_tags_container3	boton_tags_30	3		1	1755	-1117	160	134	-1	5
+9700	par1	parameterCHOP			/project2/elec_tags_container3/boton_tags_30/par1	project2/elec_tags_container3/boton_tags_30/par1			4		0	130	220	130	90	-1	0
+9701	text	textCOMP			/project2/elec_tags_container3/boton_tags_30/text	project2/elec_tags_container3/boton_tags_30/text	/project2/elec_tags_container3/boton_tags_30	text	4		1	130	74	113	96	-1	0
+9702	parexec1	parameterexecuteDAT			/project2/elec_tags_container3/boton_tags_30/parexec1	project2/elec_tags_container3/boton_tags_30/parexec1			4		0	130	-50	128	66	-1	0
+9703	panelexec1	panelexecuteDAT			/project2/elec_tags_container3/boton_tags_30/panelexec1	project2/elec_tags_container3/boton_tags_30/panelexec1			4		0	310	-50	126	62	-1	0
+9704	replicator1_callbacks	textDAT			/project2/elec_tags_container3/replicator1_callbacks	project2/elec_tags_container3/replicator1_callbacks			3		0	505	-45	160	130	9523	0
+9705	elec_colores_container2	containerCOMP			/project2/elec_colores_container2	project2/elec_colores_container2	/project2	elec_colores_container2	2		1	-70	-496	160	109	-1	62
+9706	replicator1	replicatorCOMP			/project2/elec_colores_container2/replicator1	project2/elec_colores_container2/replicator1	/project2/elec_colores_container2		3		1	505	115	160	130	-1	0
+9707	boton_colores_1	buttonCOMP			/project2/elec_colores_container2/boton_colores_1	project2/elec_colores_container2/boton_colores_1	/project2/elec_colores_container2	boton_colores_1	3		1	505	-217	160	134	-1	5
+9709	par1	parameterCHOP			/project2/elec_colores_container2/boton_colores_1/par1	project2/elec_colores_container2/boton_colores_1/par1			4		0	130	220	130	90	-1	0
+9710	text	textCOMP			/project2/elec_colores_container2/boton_colores_1/text	project2/elec_colores_container2/boton_colores_1/text	/project2/elec_colores_container2/boton_colores_1	text	4		1	130	74	113	96	-1	0
+9711	parexec1	parameterexecuteDAT			/project2/elec_colores_container2/boton_colores_1/parexec1	project2/elec_colores_container2/boton_colores_1/parexec1			4		0	130	-50	128	66	-1	0
+9712	panelexec1	panelexecuteDAT			/project2/elec_colores_container2/boton_colores_1/panelexec1	project2/elec_colores_container2/boton_colores_1/panelexec1			4		0	310	-50	126	62	-1	0
+9713	boton_colores_2	buttonCOMP			/project2/elec_colores_container2/boton_colores_2	project2/elec_colores_container2/boton_colores_2	/project2/elec_colores_container2	boton_colores_2	3		1	755	-217	160	134	-1	5
+9715	par1	parameterCHOP			/project2/elec_colores_container2/boton_colores_2/par1	project2/elec_colores_container2/boton_colores_2/par1			4		0	130	220	130	90	-1	0
+9716	text	textCOMP			/project2/elec_colores_container2/boton_colores_2/text	project2/elec_colores_container2/boton_colores_2/text	/project2/elec_colores_container2/boton_colores_2	text	4		1	130	74	113	96	-1	0
+9717	parexec1	parameterexecuteDAT			/project2/elec_colores_container2/boton_colores_2/parexec1	project2/elec_colores_container2/boton_colores_2/parexec1			4		0	130	-50	128	66	-1	0
+9718	panelexec1	panelexecuteDAT			/project2/elec_colores_container2/boton_colores_2/panelexec1	project2/elec_colores_container2/boton_colores_2/panelexec1			4		0	310	-50	126	62	-1	0
+9719	boton_colores_3	buttonCOMP			/project2/elec_colores_container2/boton_colores_3	project2/elec_colores_container2/boton_colores_3	/project2/elec_colores_container2	boton_colores_3	3		1	1005	-217	160	134	-1	5
+9721	par1	parameterCHOP			/project2/elec_colores_container2/boton_colores_3/par1	project2/elec_colores_container2/boton_colores_3/par1			4		0	130	220	130	90	-1	0
+9722	text	textCOMP			/project2/elec_colores_container2/boton_colores_3/text	project2/elec_colores_container2/boton_colores_3/text	/project2/elec_colores_container2/boton_colores_3	text	4		1	130	74	113	96	-1	0
+9723	parexec1	parameterexecuteDAT			/project2/elec_colores_container2/boton_colores_3/parexec1	project2/elec_colores_container2/boton_colores_3/parexec1			4		0	130	-50	128	66	-1	0
+9724	panelexec1	panelexecuteDAT			/project2/elec_colores_container2/boton_colores_3/panelexec1	project2/elec_colores_container2/boton_colores_3/panelexec1			4		0	310	-50	126	62	-1	0
+9725	boton_colores_4	buttonCOMP			/project2/elec_colores_container2/boton_colores_4	project2/elec_colores_container2/boton_colores_4	/project2/elec_colores_container2	boton_colores_4	3		1	1255	-217	160	134	-1	5
+9727	par1	parameterCHOP			/project2/elec_colores_container2/boton_colores_4/par1	project2/elec_colores_container2/boton_colores_4/par1			4		0	130	220	130	90	-1	0
+9728	text	textCOMP			/project2/elec_colores_container2/boton_colores_4/text	project2/elec_colores_container2/boton_colores_4/text	/project2/elec_colores_container2/boton_colores_4	text	4		1	130	74	113	96	-1	0
+9729	parexec1	parameterexecuteDAT			/project2/elec_colores_container2/boton_colores_4/parexec1	project2/elec_colores_container2/boton_colores_4/parexec1			4		0	130	-50	128	66	-1	0
+9730	panelexec1	panelexecuteDAT			/project2/elec_colores_container2/boton_colores_4/panelexec1	project2/elec_colores_container2/boton_colores_4/panelexec1			4		0	310	-50	126	62	-1	0
+9731	boton_colores_5	buttonCOMP			/project2/elec_colores_container2/boton_colores_5	project2/elec_colores_container2/boton_colores_5	/project2/elec_colores_container2	boton_colores_5	3		1	505	-442	160	134	-1	5
+9733	par1	parameterCHOP			/project2/elec_colores_container2/boton_colores_5/par1	project2/elec_colores_container2/boton_colores_5/par1			4		0	130	220	130	90	-1	0
+9734	text	textCOMP			/project2/elec_colores_container2/boton_colores_5/text	project2/elec_colores_container2/boton_colores_5/text	/project2/elec_colores_container2/boton_colores_5	text	4		1	130	74	113	96	-1	0
+9735	parexec1	parameterexecuteDAT			/project2/elec_colores_container2/boton_colores_5/parexec1	project2/elec_colores_container2/boton_colores_5/parexec1			4		0	130	-50	128	66	-1	0
+9736	panelexec1	panelexecuteDAT			/project2/elec_colores_container2/boton_colores_5/panelexec1	project2/elec_colores_container2/boton_colores_5/panelexec1			4		0	310	-50	126	62	-1	0
+9737	boton_colores_6	buttonCOMP			/project2/elec_colores_container2/boton_colores_6	project2/elec_colores_container2/boton_colores_6	/project2/elec_colores_container2	boton_colores_6	3		1	755	-442	160	134	-1	5
+9739	par1	parameterCHOP			/project2/elec_colores_container2/boton_colores_6/par1	project2/elec_colores_container2/boton_colores_6/par1			4		0	130	220	130	90	-1	0
+9740	text	textCOMP			/project2/elec_colores_container2/boton_colores_6/text	project2/elec_colores_container2/boton_colores_6/text	/project2/elec_colores_container2/boton_colores_6	text	4		1	130	74	113	96	-1	0
+9741	parexec1	parameterexecuteDAT			/project2/elec_colores_container2/boton_colores_6/parexec1	project2/elec_colores_container2/boton_colores_6/parexec1			4		0	130	-50	128	66	-1	0
+9742	panelexec1	panelexecuteDAT			/project2/elec_colores_container2/boton_colores_6/panelexec1	project2/elec_colores_container2/boton_colores_6/panelexec1			4		0	310	-50	126	62	-1	0
+9743	boton_colores_7	buttonCOMP			/project2/elec_colores_container2/boton_colores_7	project2/elec_colores_container2/boton_colores_7	/project2/elec_colores_container2	boton_colores_7	3		1	1005	-442	160	134	-1	5
+9745	par1	parameterCHOP			/project2/elec_colores_container2/boton_colores_7/par1	project2/elec_colores_container2/boton_colores_7/par1			4		0	130	220	130	90	-1	0
+9746	text	textCOMP			/project2/elec_colores_container2/boton_colores_7/text	project2/elec_colores_container2/boton_colores_7/text	/project2/elec_colores_container2/boton_colores_7	text	4		1	130	74	113	96	-1	0
+9747	parexec1	parameterexecuteDAT			/project2/elec_colores_container2/boton_colores_7/parexec1	project2/elec_colores_container2/boton_colores_7/parexec1			4		0	130	-50	128	66	-1	0
+9748	panelexec1	panelexecuteDAT			/project2/elec_colores_container2/boton_colores_7/panelexec1	project2/elec_colores_container2/boton_colores_7/panelexec1			4		0	310	-50	126	62	-1	0
+9749	boton_colores_8	buttonCOMP			/project2/elec_colores_container2/boton_colores_8	project2/elec_colores_container2/boton_colores_8	/project2/elec_colores_container2	boton_colores_8	3		1	1255	-442	160	134	-1	5
+9751	par1	parameterCHOP			/project2/elec_colores_container2/boton_colores_8/par1	project2/elec_colores_container2/boton_colores_8/par1			4		0	130	220	130	90	-1	0
+9752	text	textCOMP			/project2/elec_colores_container2/boton_colores_8/text	project2/elec_colores_container2/boton_colores_8/text	/project2/elec_colores_container2/boton_colores_8	text	4		1	130	74	113	96	-1	0
+9753	parexec1	parameterexecuteDAT			/project2/elec_colores_container2/boton_colores_8/parexec1	project2/elec_colores_container2/boton_colores_8/parexec1			4		0	130	-50	128	66	-1	0
+9754	panelexec1	panelexecuteDAT			/project2/elec_colores_container2/boton_colores_8/panelexec1	project2/elec_colores_container2/boton_colores_8/panelexec1			4		0	310	-50	126	62	-1	0
+9755	boton_colores_9	buttonCOMP			/project2/elec_colores_container2/boton_colores_9	project2/elec_colores_container2/boton_colores_9	/project2/elec_colores_container2	boton_colores_9	3		1	505	-667	160	134	-1	5
+9757	par1	parameterCHOP			/project2/elec_colores_container2/boton_colores_9/par1	project2/elec_colores_container2/boton_colores_9/par1			4		0	130	220	130	90	-1	0
+9758	text	textCOMP			/project2/elec_colores_container2/boton_colores_9/text	project2/elec_colores_container2/boton_colores_9/text	/project2/elec_colores_container2/boton_colores_9	text	4		1	130	74	113	96	-1	0
+9759	parexec1	parameterexecuteDAT			/project2/elec_colores_container2/boton_colores_9/parexec1	project2/elec_colores_container2/boton_colores_9/parexec1			4		0	130	-50	128	66	-1	0
+9760	panelexec1	panelexecuteDAT			/project2/elec_colores_container2/boton_colores_9/panelexec1	project2/elec_colores_container2/boton_colores_9/panelexec1			4		0	310	-50	126	62	-1	0
+9761	boton_colores_10	buttonCOMP			/project2/elec_colores_container2/boton_colores_10	project2/elec_colores_container2/boton_colores_10	/project2/elec_colores_container2	boton_colores_10	3		1	755	-667	160	134	-1	5
+9763	par1	parameterCHOP			/project2/elec_colores_container2/boton_colores_10/par1	project2/elec_colores_container2/boton_colores_10/par1			4		0	130	220	130	90	-1	0
+9764	text	textCOMP			/project2/elec_colores_container2/boton_colores_10/text	project2/elec_colores_container2/boton_colores_10/text	/project2/elec_colores_container2/boton_colores_10	text	4		1	130	74	113	96	-1	0
+9765	parexec1	parameterexecuteDAT			/project2/elec_colores_container2/boton_colores_10/parexec1	project2/elec_colores_container2/boton_colores_10/parexec1			4		0	130	-50	128	66	-1	0
+9766	panelexec1	panelexecuteDAT			/project2/elec_colores_container2/boton_colores_10/panelexec1	project2/elec_colores_container2/boton_colores_10/panelexec1			4		0	310	-50	126	62	-1	0
+9767	replicator1_callbacks	textDAT			/project2/elec_colores_container2/replicator1_callbacks	project2/elec_colores_container2/replicator1_callbacks			3		0	505	-45	160	130	9706	0
+9768	elec_municipios_container1	containerCOMP			/project2/elec_municipios_container1	project2/elec_municipios_container1	/project2	elec_municipios_container1	2		1	-70	-196	160	109	-1	74
+9769	replicator1	replicatorCOMP			/project2/elec_municipios_container1/replicator1	project2/elec_municipios_container1/replicator1	/project2/elec_municipios_container1		3		1	505	115	160	130	-1	0
+9770	boton_municipios_1	buttonCOMP			/project2/elec_municipios_container1/boton_municipios_1	project2/elec_municipios_container1/boton_municipios_1	/project2/elec_municipios_container1	boton_municipios_1	3		1	505	-217	160	134	-1	5
+9772	par1	parameterCHOP			/project2/elec_municipios_container1/boton_municipios_1/par1	project2/elec_municipios_container1/boton_municipios_1/par1			4		0	130	220	130	90	-1	0
+9773	text	textCOMP			/project2/elec_municipios_container1/boton_municipios_1/text	project2/elec_municipios_container1/boton_municipios_1/text	/project2/elec_municipios_container1/boton_municipios_1	text	4		1	130	74	113	96	-1	0
+9774	parexec1	parameterexecuteDAT			/project2/elec_municipios_container1/boton_municipios_1/parexec1	project2/elec_municipios_container1/boton_municipios_1/parexec1			4		0	130	-50	128	66	-1	0
+9775	panelexec1	panelexecuteDAT			/project2/elec_municipios_container1/boton_municipios_1/panelexec1	project2/elec_municipios_container1/boton_municipios_1/panelexec1			4		0	310	-50	126	62	-1	0
+9776	boton_municipios_2	buttonCOMP			/project2/elec_municipios_container1/boton_municipios_2	project2/elec_municipios_container1/boton_municipios_2	/project2/elec_municipios_container1	boton_municipios_2	3		1	755	-217	160	134	-1	5
+9778	par1	parameterCHOP			/project2/elec_municipios_container1/boton_municipios_2/par1	project2/elec_municipios_container1/boton_municipios_2/par1			4		0	130	220	130	90	-1	0
+9779	text	textCOMP			/project2/elec_municipios_container1/boton_municipios_2/text	project2/elec_municipios_container1/boton_municipios_2/text	/project2/elec_municipios_container1/boton_municipios_2	text	4		1	130	74	113	96	-1	0
+9780	parexec1	parameterexecuteDAT			/project2/elec_municipios_container1/boton_municipios_2/parexec1	project2/elec_municipios_container1/boton_municipios_2/parexec1			4		0	130	-50	128	66	-1	0
+9781	panelexec1	panelexecuteDAT			/project2/elec_municipios_container1/boton_municipios_2/panelexec1	project2/elec_municipios_container1/boton_municipios_2/panelexec1			4		0	310	-50	126	62	-1	0
+9782	boton_municipios_3	buttonCOMP			/project2/elec_municipios_container1/boton_municipios_3	project2/elec_municipios_container1/boton_municipios_3	/project2/elec_municipios_container1	boton_municipios_3	3		1	1005	-217	160	134	-1	5
+9784	par1	parameterCHOP			/project2/elec_municipios_container1/boton_municipios_3/par1	project2/elec_municipios_container1/boton_municipios_3/par1			4		0	130	220	130	90	-1	0
+9785	text	textCOMP			/project2/elec_municipios_container1/boton_municipios_3/text	project2/elec_municipios_container1/boton_municipios_3/text	/project2/elec_municipios_container1/boton_municipios_3	text	4		1	130	74	113	96	-1	0
+9786	parexec1	parameterexecuteDAT			/project2/elec_municipios_container1/boton_municipios_3/parexec1	project2/elec_municipios_container1/boton_municipios_3/parexec1			4		0	130	-50	128	66	-1	0
+9787	panelexec1	panelexecuteDAT			/project2/elec_municipios_container1/boton_municipios_3/panelexec1	project2/elec_municipios_container1/boton_municipios_3/panelexec1			4		0	310	-50	126	62	-1	0
+9788	boton_municipios_4	buttonCOMP			/project2/elec_municipios_container1/boton_municipios_4	project2/elec_municipios_container1/boton_municipios_4	/project2/elec_municipios_container1	boton_municipios_4	3		1	1255	-217	160	134	-1	5
+9790	par1	parameterCHOP			/project2/elec_municipios_container1/boton_municipios_4/par1	project2/elec_municipios_container1/boton_municipios_4/par1			4		0	130	220	130	90	-1	0
+9791	text	textCOMP			/project2/elec_municipios_container1/boton_municipios_4/text	project2/elec_municipios_container1/boton_municipios_4/text	/project2/elec_municipios_container1/boton_municipios_4	text	4		1	130	74	113	96	-1	0
+9792	parexec1	parameterexecuteDAT			/project2/elec_municipios_container1/boton_municipios_4/parexec1	project2/elec_municipios_container1/boton_municipios_4/parexec1			4		0	130	-50	128	66	-1	0
+9793	panelexec1	panelexecuteDAT			/project2/elec_municipios_container1/boton_municipios_4/panelexec1	project2/elec_municipios_container1/boton_municipios_4/panelexec1			4		0	310	-50	126	62	-1	0
+9794	boton_municipios_5	buttonCOMP			/project2/elec_municipios_container1/boton_municipios_5	project2/elec_municipios_container1/boton_municipios_5	/project2/elec_municipios_container1	boton_municipios_5	3		1	505	-442	160	134	-1	5
+9796	par1	parameterCHOP			/project2/elec_municipios_container1/boton_municipios_5/par1	project2/elec_municipios_container1/boton_municipios_5/par1			4		0	130	220	130	90	-1	0
+9797	text	textCOMP			/project2/elec_municipios_container1/boton_municipios_5/text	project2/elec_municipios_container1/boton_municipios_5/text	/project2/elec_municipios_container1/boton_municipios_5	text	4		1	130	74	113	96	-1	0
+9798	parexec1	parameterexecuteDAT			/project2/elec_municipios_container1/boton_municipios_5/parexec1	project2/elec_municipios_container1/boton_municipios_5/parexec1			4		0	130	-50	128	66	-1	0
+9799	panelexec1	panelexecuteDAT			/project2/elec_municipios_container1/boton_municipios_5/panelexec1	project2/elec_municipios_container1/boton_municipios_5/panelexec1			4		0	310	-50	126	62	-1	0
+9800	boton_municipios_6	buttonCOMP			/project2/elec_municipios_container1/boton_municipios_6	project2/elec_municipios_container1/boton_municipios_6	/project2/elec_municipios_container1	boton_municipios_6	3		1	755	-442	160	134	-1	5
+9802	par1	parameterCHOP			/project2/elec_municipios_container1/boton_municipios_6/par1	project2/elec_municipios_container1/boton_municipios_6/par1			4		0	130	220	130	90	-1	0
+9803	text	textCOMP			/project2/elec_municipios_container1/boton_municipios_6/text	project2/elec_municipios_container1/boton_municipios_6/text	/project2/elec_municipios_container1/boton_municipios_6	text	4		1	130	74	113	96	-1	0
+9804	parexec1	parameterexecuteDAT			/project2/elec_municipios_container1/boton_municipios_6/parexec1	project2/elec_municipios_container1/boton_municipios_6/parexec1			4		0	130	-50	128	66	-1	0
+9805	panelexec1	panelexecuteDAT			/project2/elec_municipios_container1/boton_municipios_6/panelexec1	project2/elec_municipios_container1/boton_municipios_6/panelexec1			4		0	310	-50	126	62	-1	0
+9806	boton_municipios_7	buttonCOMP			/project2/elec_municipios_container1/boton_municipios_7	project2/elec_municipios_container1/boton_municipios_7	/project2/elec_municipios_container1	boton_municipios_7	3		1	1005	-442	160	134	-1	5
+9808	par1	parameterCHOP			/project2/elec_municipios_container1/boton_municipios_7/par1	project2/elec_municipios_container1/boton_municipios_7/par1			4		0	130	220	130	90	-1	0
+9809	text	textCOMP			/project2/elec_municipios_container1/boton_municipios_7/text	project2/elec_municipios_container1/boton_municipios_7/text	/project2/elec_municipios_container1/boton_municipios_7	text	4		1	130	74	113	96	-1	0
+9810	parexec1	parameterexecuteDAT			/project2/elec_municipios_container1/boton_municipios_7/parexec1	project2/elec_municipios_container1/boton_municipios_7/parexec1			4		0	130	-50	128	66	-1	0
+9811	panelexec1	panelexecuteDAT			/project2/elec_municipios_container1/boton_municipios_7/panelexec1	project2/elec_municipios_container1/boton_municipios_7/panelexec1			4		0	310	-50	126	62	-1	0
+9812	boton_municipios_8	buttonCOMP			/project2/elec_municipios_container1/boton_municipios_8	project2/elec_municipios_container1/boton_municipios_8	/project2/elec_municipios_container1	boton_municipios_8	3		1	1255	-442	160	134	-1	5
+9814	par1	parameterCHOP			/project2/elec_municipios_container1/boton_municipios_8/par1	project2/elec_municipios_container1/boton_municipios_8/par1			4		0	130	220	130	90	-1	0
+9815	text	textCOMP			/project2/elec_municipios_container1/boton_municipios_8/text	project2/elec_municipios_container1/boton_municipios_8/text	/project2/elec_municipios_container1/boton_municipios_8	text	4		1	130	74	113	96	-1	0
+9816	parexec1	parameterexecuteDAT			/project2/elec_municipios_container1/boton_municipios_8/parexec1	project2/elec_municipios_container1/boton_municipios_8/parexec1			4		0	130	-50	128	66	-1	0
+9817	panelexec1	panelexecuteDAT			/project2/elec_municipios_container1/boton_municipios_8/panelexec1	project2/elec_municipios_container1/boton_municipios_8/panelexec1			4		0	310	-50	126	62	-1	0
+9818	boton_municipios_9	buttonCOMP			/project2/elec_municipios_container1/boton_municipios_9	project2/elec_municipios_container1/boton_municipios_9	/project2/elec_municipios_container1	boton_municipios_9	3		1	505	-667	160	134	-1	5
+9820	par1	parameterCHOP			/project2/elec_municipios_container1/boton_municipios_9/par1	project2/elec_municipios_container1/boton_municipios_9/par1			4		0	130	220	130	90	-1	0
+9821	text	textCOMP			/project2/elec_municipios_container1/boton_municipios_9/text	project2/elec_municipios_container1/boton_municipios_9/text	/project2/elec_municipios_container1/boton_municipios_9	text	4		1	130	74	113	96	-1	0
+9822	parexec1	parameterexecuteDAT			/project2/elec_municipios_container1/boton_municipios_9/parexec1	project2/elec_municipios_container1/boton_municipios_9/parexec1			4		0	130	-50	128	66	-1	0
+9823	panelexec1	panelexecuteDAT			/project2/elec_municipios_container1/boton_municipios_9/panelexec1	project2/elec_municipios_container1/boton_municipios_9/panelexec1			4		0	310	-50	126	62	-1	0
+9824	boton_municipios_10	buttonCOMP			/project2/elec_municipios_container1/boton_municipios_10	project2/elec_municipios_container1/boton_municipios_10	/project2/elec_municipios_container1	boton_municipios_10	3		1	755	-667	160	134	-1	5
+9826	par1	parameterCHOP			/project2/elec_municipios_container1/boton_municipios_10/par1	project2/elec_municipios_container1/boton_municipios_10/par1			4		0	130	220	130	90	-1	0
+9827	text	textCOMP			/project2/elec_municipios_container1/boton_municipios_10/text	project2/elec_municipios_container1/boton_municipios_10/text	/project2/elec_municipios_container1/boton_municipios_10	text	4		1	130	74	113	96	-1	0
+9828	parexec1	parameterexecuteDAT			/project2/elec_municipios_container1/boton_municipios_10/parexec1	project2/elec_municipios_container1/boton_municipios_10/parexec1			4		0	130	-50	128	66	-1	0
+9829	panelexec1	panelexecuteDAT			/project2/elec_municipios_container1/boton_municipios_10/panelexec1	project2/elec_municipios_container1/boton_municipios_10/panelexec1			4		0	310	-50	126	62	-1	0
+9830	boton_municipios_11	buttonCOMP			/project2/elec_municipios_container1/boton_municipios_11	project2/elec_municipios_container1/boton_municipios_11	/project2/elec_municipios_container1	boton_municipios_11	3		1	1005	-667	160	134	-1	5
+9832	par1	parameterCHOP			/project2/elec_municipios_container1/boton_municipios_11/par1	project2/elec_municipios_container1/boton_municipios_11/par1			4		0	130	220	130	90	-1	0
+9833	text	textCOMP			/project2/elec_municipios_container1/boton_municipios_11/text	project2/elec_municipios_container1/boton_municipios_11/text	/project2/elec_municipios_container1/boton_municipios_11	text	4		1	130	74	113	96	-1	0
+9834	parexec1	parameterexecuteDAT			/project2/elec_municipios_container1/boton_municipios_11/parexec1	project2/elec_municipios_container1/boton_municipios_11/parexec1			4		0	130	-50	128	66	-1	0
+9835	panelexec1	panelexecuteDAT			/project2/elec_municipios_container1/boton_municipios_11/panelexec1	project2/elec_municipios_container1/boton_municipios_11/panelexec1			4		0	310	-50	126	62	-1	0
+9836	boton_municipios_12	buttonCOMP			/project2/elec_municipios_container1/boton_municipios_12	project2/elec_municipios_container1/boton_municipios_12	/project2/elec_municipios_container1	boton_municipios_12	3		1	1255	-667	160	134	-1	5
+9838	par1	parameterCHOP			/project2/elec_municipios_container1/boton_municipios_12/par1	project2/elec_municipios_container1/boton_municipios_12/par1			4		0	130	220	130	90	-1	0
+9839	text	textCOMP			/project2/elec_municipios_container1/boton_municipios_12/text	project2/elec_municipios_container1/boton_municipios_12/text	/project2/elec_municipios_container1/boton_municipios_12	text	4		1	130	74	113	96	-1	0
+9840	parexec1	parameterexecuteDAT			/project2/elec_municipios_container1/boton_municipios_12/parexec1	project2/elec_municipios_container1/boton_municipios_12/parexec1			4		0	130	-50	128	66	-1	0
+9841	panelexec1	panelexecuteDAT			/project2/elec_municipios_container1/boton_municipios_12/panelexec1	project2/elec_municipios_container1/boton_municipios_12/panelexec1			4		0	310	-50	126	62	-1	0
+9842	replicator1_callbacks	textDAT			/project2/elec_municipios_container1/replicator1_callbacks	project2/elec_municipios_container1/replicator1_callbacks			3		0	505	-45	160	130	9769	0
+9342	opfind1_callbacks	textDAT			/opfind1_callbacks	opfind1_callbacks			1		0	265	-100	130	90	9844	0

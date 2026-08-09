@@ -87,6 +87,8 @@ Etapa 5: INSTALACIÓN          →  TouchDesigner + motor de deriva
 | Salida a 5 pantallas (1 interacción + 4 360°) | Alta | ❌ |
 | Detección de pico de ruido como input | Media | ❌ |
 | Caché de consultas frecuentes / recorridos predefinidos | Baja | ❌ |
+| **"Fluir" (multiselector OSC, decisión 2026-08-08)**: como en la web (`#btn-fluir`), el visitante **acumula** elecciones y al presionar el botón **"Fluir"** se dispara el envío de **todas las selecciones juntas**. Hoy la ráfaga sale en un mensaje OSC por elección (`/flujos/seleccion/<grupo> <valor>`, verificado con `osc_probe.py`); el diseño deseado es **un mensaje grande único** (o definir formato agregado) que Python procesa como selección completa → input directo de `loop_db.py` → spec JSON. Pendiente: formato del payload y si el disparador es un botón "Fluir" visible en la UI de TD | Alta | ❌ Pendiente de diseño |
+| **Refactor `elecciones_ui.dat` al patrón manual actual**: el toe se arma a mano (Replicator COMP + `elec_<id>_container<N>` + `boton_<id>_N`); opción futura: que el script genere lo mismo. Por ahora se sigue armando manualmente | Baja | ❌ Opción diferida |
 
 ---
 
