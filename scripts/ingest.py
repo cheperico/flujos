@@ -255,9 +255,7 @@ def get_ffprobe_metadata(filepath: str) -> dict:
             capture_output=True,
             text=True,
             timeout=60,
-            startupinfo=subprocess.STARTUPINFO(
-                subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0
-            ) if sys.platform == "win32" else None,
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
         )
         if result.returncode == 0 and result.stdout.strip():
             return json.loads(result.stdout)
