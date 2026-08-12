@@ -6,11 +6,14 @@ Algoritmo:
   1. Obtener duración del video (ffprobe)
   2. Detectar cambios de escena (ffmpeg scene detection)
   3. Agrupar los cambios en escenas [inicio, fin)
-  4. Muestrear ~N imágenes distribuidas dentro de cada escena
-  5. Seleccionar las mejores por nitidez (sin IA, varianza Laplaciano)
-  6. Analizar la imagen más representativa de cada escena con UNA llamada
+  4. Subdividir escenas largas (> `--max-duracion-escena`) en sub-escenas
+     contiguas (evita que un video continuo de N minutos quede como UNA
+     sola escena analizada con una única llamada IA)
+  5. Muestrear ~N imágenes distribuidas dentro de cada escena
+  6. Seleccionar las mejores por nitidez (sin IA, varianza Laplaciano)
+  7. Analizar la imagen más representativa de cada escena con UNA llamada
      de visión (PROMPT_COMBINADO: keywords + descripción)
-  7. Guardar resultados en DB y/o sidecar
+  8. Guardar resultados en DB y/o sidecar
 
 Formato del sidecar .video.json:
     {
@@ -48,6 +51,10 @@ Uso:
 
     # Conservar más/menos imágenes por escena tras la selección por nitidez
     python scripts/ai_media/analyze_video.py --file video.mp4 --mejores-por-escena 5
+
+    # Limitar la duración de cada escena (las más largas se subdividen en
+    # sub-escenas contiguas de <= N segundos; útil en videos 360° continuos)
+    python scripts/ai_media/analyze_video.py --file video.mp4 --max-duracion-escena 180
 
     # Solo ver qué se haría
     python scripts/ai_media/analyze_video.py --db db/flujos.db --dry-run
@@ -216,6 +223,77 @@ def _agrupar_escenas(
     return escenas
 
 
+def _subdividir_escenas_largas(
+    escenas: list[dict],
+    max_duracion_escena: float = 180.0,
+) -> list[dict]:
+    """
+    Subdivide escenas que superan `max_duracion_escena` en sub-escenas
+    contiguas de duración <= max.
+
+    Motivo: en videos 360° equirectangulares continuos (sin cortes), el
+    scene detection no encuentra cambios → todo el video queda como UNA
+    sola escena → se muestrean ~10 imágenes pero solo se analiza la más
+    nítida con UNA llamada IA. Subdividir escenas largas reparte el análisis
+    temporalmente: un video de 9 min con max=180s produce ~3-4 sub-escenas,
+    cada una con su contexto visual.
+
+    Las sub-escenas conservan el formato original (indice/inicio/fin/duracion)
+    y los índices se renumeran contiguos. Si `max_duracion_escena` es <= 0,
+    no subdivide (comportamiento legacy).
+
+    Args:
+        escenas: Lista de dicts {"indice", "inicio", "fin", "duracion"}.
+        max_duracion_escena: Máximo de segundos por escena (default 180).
+            Las escenas más largas se cortan en segmentos de esa duración.
+
+    Returns:
+        Lista de dicts con el mismo formato, subdividida y renumerada.
+    """
+    if max_duracion_escena <= 0:
+        return escenas
+
+    sub_escenas: list[dict] = []
+    indice = 0
+    for escena in escenas:
+        inicio, fin = escena["inicio"], escena["fin"]
+        duracion = escena["duracion"]
+        if duracion <= max_duracion_escena:
+            sub_escenas.append({
+                "indice": indice,
+                "inicio": inicio,
+                "fin": fin,
+                "duracion": duracion,
+            })
+            indice += 1
+            continue
+
+        # Escena larga: cortar en segmentos de <= max_duracion_escena
+        cursor = inicio
+        while fin - cursor > max_duracion_escena + 1e-6:
+            corte = round(cursor + max_duracion_escena, 1)
+            sub_escenas.append({
+                "indice": indice,
+                "inicio": round(cursor, 1),
+                "fin": corte,
+                "duracion": round(corte - cursor, 1),
+            })
+            indice += 1
+            cursor = corte
+
+        # Último segmento (puede ser más corto que max)
+        if fin - cursor > 0.05:
+            sub_escenas.append({
+                "indice": indice,
+                "inicio": round(cursor, 1),
+                "fin": round(fin, 1),
+                "duracion": round(fin - cursor, 1),
+            })
+            indice += 1
+
+    return sub_escenas
+
+
 def _muestrear_escena(
     escena: dict,
     imgs_por_escena: int = 10,
@@ -253,22 +331,27 @@ def _muestreo_video(
     duracion: float,
     cambios_escena: list[float],
     imgs_por_escena: int = 10,
+    max_duracion_escena: float = 180.0,
 ) -> list[dict]:
     """
     Arma el plan de muestreo completo del video: escenas + timestamps.
 
-    Cada escena queda con su lista de timestamps a analizar. Las escenas
-    vacías (sin timestamps) se descartan.
+    Agrupa los cambios de escena, subdivide las escenas largas (según
+    `max_duracion_escena`) y asigna a cada escena su lista de timestamps
+    a analizar. Las escenas vacías (sin timestamps) se descartan.
 
     Args:
         duracion: Duración del video en segundos.
         cambios_escena: Lista de timestamps con cambios de escena.
         imgs_por_escena: Imágenes objetivo por escena.
+        max_duracion_escena: Máximo de segundos por escena (default 180).
+            Las escenas más largas se subdividen en sub-escenas contiguas.
 
     Returns:
         Lista de dicts: {"indice", "inicio", "fin", "duracion", "timestamps"}.
     """
     escenas = _agrupar_escenas(duracion, cambios_escena)
+    escenas = _subdividir_escenas_largas(escenas, max_duracion_escena)
     plan = []
     for escena in escenas:
         timestamps = _muestrear_escena(escena, imgs_por_escena)
@@ -515,11 +598,13 @@ def analizar_video(
     sensibilidad: float = SENSIBILIDAD_ESCENA,
     usar_proxy: bool = True,
     dry_run: bool = False,
+    max_duracion_escena: float = 180.0,
 ) -> Optional[dict[str, Any]]:
     """
     Analiza un video completo: scene detection + muestreo por escena + IA.
 
-    Por cada escena detectada:
+    Por cada escena detectada (con subdivisión de escenas largas según
+    `max_duracion_escena`):
       1. Se muestrean ~`imgs_por_escena` fotogramas distribuidos en la escena.
       2. Se eligen las `mejores_por_escena` imágenes por nitidez (sin IA).
       3. La imagen más nítida se analiza con UNA llamada de visión
@@ -553,7 +638,8 @@ def analizar_video(
         cambios = []
 
     # 3. Plan de muestreo por escenas
-    plan = _muestreo_video(duracion, cambios, imgs_por_escena=imgs_por_escena)
+    plan = _muestreo_video(duracion, cambios, imgs_por_escena=imgs_por_escena,
+                           max_duracion_escena=max_duracion_escena)
     logger.info("  Escenas detectadas: %d | imágenes por escena: ~%d",
                 len(plan), imgs_por_escena)
 
@@ -641,6 +727,7 @@ def analizar_video(
         "imgs_por_escena": imgs_por_escena,
         "mejores_por_escena": mejores_por_escena,
         "sensibilidad_escena": sensibilidad,
+        "max_duracion_escena": max_duracion_escena,
         "modelo": modelo,
         "fecha": datetime.now().isoformat(),
         "fotogramas": fotogramas_planos,
@@ -664,6 +751,7 @@ def procesar_desde_db(
     limite: Optional[int] = None,
     sidecar: bool = False,
     dry_run: bool = False,
+    max_duracion_escena: float = 180.0,
 ):
     logger.info("Conectando a DB: %s", ruta_db)
     conn = conectar_db(ruta_db)
@@ -706,6 +794,7 @@ def procesar_desde_db(
             sensibilidad=sensibilidad,
             usar_proxy=usar_proxy,
             dry_run=False,
+            max_duracion_escena=max_duracion_escena,
         )
 
         if resultado:
@@ -732,6 +821,7 @@ def procesar_desde_carpeta(
     sensibilidad: float = SENSIBILIDAD_ESCENA,
     usar_proxy: bool = True,
     dry_run: bool = False,
+    max_duracion_escena: float = 180.0,
 ):
     carpeta = Path(carpeta)
     if not carpeta.exists():
@@ -774,6 +864,7 @@ def procesar_desde_carpeta(
             mejores_por_escena=mejores_por_escena,
             sensibilidad=sensibilidad, usar_proxy=usar_proxy,
             dry_run=False,
+            max_duracion_escena=max_duracion_escena,
         )
 
         if resultado:
@@ -794,6 +885,7 @@ def procesar_archivo_individual(
     sensibilidad: float = SENSIBILIDAD_ESCENA,
     usar_proxy: bool = True,
     json_out: Optional[str] = None,
+    max_duracion_escena: float = 180.0,
 ):
     if not Path(ruta).exists():
         raise FileNotFoundError(f"No se encuentra: {ruta}")
@@ -806,6 +898,7 @@ def procesar_archivo_individual(
         mejores_por_escena=mejores_por_escena,
         sensibilidad=sensibilidad, usar_proxy=usar_proxy,
         dry_run=False,
+        max_duracion_escena=max_duracion_escena,
     )
 
     if not resultado:
@@ -872,7 +965,8 @@ def listar_modelos():
 def main(argv: list[str] | None = None):
     parser = argparse.ArgumentParser(
         description="Análisis visual de videos con IA.\n\n"
-                    "Detecta cambios de escena (ffmpeg), muestrea ~N imágenes\n"
+                    "Detecta cambios de escena (ffmpeg), subdivide las escenas\n"
+                    "largas (> --max-duracion-escena), muestrea ~N imágenes\n"
                     "distribuidas dentro de cada escena, elige las más nítidas\n"
                     "por varianza del Laplaciano y analiza la más representativa\n"
                     "con UNA llamada de visión por escena (minicpm-v4.6,\n"
@@ -898,6 +992,10 @@ def main(argv: list[str] | None = None):
     parser.add_argument("--mejores-por-escena", type=int, default=3,
                         help="Cuántas imágenes conservar por escena tras la "
                              "selección por nitidez (default: 3)")
+    parser.add_argument("--max-duracion-escena", type=float, default=180.0,
+                        help="Máximo de segundos por escena; las escenas más "
+                             "largas se subdividen en sub-escenas contiguas de "
+                             "<= ese valor (default: 180; 0 = sin subdivisión)")
     parser.add_argument("--sensibilidad", type=float, default=SENSIBILIDAD_ESCENA,
                         help="Sensibilidad de detección de escenas 0.0-1.0, "
                              "menor = más sensible (default: 0.4)")
@@ -949,6 +1047,7 @@ def main(argv: list[str] | None = None):
                 sensibilidad=args.sensibilidad,
                 usar_proxy=usar_proxy,
                 json_out=args.json,
+                max_duracion_escena=args.max_duracion_escena,
             )
 
         elif args.db:
@@ -962,6 +1061,7 @@ def main(argv: list[str] | None = None):
                 limite=args.limit,
                 sidecar=args.sidecar,
                 dry_run=args.dry_run,
+                max_duracion_escena=args.max_duracion_escena,
             )
 
         elif args.folder:
@@ -973,6 +1073,7 @@ def main(argv: list[str] | None = None):
                 sensibilidad=args.sensibilidad,
                 usar_proxy=usar_proxy,
                 dry_run=args.dry_run,
+                max_duracion_escena=args.max_duracion_escena,
             )
 
     except KeyboardInterrupt:

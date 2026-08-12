@@ -66,11 +66,14 @@ PROMPT_KEYWORDS = "Give me exactly 5 keywords for this image, comma-separated."
 PROMPT_DESCRIBIR = "Give me a long description of this image."
 
 PROMPT_COMBINADO = (
-    "Respond with ONLY JSON about this image with two fields:\n"
-    '1. "keywords": exactly 5 keywords comma-separated.\n'
-    '2. "description": a long description.\n'
-    'Exact format: {"keywords": ["bicycle", "road", "repair", "gravel", "helmet"], '
+    "Respond with ONLY JSON about THIS image with two fields:\n"
+    '1. "keywords": exactly 5 keywords comma-separated, describing ONLY the '
+    "content of THIS image.\n"
+    '2. "description": a long description of THIS image.\n'
+    'Exact format: {"keywords": ["sofa", "bookshelf", "lamp", "carpet", "window"], '
     '"description": "Long description text here."}\n'
+    "The JSON format above is just an example; its keywords are NOT part of "
+    "this image. List keywords only from what YOU see in THIS image.\n"
     "Nothing else but the JSON."
 )
 
