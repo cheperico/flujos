@@ -5,7 +5,7 @@ en DB y/o sidecar.
 Dos modos de operación:
 
 1. **Post-ingesta** (--db): conecta a la DB existente, busca imágenes sin
-   etiquetar, extrae keywords + descripción con moondream y guarda en
+   etiquetar, extrae keywords + descripción con minicpm-v4.6 y guarda en
    media_metadata.
 
 2. **Pre-ingesta / autónomo** (--folder): procesa imágenes de una carpeta
@@ -17,7 +17,7 @@ Formato del sidecar .tags.json:
         "file_hash": "abc123def456",
         "tags": ["bicicleta", "ruta", "atardecer"],
         "descripcion": "Una bicicleta de montaña en un camino de tierra...",
-        "modelo": "moondream:latest",
+        "modelo": "minicpm-v4.6:latest",
         "fecha": "2026-07-14T10:30:00"
     }
 
@@ -71,8 +71,8 @@ MODE_COMBINADO = "combinado"      # keywords + descripción en UNA llamada (defa
 MODE_KEYWORDS = "keywords"        # solo keywords (rápido)
 MODE_DESCRIPCION = "descripcion"   # solo descripción
 
-# Modelos de visión recomendados (usar --list-models para ver los instalados)
-MODELOS_RECOMENDADOS = ["moondream:latest", "qwen2.5vl:latest", "qwen2.5vl:3b",
+# Modelos de visión recomendados (default real: minicpm-v4.6, ver MODELO_VISION_DEFAULT)
+MODELOS_RECOMENDADOS = ["minicpm-v4.6:latest", "qwen2.5vl:latest", "qwen2.5vl:3b",
                         "llama3.2-vision:latest", "gemma4:e4b"]
 
 

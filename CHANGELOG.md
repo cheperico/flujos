@@ -7,6 +7,56 @@ Las versiones corresponden a entregas funcionales, no a releases semánticas.
 
 ---
 
+## [Entrega 26] — 2026-08-11
+
+### Añadido
+- **Fase 1 — Auditoría de contenedores** (`scripts/detectar_contenedores.py`): audita video/audio con ffprobe (streams faltantes) y anota `media_metadata` con `contenedor_estado` (`ok` | `sin_video` | `sin_audio` | `sin_contenido` | `error_ffprobe` | `archivo_faltante`) y `contenedor_streams` (JSON). TUI Mantenimiento → paginado con 2 hojas; opción 9 en Hoja 1. CLI `flujos.py detectar-contenedores` / `contenedores`.
+- **Fase 1 — Contenido repetido por audio** (`scripts/repetir_contenido.py`): cross-correlación coseno del vector RMS por ventana (2 s, hop 0.5 s) entre pares de medios; reporta similitud y lag. **Solo reporta**, no escribe en DB (`--json` opcional). En `--contra` el pasaje más corto va como base (evita falsos negativos). TUI Mantenimiento Hoja 2 "Auditoría de medios" → 1; CLI `flujos.py repetir-contenido` / `repetidos`.
+- **Fase 1 — Crossref audio-frames** (`scripts/audio_frame_crossref.py`): clasifica ventanas de 10 s con CED-mini (audio tagging local) y mapea los sonidos a los frames del video en ese rango. Solo reporta; extracción opcional de frames con `--frames-dir`. TUI Mantenimiento Hoja 2 → 2; CLI `flujos.py audio-frame` / `crossref`.
+- **Fase 3 — Keypoints semánticos de video** (`scripts/ai_media/keypoints_video.py`): desde `video_analysis` escribe en `media_keypoints` key=`escena` (keywords de la escena) y key=`keyword` (keyword individual), source='ollama', con `timestamp_offset_secs` = inicio de la escena. Sentinel `media_metadata.keypoints_video_estado` (`ok` | `sin_datos`). NO toca los keypoints de transcripción (`key='transcription'`).
+- **Fase 4 — Keypoints de contexto (devenir geográfico)** (`scripts/keypoints_contexto.py`): F1 interpola la posición del medio contra los tracks GPX (multi-track con prioridad contiene → solapa → cercano → sin_rango; muestreo cada `--intervalo` 30 s), F2 transiciones baratas (elevación ±50 m, día/crepúsculo/noche, movimiento ≤5 km/h), F3 enriquece con Georef + clima en frecuencia gruesa (300 s) con cache en memoria y JSON, F4 escribe `media_keypoints` key=`contexto_*` (`contexto_elevacion`, `contexto_astronomia`, `contexto_ubicacion`, `contexto_clima`, `contexto_movimiento`) con source `track_interpolado` | `estimado` | `gps_propio`. Sentinel `media_metadata.keypoints_contexto_estado` (`ok` | `sin_datos`). TUI Mejorar DB Hoja 3 → 2; CLI `flujos.py keypoints-contexto` / `keypoints`.
+- **TUI Mejorar DB → Hoja 3 "Analisis de video"**: opción 1) Analizar video (escenas + IA), 2) Keypoints de contexto. La Hoja 2 pasa a tener navegación bidireccional (p Anterior / n Siguiente).
+
+### Cambiado
+- **Fase 0 — `content_hash_video` eliminado de la ingesta** (`scripts/ingest.py`): el hash de contenido para videos (frame a 0.5 s, débil) desaparece — `content_hash` = `file_hash` para videos; se quitó la opción `--compute-video-hash` y la notificación de duplicados por content_hash en video (imágenes mantienen phash). ROADMAP Etapa 2 actualizado a Hecho.
+- **Fase 0 — `backfill-end-time` corregido** (`flujos.py`): usa `datetime.fromisoformat` robusto, es idempotente (skip por `end_time IS NULL`) y pregunta si reparar `end_time == timestamp_utc` con duración.
+- **Fase 0 — `video_analysis.py` eliminado**: el script legacy (keyframes + descripción) se borró; su export salió de `scripts/ai_media/__init__.py`. El análisis de video lo cubre el rediseño de `analyze_video.py` (Fase 3).
+- **Fase 0 — key de keypoints corregida a `transcription`**: el paso `improve_db --step keypoints` usa consistente `key='transcription'` en skip/update/replace (antes convivían `transcription` y `transcript_segment`).
+- **Fase 0 — modelos → `minicpm-v4.6` en docstrings** y defaults de los scripts de visión (era `qwen2.5vl:3b` en la doc).
+- **Fase 3 — `analyze_video.py` rediseñado**: el análisis pasa a **muestreo por escenas** — scene detection (ffmpeg) → agrupar en escenas → ~10 imágenes por escena → selección por nitidez (sin IA) → **1 llamada de visión PROMPT_COMBINADO por escena** (keywords + descripción, máx 20 tags). Flags `--por-escena` y `--mejores-por-escena`; **se eliminó `--interval`**. TUI Mejorar DB Hoja 3 → 1; CLI `flujos.py analizar-video` / `analizar`.
+- **Fase 2 — Embeddings retirados del TUI** (consolidado): `generate_embeddings.py`/`clustering.py` quedan disponibles solo por CLI; rediseño profundo pendiente (ROADMAP).
+- **TUI Mantenimiento paginado**: `opcion_mantenimiento` migra a `_menu_paginado` con 2 hojas — Hoja 1 "Mantenimiento general" (1-9, gana la 9 "Auditar contenedores"), Hoja 2 "Auditoría de medios" (1 "Buscar contenido repetido (audio)", 2 "Correlacionar audio con frames").
+- **AYUDA CLI actualizada** (`flujos.py`): documenta los comandos nuevos (`detectar-contenedores`, `repetir-contenido`, `audio-frame`, `analizar-video`, `keypoints-contexto`, `ingest-textos`) y el routing correspondiente en `main()`.
+- **`numpy` documentado como dependencia** en AGENTS.md (cross-correlación de audio y clustering de embeddings).
+
+### Corregido
+- **Ronda de code review (2026-08-11)**: `opcion_geocode()` restaurada como función propia en `flujos.py` (había quedado colgando del cuerpo de `opcion_keypoints_contexto` por un refactor previo) y re-enlazada en Hoja 2 → 6; **5 submenús migrados a `_menu(...)`** (Analizar video, Keypoints de contexto, Auditar contenedores, Repetir contenido, Crossref audio-frame) con `pausa()` en las callables; `improve_db --step keypoints` **acotado a `key='transcription'`** (no borra `contexto_*`/`escena`/`keyword` en update/replace); `_seleccionar_gruesas` tolerante a intervalos no divisores de la frecuencia (elige la muestra más cercana al múltiplo); `keypoints_video.py` con import normal de `timezone` (sin `__import__`); `detectar_contenedores.py` anota `archivo_faltante` y usa `log.warning` en fallos de ffprobe; `analyze_video.py` renumera las escenas de forma contigua.
+
+### Reconciliación de entregas anteriores
+- La Entrega 25 describía "Mejorar DB con 2 hojas (se eliminó la Hoja 3 de cierre)" — sigue siendo cierto (la Hoja 3 de "Pasos de cierre"/embeddings no volvió), pero hoy hay una **Hoja 3 nueva "Analisis de video"** (Fase 3). Estado final: 3 hojas (IA y color / Etiquetado + inferencia y ubicación / Analisis de video), embeddings fuera del TUI.
+
+---
+
+## [Entrega 25] — 2026-08-11
+
+### Cambiado
+- **Embeddings retirados del TUI** (decisión ROADMAP 2026-08-09, ejecutada): `opcion_improve_db` ahora tiene 2 hojas — se eliminó la Hoja 3 ("Pasos de cierre") que exponía "1) Embeddings". La función `opcion_embeddings()` se quitó (dead code) y `generate_embeddings.py` queda disponible solo por línea de comandos. Está pendiente un rediseño profundo de la capa semántica antes de re-exponerla.
+
+---
+
+## [Entrega 24] — 2026-08-11
+
+### Cambiado
+- **TUI refactorizado a helpers genéricos** (`flujos.py`): los menu-loops manuales se reemplazaron por `_menu` (menú simple), `_menu_paginado` (hojas de hasta 9 opciones con navegación `n`/`next` y `p`/`prev`) y `_ejecutar_paso_mejora` (patrón `_preguntar_modo` + `_ejecutar_improve_db`). Texto visible y comportamiento idénticos (regla de oro).
+- **`_menu` ampliado**: kwargs opcionales `pre_titulo` (cabecera custom que reemplaza `limpiar_pantalla`+título+intro; ej: banner + resumen DB de `tui()`), `etiqueta_salir` (default "Volver"), `on_salir` (acción al elegir "0", ej: "Chau"), `cerrar_al_ejecutar` (rompe el loop tras ejecutar una opción válida — replica el `break` de submenús). Defaults retrocompatibles con los callers previos.
+- **Nuevo helper `_menu_paginado`**: hojas con hasta 9 opciones; navegación `n`/`next` y `p`/`prev` ("Opcion invalida." + `pausa()` en la primera/última hoja); `0` rompe. En hojas con Anterior y Siguiente, **p se lista primero** y luego n.
+- **`opcion_improve_db`** → `_menu_paginado("MEJORAR BASE DE DATOS", 3 hojas)`: Hoja 1 "Pasos de IA y color", Hoja 2 "Etiquetado + inferencia y ubicacion", Hoja 3 "Pasos de cierre"; firma ahora acepta `db_path`.
+- **`opcion_refinar_keywords`** → `_menu` externo (3 familias: Imagenes/Transcripciones/Textos) + `_menu` interno por familia con `cerrar_al_ejecutar=True` (Refinar todos / Previsualizar).
+- **`opcion_keywords_transcripciones`** → `_menu` externo (2 orígenes) + `_menu` interno por origen con `cerrar_al_ejecutar=True` (4 modos).
+- **`tui()`** → `_menu` con `pre_titulo=_cabecera` (bienvenida + resumen DB), `etiqueta_salir="Salir"`, `on_salir=_chau`.
+
+---
+
 ## [Entrega 23] — 2026-08-09
 
 ### Añadido

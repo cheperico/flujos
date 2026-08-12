@@ -21,6 +21,7 @@ referenciados en **Dónde está la información** (al final) — consultar bajo 
 | faster-whisper | Transcripción de audio/video |
 | sherpa-onnx + onnxruntime | Audio tagging local (CED-mini, 527 clases AudioSet) |
 | Pillow + webcolors | Colores dominantes, thumbnails, naming CSS → español |
+| numpy | Cross-correlación de audio (`repetir_contenido.py`, `audio_frame_crossref.py`) y clustering de embeddings |
 | SQLite | Base embebida (`db/flujos.db`) |
 
 **Modelos por tarea**: visión=`minicpm-v4.6:latest`, traducción=`translategemma`, curación/limpieza=`moondream:latest`, embeddings=`nomic-embed-text`, transcripción=`faster-whisper` (modelo `small`), audio tagging=`sherpa-onnx CED-mini` (local).
@@ -51,11 +52,12 @@ referenciados en **Dónde está la información** (al final) — consultar bajo 
 │   │   dia_semana.py, color_utils.py, ingest_gpx.py, import_telegram.py,
 │   │   puente_td.py, exportar_csv.py, mover_media.py, elecciones.py,
 │   │   mapa_ruta.py, consolidar_medios.py, fix_gps_sign.py, mover_descartadas.py,
-│   │   ingest_textos.py
+│   │   ingest_textos.py, keypoints_contexto.py, detectar_contenedores.py,
+│   │   repetir_contenido.py, audio_frame_crossref.py
 │   ├── check_db.py, check_gps.py, check_db_data.py, test_gradiente.py
 │   └── ai_media/
 │       ├── ollama_client.py, image_analysis.py, transcribe.py, transcribe_media.py,
-│       │   traducir_metadata.py, video_analysis.py, analyze_video.py, tag_images.py,
+│       │   traducir_metadata.py, analyze_video.py, keypoints_video.py, tag_images.py,
 │       │   batch_selector.py, clustering.py, generate_embeddings.py, refinar_keywords.py,
 │       │   keywords_transcripciones.py, audio_tagging.py, checkpoint.py, proxy.py
 │       └── loop_engine.py, loop_db.py, test_motor_loop.py
@@ -81,8 +83,8 @@ Schema completo y versionado en `db/schema.sql` (SQLite WAL, foreign_keys=ON; mi
 | Tabla | Propósito | Columnas / claves CLAVE |
 |---|---|---|
 | `media` | Tabla principal (~55 cols): identidad, hashes, sidecar Sony, tiempo, GPS, geocode, gradientes, autor, colores, control | `timestamp_utc`, `latitude`/`longitude` (**NEGATIVAS en Argentina**), `filepath_absoluto` UNIQUE, `file_hash` UNIQUE, `telegram_message_id` FK |
-| `media_metadata` | key-value por medio | Claves usadas: `ia_keywords`, `ia_keywords_en`, `ia_description`, `ia_description_en`, `whisper_segments`, `whisper_info`, `whisper_estado`, `weather_*`, `dia_semana`, `ia_keywords_transcripcion`, `ia_keywords_texto`, `ia_keywords_sonido`, `ia_sonido_raw` |
-| `media_keypoints` | Segmentos individuales con timestamp | `timestamp_offset_secs`, key=`transcript_segment` |
+| `media_metadata` | key-value por medio | Claves usadas: `ia_keywords`, `ia_keywords_en`, `ia_description`, `ia_description_en`, `whisper_segments`, `whisper_info`, `whisper_estado`, `weather_*`, `dia_semana`, `ia_keywords_transcripcion`, `ia_keywords_texto`, `ia_keywords_sonido`, `ia_sonido_raw`, `video_analysis`, `contenedor_estado`, `contenedor_streams`, `keypoints_video_estado`, `keypoints_contexto_estado` |
+| `media_keypoints` | Segmentos individuales con timestamp | `timestamp_offset_secs`, key=`transcription` (whisper), `contexto_*` (contexto geográfico), `escena`/`keyword` (análisis de video) |
 | `media_embeddings` | Vectores de búsqueda semántica | `modelo` (default nomic-embed-text), UNIQUE(media_id, modelo) |
 | `config` | key-value global | `ingest_root`, `current_ingest_batch` |
 | `tracks` | Archivos GPX ingeridos | `name`, `filepath_absoluto`, `start_time`, `end_time`, `total_points` |
@@ -115,7 +117,7 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 | **COMBINADO** | `improve_db.py --step combinado` | Keywords + descripción en UNA llamada de visión (EN) + 1 de traducción (ES) | `media_metadata` | keys `ia_keywords_en`/`ia_description_en` + `ia_keywords`/`ia_description` (ES) |
 | **TRANSLATE** | `traducir_metadata.py` | Traducción EN→ES independiente sobre la DB (re-ejecutable sin re-correr visión) | `media_metadata` | `ia_keywords`/`ia_description` desde `ia_keywords_en`/`ia_description_en` |
 | **TRANSCRIBE** | `improve_db.py --step transcribe` | Transcripción completa de audio/video con **VAD** (detecta persona hablando, descarta ruido/silencio) + filtro de confianza | `media_metadata` | keys `whisper_segments` (JSON [{inicio, fin, texto, promedio_logprob, no_hay_habla_prob, ratio_compresion}]), `whisper_info` ({language, language_probability}), `whisper_estado` (ok\|sin_voz) |
-| **KEYPOINTS** | `improve_db.py --step keypoints` | Segmentos individuales de transcripción con timestamp | `media_keypoints` | media_id, timestamp_offset_secs, timestamp_absolute, key=`transcript_segment`, value=texto, source |
+| **KEYPOINTS** | `improve_db.py --step keypoints` | Segmentos individuales de transcripción con timestamp | `media_keypoints` | media_id, timestamp_offset_secs, timestamp_absolute, key=`transcription`, value=texto, source |
 | **TIMESTAMPS** | `improve_db.py --step timestamps` | Timestamps inferidos desde EXIF/ExifTool | `media` | timestamp_original, timestamp_utc, timezone_note, updated_at |
 | **GPS** | `improve_db.py --step gps` | GPS inferido desde EXIF/ExifTool | `media` | latitude, longitude, altitude, geolocation_source, updated_at |
 | **VIDEO_METADATA** | `improve_db.py --step video_metadata` | ExifTool en videos (cámara, 360°, author) | `media` + `media_metadata` | subtype, author, xml_devicemanufacturer, xml_devicemodelname, xmp_spherical |
@@ -127,6 +129,14 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 | **KEYWORDS TRANSCRIPCIÓN** | `ai_media/keywords_transcripciones.py --origen transcripcion` (default) | Keywords del SENTIDO de la transcripción (Ollama texto, qwen2.5:3b) | `media_metadata` | key=`ia_keywords_transcripcion`, value=keywords ES separadas por coma (fuente: whisper_segments) |
 | **KEYWORDS TEXTOS** | `ai_media/keywords_transcripciones.py --origen texto` | Keywords del SENTIDO de los textos ingresados (Ollama texto, qwen2.5:3b) | `media_metadata` | key=`ia_keywords_texto`, value=keywords ES separadas por coma (fuente: texto_completo) |
 | **AUDIO TAGGING** | `ai_media/audio_tagging.py` | Sonidos ambientales en audio/video (sherpa-onnx CED-mini, 527 clases AudioSet, local) | `media_metadata` | key=`ia_keywords_sonido` (ES, texto coma-separado); key=`ia_sonido_raw` (JSON [{name, prob}]) |
+| **ANÁLISIS VIDEO** | `ai_media/analyze_video.py` | Análisis visual por escenas: scene detection → muestreo ~10 imgs/escena → nitidez → 1 llamada de visión por escena (keywords + descripción) | `media_metadata` | key=`video_analysis` (JSON: escenas [{indice, inicio, fin, duracion, keywords, descripcion, fotogramas}], fotogramas, modelo, fecha) |
+| **KEYPOINTS VIDEO** | `ai_media/keypoints_video.py` | Keypoints semánticos por escena (post-análisis de video) | `media_keypoints` | key=`escena` (keywords de la escena, coma separada), key=`keyword` (keyword individual), value=texto, source='ollama' |
+| | | Sentinel de procesado (evita reprocesar videos sin keypoints en skip) | `media_metadata` | key=`keypoints_video_estado`, value=ok\|sin_datos |
+| **KEYPOINTS CONTEXTO** | `keypoints_contexto.py` | Keypoints de contexto (devenir geográfico): F1 interpola track GPX, F2 transiciones elevación/astronomía/movimiento, F3 georef+clima con cache, F4 escribe cambios | `media_keypoints` | key=`contexto_elevacion`, `contexto_astronomia`, `contexto_ubicacion`, `contexto_clima`, `contexto_movimiento`; value=descripción ES; source=`track_interpolado`\|`estimado`\|`gps_propio` |
+| | | Sentinel de procesado (evita reprocesar medios sin posición en skip) | `media_metadata` | key=`keypoints_contexto_estado`, value=ok\|sin_datos |
+| **AUDITORÍA CONTENEDORES** | `detectar_contenedores.py` | Estado del contenedor de video/audio con ffprobe (streams faltantes) | `media_metadata` | key=`contenedor_estado`, value=ok\|sin_video\|sin_audio\|sin_contenido\|error_ffprobe\|archivo_faltante; key=`contenedor_streams` (JSON detalle de streams) |
+| **AUDIO REPETIDO** | `repetir_contenido.py` | Detecta pasajes de audio repetidos entre pares de medios (cross-correlación RMS; **solo reporta**, no escribe) | — | — (reporte por consola / `--json`) |
+| **CROSSREF AUDIO-FRAME** | `audio_frame_crossref.py` | Correlaciona sonidos (CED-mini) con frames del video (**solo reporta**, no escribe) | — | — (reporte por consola) |
 | **BACKFILL** | `flujos.py` backfill-end-time | Precalcula end_time = timestamp_utc + duration_secs | `media` | end_time, updated_at |
 | **RELOCATE** | `relocate.py` | Actualiza rutas cuando los archivos se mudan de carpeta | `media` | filepath_absoluto, filepath_relativo, carpeta, sidecar_xml |
 | **GPX** | `ingest_gpx.py` | Ingesta de archivo GPX: waypoints, registro de track y backfill de altitud | `tracks` | name, filepath_absoluto, filepath_relativo, source_url, start_time, end_time, total_points |
@@ -150,19 +160,19 @@ Detalle de args CLI de cada script en su **docstring** (o `python script.py --he
 
 | Script | Propósito | Integración TUI / CLI |
 |---|---|---|
-| `flujos.py` | Entry point único: TUI (6 submenús) + CLI routing | `python flujos.py <comando>`; sin args abre TUI |
+| `flujos.py` | Entry point único: TUI (6 submenús + Ayuda) + CLI routing | `python flujos.py <comando>`; sin args abre TUI |
 | `db/util.py` | Conexiones DB (`abrir`, `conectar`, `resolver_db`) + `ModoHelper` | `from db.util import abrir, conectar, resolver_db, ModoHelper` |
 | `ingest.py` | Escanea carpeta, extrae metadatos/hashes/GPS, inserta en `media` | TUI Ingesta→1; CLI `flujos.py ingest --root <ruta>` |
-| `improve_db.py` | 10 pasos post-ingesta (colors, keywords, descriptions, combinado, transcribe, keypoints, timestamps, gps, video_metadata) | TUI Mejorar DB (3 hojas); CLI `flujos.py improve-db --steps X --mode Y` |
+| `improve_db.py` | 9 pasos post-ingesta (colors, keywords, descriptions, combinado, transcribe, keypoints, timestamps, gps, video_metadata) | TUI Mejorar DB (3 hojas; embeddings retirado del TUI); CLI `flujos.py improve-db --steps X --mode Y` |
 | `query.py` | Consultas a DB (distinct, search, where, count) | TUI Consultar→Listar; CLI `flujos.py query` |
 | `relocate.py` | Actualiza rutas cuando los archivos se mudan | TUI Mantenimiento→1; CLI `flujos.py relocate` |
-| `geocode.py` | Geocodificación inversa (Georef API Argentina, batch) | TUI Mejorar DB Hoja 2→4; CLI `flujos.py geocode` |
-| `gradiente.py` | Distancia Haversine, elevación, pendiente entre GPS consecutivos | TUI Hoja 2→3; CLI `flujos.py gradient` |
-| `astronomia.py` | Posición del sol (NOAA) + clasificación twilight | TUI Hoja 2→7 / Mantenimiento→2; CLI `flujos.py astronomia` |
+| `geocode.py` | Geocodificación inversa (Georef API Argentina, batch) | TUI Mejorar DB Hoja 2→6; CLI `flujos.py geocode` |
+| `gradiente.py` | Distancia Haversine, elevación, pendiente entre GPS consecutivos | TUI Hoja 2→5; CLI `flujos.py gradient` |
+| `astronomia.py` | Posición del sol (NOAA) + clasificación twilight | TUI Hoja 2→9 / Mantenimiento→2; CLI `flujos.py astronomia` |
 | `color_utils.py` | Colores dominantes (Pillow) + naming webcolors→español | Usado por `improve_db --step colors` |
 | `limpiar_tandas.py` | Limpieza de tandas/bursts; mueve descartadas a `excluir/` | TUI Preparar→1; standalone |
-| `fetch_weather.py` | Clima histórico Open-Meteo ERA5-Land | TUI Hoja 2→5; standalone |
-| `dia_semana.py` | Día de la semana desde `timestamp_utc` | TUI Hoja 2→6; standalone |
+| `fetch_weather.py` | Clima histórico Open-Meteo ERA5-Land | TUI Hoja 2→7; standalone |
+| `dia_semana.py` | Día de la semana desde `timestamp_utc` | TUI Hoja 2→8; standalone |
 | `ingest_gpx.py` | Ingesta de track GPX (tracks, waypoints, backfill altitud) | TUI Ingesta→2 |
 | `import_telegram.py` | Importa exports de Telegram (chats, mensajes, multimedia) | TUI Ingesta→4; CLI `flujos.py import-telegram` / `tg` |
 | `ingest_textos.py` | Ingiere textos `.md` de `textos/` como medios type='text' (frontmatter + subtítulos `##` = textos individuales) | TUI Ingesta→5; CLI `flujos.py ingest-textos` / `textos` |
@@ -174,14 +184,19 @@ Detalle de args CLI de cada script en su **docstring** (o `python script.py --he
 | `ai_media/image_analysis.py` | Keywords + descripción de imágenes (visión minicpm, prompts EN) | Usado por `improve_db --step keywords/descriptions` |
 | `ai_media/transcribe.py` / `transcribe_media.py` | Transcripción faster-whisper (independiente / desde DB) | `transcribe_media` usado por `--step transcribe` |
 | `ai_media/traducir_metadata.py` | Traduce EN→ES sobre la DB (translategemma) | Standalone re-ejecutable |
-| `ai_media/video_analysis.py` / `analyze_video.py` | Análisis de videos (keyframes, scene detect) | Standalone |
+| `ai_media/analyze_video.py` | Análisis de videos con IA: scene detection → ~10 imgs/escena → nitidez → 1 llamada PROMPT_COMBINADO por escena (máx 20 tags); flags `--por-escena`/`--mejores-por-escena` (eliminado `--interval`) | TUI Hoja 3→1; CLI `flujos.py analizar-video` / `analizar` |
+| `ai_media/keypoints_video.py` | Keypoints semánticos de video: `media_keypoints` key=`escena`/`keyword`, source='ollama' (desde `video_analysis`); sentinel `keypoints_video_estado` | Standalone (post-`analyze_video`): `python scripts/ai_media/keypoints_video.py [--mode]` |
+| `keypoints_contexto.py` | Keypoints de contexto (devenir geográfico): F1 interpola track GPX, F2 transiciones (elevación/astronomía/movimiento), F3 georef+clima con cache, F4 escribe `contexto_*` | TUI Hoja 3→2; CLI `flujos.py keypoints-contexto` / `keypoints` |
+| `detectar_contenedores.py` | Audita contenedores de video/audio con ffprobe (streams faltantes); anota `contenedor_estado`/`contenedor_streams` | TUI Mantenimiento→9; CLI `flujos.py detectar-contenedores` / `contenedores` |
+| `repetir_contenido.py` | Detecta contenido repetido por audio (cross-correlación RMS; solo reporta, no escribe) | TUI Mantenimiento Hoja 2→1; CLI `flujos.py repetir-contenido` / `repetidos` |
+| `audio_frame_crossref.py` | Correlaciona audio (CED-mini) con frames de video (solo reporta, no escribe) | TUI Mantenimiento Hoja 2→2; CLI `flujos.py audio-frame` / `crossref` |
 | `ai_media/tag_images.py` | Taggear imágenes (DB o sidecar) | Standalone |
 | `ai_media/batch_selector.py` | Selecciona mejor imagen de tanda (moondream; criterio `nitidez` sin IA) | Usado por `limpiar_tandas` |
 | `ai_media/clustering.py` | Agrupa por tags/embeddings (moondream, prompts EN) | Usado por `limpiar_tandas` |
-| `ai_media/generate_embeddings.py` | Embeddings multi-fuente (nomic-embed-text, MAX 6000 chars) | TUI Hoja 2→8; standalone |
-| `ai_media/refinar_keywords.py` | Refina/unifica keywords (léxico + diccionario de sinónimos) | TUI Hoja 1→7; standalone |
+| `ai_media/generate_embeddings.py` | Embeddings multi-fuente (nomic-embed-text, MAX 6000 chars) | Retirado del TUI (standalone; rediseño pendiente, ver ROADMAP) |
+| `ai_media/refinar_keywords.py` | Refina/unifica keywords (léxico + diccionario de sinónimos) | TUI Hoja 2→2; standalone |
 | `ai_media/keywords_transcripciones.py` | Keywords del SENTIDO desde transcripciones (`--origen transcripcion`, default → `ia_keywords_transcripcion`) o desde textos .md ingresados (`--origen texto` → `ia_keywords_texto`) | TUI Hoja 2→1; standalone |
-| `ai_media/audio_tagging.py` | Sonidos ambientales (sherpa-onnx CED-mini, local) | TUI Hoja 3→1 |
+| `ai_media/audio_tagging.py` | Sonidos ambientales (sherpa-onnx CED-mini, local) | TUI Hoja 1→7 |
 | `ai_media/checkpoint.py` | Checkpoint + detención limpia para procesos IA | Usado por improve_db y otros |
 | `ai_media/proxy.py` | Redimensiona imágenes a ~800px | Usado por limpiar_tandas/clustering/batch_selector |
 | `ai_media/loop_engine.py` / `loop_db.py` | Motor de loop: arcos horarios, posicionamiento, spec JSON | CLI: `python scripts/ai_media/loop_db.py --horas ... --salida spec.json` |
@@ -265,6 +280,7 @@ El modo `replace` vía `_preguntar_modo()` (flujos.py) crea backup automático e
 
 - **Regla de agrupación**: siempre que se agregue una opción nueva al TUI, insertarla cerca de opciones temáticamente relacionadas, no al final de la lista.
 - **Regla de paginación**: cada hoja soporta hasta **9 opciones** (1-9). Solo al superar 9 se crea una hoja nueva. Navegación: **n** = Siguiente, **p** = Anterior, **0** = Volver. Si la hoja temática está llena, las nuevas van a la hoja siguiente. En hojas que tienen tanto Anterior como Siguiente, **p se lista primero** y luego n.
+- **Patrón de helpers**: los menús del TUI se implementan con `_menu(titulo, opciones, db_path, intro=, titulo_ancho=, ...)` (menú simple) o `_menu_paginado(titulo, hojas, db_path)` (hojas de hasta 9 opciones). Las opciones son `dict[clave → (etiqueta, callable)]`; la callable recibe `db_path`. La clave "0" está reservada para Volver/Salir. `_preguntar_sn(pregunta)` para confirmaciones s/N y `_args_sn(args, flags)` para flags booleanos. Para submenús que deben cerrarse tras ejecutar una opción, usar `_menu(..., cerrar_al_ejecutar=True)`. Para menús con cabecera propia (ej: `tui()`), usar `_menu(..., pre_titulo=callable, etiqueta_salir="Salir", on_salir=callable)`.
 - El árbol TUI completo NO vive aquí: ver @README.md.
 
 ## Subagentes

@@ -859,13 +859,14 @@ def run_keypoints(conn, db_path, mode, stats):
             JOIN media_metadata mm ON mm.media_id = m.id AND mm.key = 'whisper_segments'
         """
     else:
-        # Solo medios transcritos que aun no tienen keypoints
+        # Solo medios transcritos que aun no tienen keypoints de transcripcion
         query = """
             SELECT m.id, m.filepath_absoluto, m.timestamp_utc, mm.value AS segments_json
             FROM media m
             JOIN media_metadata mm ON mm.media_id = m.id AND mm.key = 'whisper_segments'
             WHERE m.id NOT IN (
                 SELECT DISTINCT media_id FROM media_keypoints
+                WHERE key = 'transcription'
             )
         """
 
@@ -878,9 +879,10 @@ def run_keypoints(conn, db_path, mode, stats):
     inserted = 0
     errors = 0
 
-    # En replace/update: limpiar datos previos (misma transacción que los inserts)
+    # En replace/update: limpiar SOLO los keypoints de transcripcion previos
+    # (NO tocar contexto_*, escena, keyword: viven en media_keypoints también)
     if mode in ("replace", "update"):
-        conn.execute("DELETE FROM media_keypoints")
+        conn.execute("DELETE FROM media_keypoints WHERE key = 'transcription'")
         # No commit — se comitea al final con los inserts
 
     for mid, fpath, ts_utc, segments_json in tqdm(

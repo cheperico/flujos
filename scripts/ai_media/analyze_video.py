@@ -1,26 +1,37 @@
 """
-Análisis visual de videos con IA — detecta cambios de escena + intervalos
-fijos, extrae fotogramas clave y los analiza con modelos de visión Ollama.
+Análisis visual de videos con IA — detecta cambios de escena + muestreo
+inteligente dentro de cada escena.
 
 Algoritmo:
   1. Obtener duración del video (ffprobe)
   2. Detectar cambios de escena (ffmpeg scene detection)
-  3. Generar puntos de análisis: scene changes + relleno cada N segundos
-  4. Extraer fotogramas en esos timestamps
-  5. Analizar cada fotograma con moondream (tags + descripción)
-  6. Guardar resultados en DB y/o sidecar
+  3. Agrupar los cambios en escenas [inicio, fin)
+  4. Muestrear ~N imágenes distribuidas dentro de cada escena
+  5. Seleccionar las mejores por nitidez (sin IA, varianza Laplaciano)
+  6. Analizar la imagen más representativa de cada escena con UNA llamada
+     de visión (PROMPT_COMBINADO: keywords + descripción)
+  7. Guardar resultados en DB y/o sidecar
 
 Formato del sidecar .video.json:
     {
         "file_hash": "abc123def456",
         "duracion_seg": 600.0,
-        "intervalo": 30,
+        "imgs_por_escena": 10,
+        "mejores_por_escena": 3,
         "sensibilidad_escena": 0.4,
-        "modelo": "moondream:latest",
+        "modelo": "minicpm-v4.6:latest",
         "fecha": "2026-07-14T10:30:00",
         "fotogramas": [
-            {"timestamp": 0.0,  "tags": ["paisaje", "ruta", "campo"],     "descripcion": "...", "origen": "escena"},
-            {"timestamp": 30.0, "tags": ["paisaje", "arboles", "sombra"], "descripcion": "...", "origen": "intervalo"},
+            {"timestamp": 0.0,  "tags": [...], "descripcion": "...", "origen": "escena", "escena": 0},
+            ...
+        ],
+        "escenas": [
+            {
+                "indice": 0, "inicio": 0.0, "fin": 42.3, "duracion": 42.3,
+                "keywords": ["paisaje", "ruta", "campo"],
+                "descripcion": "...",
+                "fotogramas": [{"timestamp": 0.0, "puntaje_nitidez": 123.4}, ...]
+            },
             ...
         ]
     }
@@ -32,8 +43,11 @@ Uso:
     # Analizar desde DB
     python scripts/ai_media/analyze_video.py --db db/flujos.db
 
-    # Analizar con intervalo personalizado
-    python scripts/ai_media/analyze_video.py --file video.mp4 --interval 15
+    # Muestreo personalizado por escena
+    python scripts/ai_media/analyze_video.py --file video.mp4 --por-escena 10
+
+    # Conservar más/menos imágenes por escena tras la selección por nitidez
+    python scripts/ai_media/analyze_video.py --file video.mp4 --mejores-por-escena 5
 
     # Solo ver qué se haría
     python scripts/ai_media/analyze_video.py --db db/flujos.db --dry-run
@@ -55,7 +69,8 @@ from typing import Any, Optional
 # Permitir importar scripts/ como paquete
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from scripts.ai_media.image_analysis import extraer_keywords, describir_imagen, MODELO_VISION_DEFAULT
+from scripts.ai_media.image_analysis import analizar_imagen_completo, MODELO_VISION_DEFAULT
+from scripts.ai_media.batch_selector import seleccionar_mejores_n
 
 logger = logging.getLogger(__name__)
 
@@ -65,8 +80,8 @@ EXT_VIDEO = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".mxf", ".mts", ".m2ts"}
 # Claves en media_metadata
 KEY_VIDEO_ANALYSIS = "video_analysis"
 
-# Modelos de visión recomendados
-MODELOS_RECOMENDADOS = ["moondream:latest", "qwen2.5vl:latest", "qwen2.5vl:3b",
+# Modelos de visión recomendados (default real: minicpm-v4.6, ver MODELO_VISION_DEFAULT)
+MODELOS_RECOMENDADOS = ["minicpm-v4.6:latest", "qwen2.5vl:latest", "qwen2.5vl:3b",
                         "llama3.2-vision:latest", "gemma4:e4b"]
 
 # Sensibilidad por defecto para scene detection (0.0 - 1.0, menor = más sensible)
@@ -160,65 +175,106 @@ def _detectar_cambios_escena(
 
 
 # ═══════════════════════════════════════════════════════════════
-#  PLAN DE MUESTREO
+#  PLAN DE MUESTREO (por escenas)
 # ═══════════════════════════════════════════════════════════════
 
-def _generar_puntos_muestreo(
+def _agrupar_escenas(
     duracion: float,
     cambios_escena: list[float],
-    intervalo: float = 30.0,
 ) -> list[dict]:
     """
-    Genera la lista de timestamps a analizar combinando:
-    - Cambios de escena
-    - Relleno cada 'intervalo' segundos entre cambios
+    Agrupa los cambios de escena en intervalos [inicio, fin).
+
+    La primera escena arranca en 0; cada cambio de escena cierra la anterior
+    y abre la siguiente; la última termina en `duracion`. Los cambios fuera
+    del rango (0, duracion) se ignoran.
+
+    Args:
+        duracion: Duración del video en segundos.
+        cambios_escena: Lista de timestamps (segundos) con cambios de escena.
+
+    Returns:
+        Lista de dicts con {"indice", "inicio", "fin", "duracion"},
+        ordenada por inicio. Si no hay cambios, una única escena [0, duracion).
+    """
+    limites = sorted(c for c in cambios_escena if 0 < c < duracion)
+    limites = [0.0] + limites + [duracion]
+
+    escenas: list[dict] = []
+    indice = 0
+    for i in range(len(limites) - 1):
+        inicio, fin = limites[i], limites[i + 1]
+        if fin - inicio < 0.05:
+            continue  # escenas degeneradas (cambio casi inmediato)
+        escenas.append({
+            "indice": indice,
+            "inicio": round(inicio, 1),
+            "fin": round(fin, 1),
+            "duracion": round(fin - inicio, 1),
+        })
+        indice += 1  # B6: índices contiguos (no usar i: deja huecos al descartar)
+    return escenas
+
+
+def _muestrear_escena(
+    escena: dict,
+    imgs_por_escena: int = 10,
+) -> list[float]:
+    """
+    Genera timestamps distribuidos uniformemente dentro de una escena.
+
+    Reemplaza el relleno fijo "cada N segundos": en lugar de muestrear el
+    video de forma global, distribuye ~`imgs_por_escena` puntos dentro de
+    cada escena. Si la escena dura menos que la cantidad pedida, toma los
+    puntos que quepan (mínimo 1).
+
+    Args:
+        escena: Dict con {"inicio", "fin", "duracion"}.
+        imgs_por_escena: Cantidad objetivo de imágenes por escena.
+
+    Returns:
+        Lista de timestamps (segundos) ordenada, sin duplicados.
+    """
+    inicio = escena["inicio"]
+    duracion = escena["duracion"]
+    if duracion <= 0:
+        return [inicio]
+
+    n = max(1, min(imgs_por_escena, int(duracion) + 1))
+    timestamps: list[float] = []
+    for i in range(n):
+        # Evitar el último instante (fin) para no colisionar con la próxima escena
+        ts = inicio + (duracion * i) / n
+        timestamps.append(round(ts, 1))
+    return timestamps
+
+
+def _muestreo_video(
+    duracion: float,
+    cambios_escena: list[float],
+    imgs_por_escena: int = 10,
+) -> list[dict]:
+    """
+    Arma el plan de muestreo completo del video: escenas + timestamps.
+
+    Cada escena queda con su lista de timestamps a analizar. Las escenas
+    vacías (sin timestamps) se descartan.
 
     Args:
         duracion: Duración del video en segundos.
         cambios_escena: Lista de timestamps con cambios de escena.
-        intervalo: Segundos máximos entre fotogramas.
+        imgs_por_escena: Imágenes objetivo por escena.
 
     Returns:
-        Lista de dicts con {"timestamp": float, "origen": "escena"|"intervalo"}.
-        Ordenada por timestamp. Sin duplicados.
+        Lista de dicts: {"indice", "inicio", "fin", "duracion", "timestamps"}.
     """
-    puntos: list[dict] = []
-    visitados: set[float] = set()
-
-    def agregar(ts: float, origen: str):
-        # Redondear a 1 decimal y evitar duplicados muy cercanos
-        ts_rounded = round(ts, 1)
-        if ts_rounded in visitados:
-            return
-        # No permitir duplicados a menos de 1s de distancia
-        for v in visitados:
-            if abs(v - ts_rounded) < 1.0:
-                return
-        visitados.add(ts_rounded)
-        puntos.append({"timestamp": ts_rounded, "origen": origen})
-
-    # Siempre incluir el segundo 0
-    agregar(0.0, "intervalo")
-
-    # Puntos por cambios de escena
-    for ts in cambios_escena:
-        if 0 < ts < duracion:
-            agregar(ts, "escena")
-
-    # Relleno cada intervalo donde no haya scene change
-    ts_actual = 0.0
-    while ts_actual < duracion:
-        agregar(ts_actual, "intervalo")
-        ts_actual += intervalo
-
-    # Asegurar incluir el final aproximado
-    if duracion > 0:
-        agregar(duracion - 1, "intervalo")
-
-    # Ordenar por timestamp
-    puntos.sort(key=lambda p: p["timestamp"])
-
-    return puntos
+    escenas = _agrupar_escenas(duracion, cambios_escena)
+    plan = []
+    for escena in escenas:
+        timestamps = _muestrear_escena(escena, imgs_por_escena)
+        if timestamps:
+            plan.append({**escena, "timestamps": timestamps})
+    return plan
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -353,13 +409,20 @@ def obtener_videos_sin_analisis(
 def guardar_en_db(
     conn: sqlite3.Connection, media_id: int, resultado: dict[str, Any]
 ):
-    """Guarda el análisis visual en media_metadata."""
+    """Guarda el análisis visual en media_metadata.
+
+    Guarda el dict completo del resultado (duración, modelo, fotogramas
+    planos y escenas estructuradas). `fotogramas` conserva el formato
+    anterior (cada fotograma con timestamp/tags/descripcion/origen) para
+    no romper consumidores existentes; `escenas` agrega la metadata por
+    escena (índice, duración, keywords).
+    """
     try:
         conn.execute(
             "INSERT OR REPLACE INTO media_metadata (media_id, key, value) "
             "VALUES (?, ?, ?)",
             (media_id, KEY_VIDEO_ANALYSIS,
-             json.dumps(resultado.get("fotogramas", []), ensure_ascii=False)),
+             json.dumps(resultado, ensure_ascii=False)),
         )
         conn.commit()
     except Exception as e:
@@ -367,37 +430,44 @@ def guardar_en_db(
 
 
 # ═══════════════════════════════════════════════════════════════
-#  ANÁLISIS IA DE FOTOGRAMAS
+#  ANÁLISIS IA DE ESCENAS
 # ═══════════════════════════════════════════════════════════════
 
-def analizar_fotograma(
+# Máximo de keywords a conservar por escena
+MAX_KEYWORDS_POR_ESCENA = 20
+
+
+def analizar_escena(
     ruta_fotograma: str,
     modelo: str = MODELO_VISION_DEFAULT,
     usar_proxy: bool = True,
 ) -> dict[str, Any]:
     """
-    Analiza un fotograma con IA: extrae tags + descripción.
+    Analiza el fotograma representativo de una escena con UNA llamada de IA.
+
+    Usa PROMPT_COMBINADO (keywords + descripción en un solo JSON) con
+    temperatura baja para resultados estables.
+
+    Args:
+        ruta_fotograma: Ruta al fotograma a analizar.
+        modelo: Modelo de visión.
+        usar_proxy: Si True, usa proxy redimensionado a 800px.
 
     Returns:
-        Dict con "tags" y "descripcion".
+        Dict con "keywords" (lista, máx MAX_KEYWORDS_POR_ESCENA) y
+        "descripcion" (str).
     """
-    tags = extraer_keywords(
+    resultado = analizar_imagen_completo(
         ruta_fotograma,
         modelo=modelo,
-        temperatura=0.2,
+        temperatura=0.1,
         usar_proxy=usar_proxy,
     )
 
-    descripcion = describir_imagen(
-        ruta_fotograma,
-        modelo=modelo,
-        temperatura=0.3,
-        usar_proxy=usar_proxy,
-    )
-
+    keywords = resultado.get("keywords", [])[:MAX_KEYWORDS_POR_ESCENA]
     return {
-        "tags": tags,
-        "descripcion": descripcion.strip().strip('"'),
+        "keywords": keywords,
+        "descripcion": (resultado.get("description", "") or "").strip().strip('"'),
     }
 
 
@@ -405,19 +475,59 @@ def analizar_fotograma(
 #  PROCESAMIENTO DE VIDEO
 # ═══════════════════════════════════════════════════════════════
 
+def _elegir_mejores_por_nitidez(
+    rutas_frames: list[str],
+    mejores_por_escena: int = 3,
+) -> list[dict]:
+    """
+    Elige las N imágenes más nítidas de una lista (sin IA).
+
+    Reutiliza el criterio de nitidez de batch_selector (varianza del
+    Laplaciano, 100% computacional). Si hay una sola imagen, la devuelve
+    directamente (batch_selector no genera evaluaciones en ese caso).
+
+    Args:
+        rutas_frames: Lista de rutas a fotogramas.
+        mejores_por_escena: Cuántas imágenes conservar (default 3).
+
+    Returns:
+        Lista de dicts {"ruta", "puntaje"} ordenada por puntaje desc.
+    """
+    if not rutas_frames:
+        return []
+    if len(rutas_frames) == 1:
+        return [{"ruta": rutas_frames[0], "puntaje": 0.0}]
+
+    mejores = seleccionar_mejores_n(
+        rutas_frames, n=mejores_por_escena, criterio="nitidez",
+    )
+    return [
+        {"ruta": m["ruta"], "puntaje": m.get("puntaje", 0.0)}
+        for m in mejores
+    ]
+
+
 def analizar_video(
     ruta: str,
     modelo: str = MODELO_VISION_DEFAULT,
-    intervalo: float = 30.0,
+    imgs_por_escena: int = 10,
+    mejores_por_escena: int = 3,
     sensibilidad: float = SENSIBILIDAD_ESCENA,
     usar_proxy: bool = True,
     dry_run: bool = False,
 ) -> Optional[dict[str, Any]]:
     """
-    Analiza un video completo: scene detection + muestreo + IA.
+    Analiza un video completo: scene detection + muestreo por escena + IA.
+
+    Por cada escena detectada:
+      1. Se muestrean ~`imgs_por_escena` fotogramas distribuidos en la escena.
+      2. Se eligen las `mejores_por_escena` imágenes por nitidez (sin IA).
+      3. La imagen más nítida se analiza con UNA llamada de visión
+         (PROMPT_COMBINADO: keywords + descripción de la escena).
 
     Returns:
-        Dict con el análisis completo, o None si falló.
+        Dict con el análisis completo (escenas + fotogramas planos), o None
+        si falló.
     """
     nombre = Path(ruta).name
 
@@ -442,69 +552,99 @@ def analizar_video(
         logger.warning("  Error en scene detection: %s. Continuando sin escenas.", e)
         cambios = []
 
-    # 3. Puntos de muestreo
-    puntos = _generar_puntos_muestreo(duracion, cambios, intervalo=intervalo)
-    logger.info("  Puntos de análisis: %d (%d escenas + %d intervalos)",
-                len(puntos),
-                sum(1 for p in puntos if p["origen"] == "escena"),
-                sum(1 for p in puntos if p["origen"] == "intervalo"))
+    # 3. Plan de muestreo por escenas
+    plan = _muestreo_video(duracion, cambios, imgs_por_escena=imgs_por_escena)
+    logger.info("  Escenas detectadas: %d | imágenes por escena: ~%d",
+                len(plan), imgs_por_escena)
 
-    # 4. Extraer y analizar fotogramas
-    fotogramas_analizados = []
-    total = len(puntos)
+    # 4. Por escena: extraer, elegir nítidas, analizar la mejor con 1 visión
+    escenas_resultado: list[dict] = []
+    fotogramas_planos: list[dict] = []
 
     with tempfile.TemporaryDirectory(prefix="fotogramas_") as tmpdir:
-        for i, punto in enumerate(puntos, 1):
-            ts = punto["timestamp"]
+        for idx, escena in enumerate(plan, 1):
+            logger.info("  [Escena %d/%d] t=%.1f → %.1f (%.1fs, %d muestras)",
+                        idx, len(plan), escena["inicio"], escena["fin"],
+                        escena["duracion"], len(escena["timestamps"]))
 
-            logger.info("  [%d/%d] t=%.1fs (%s)",
-                        i, total, ts, punto["origen"])
+            # Extraer los fotogramas de la escena
+            rutas_escena: list[str] = []
+            timestamps_por_ruta: dict[str, float] = {}
+            for ts in escena["timestamps"]:
+                frame_path = os.path.join(tmpdir, f"esc{idx}_t{ts:.1f}.jpg")
+                if _extraer_fotograma(ruta, ts, frame_path):
+                    rutas_escena.append(frame_path)
+                    timestamps_por_ruta[frame_path] = ts
+                else:
+                    logger.warning("  -> No se pudo extraer fotograma en t=%.1f", ts)
 
-            # Extraer fotograma
-            frame_path = os.path.join(tmpdir, f"frame_{ts:.1f}.jpg")
-            ok = _extraer_fotograma(ruta, ts, frame_path)
-
-            if not ok:
-                logger.warning("  -> No se pudo extraer fotograma en t=%.1f", ts)
-                fotogramas_analizados.append({
-                    "timestamp": ts,
-                    "tags": [],
-                    "descripcion": "",
-                    "origen": punto["origen"],
-                })
+            if not rutas_escena:
+                logger.warning("  -> Escena sin fotogramas extraíbles. Se saltea.")
                 continue
 
-            # Analizar con IA
+            # Elegir las más nítidas (sin IA)
+            mejores = _elegir_mejores_por_nitidez(rutas_escena, mejores_por_escena)
+            mejor_ruta = mejores[0]["ruta"] if mejores else rutas_escena[0]
+
+            # Analizar la más representativa con UNA llamada de visión
             try:
-                resultado = analizar_fotograma(
-                    frame_path, modelo=modelo, usar_proxy=usar_proxy
+                analisis = analizar_escena(
+                    mejor_ruta, modelo=modelo, usar_proxy=usar_proxy
                 )
             except Exception as e:
-                logger.warning("  -> Error analizando fotograma t=%.1f: %s", ts, e)
-                resultado = {"tags": [], "descripcion": ""}
+                logger.warning("  -> Error analizando escena t=%.1f: %s",
+                               escena["inicio"], e)
+                analisis = {"keywords": [], "descripcion": ""}
 
-            fotogramas_analizados.append({
-                "timestamp": ts,
-                "tags": resultado["tags"],
-                "descripcion": resultado["descripcion"],
-                "origen": punto["origen"],
+            keywords = analisis["keywords"]
+            descripcion = analisis["descripcion"]
+
+            # Guardar los fotogramas elegidos dentro de la escena
+            fotogramas_escena = [
+                {
+                    "timestamp": timestamps_por_ruta[m["ruta"]],
+                    "puntaje_nitidez": m["puntaje"],
+                }
+                for m in mejores
+            ]
+
+            escenas_resultado.append({
+                "indice": escena["indice"],
+                "inicio": escena["inicio"],
+                "fin": escena["fin"],
+                "duracion": escena["duracion"],
+                "keywords": keywords,
+                "descripcion": descripcion,
+                "fotogramas": fotogramas_escena,
             })
 
-            # Log corto
-            if resultado["tags"]:
-                logger.info("    Tags (%d): %s",
-                            len(resultado["tags"]),
-                            ", ".join(resultado["tags"][:4]))
+            # Vista plana (compatible con formato anterior): cada fotograma
+            # conserva su timestamp y hereda keywords/descripción de la escena
+            for m in mejores:
+                fotogramas_planos.append({
+                    "timestamp": timestamps_por_ruta[m["ruta"]],
+                    "tags": keywords,
+                    "descripcion": descripcion,
+                    "origen": "escena",
+                    "escena": escena["indice"],
+                    "puntaje_nitidez": m["puntaje"],
+                })
+
+            if keywords:
+                logger.info("    Keywords (%d): %s",
+                            len(keywords), ", ".join(keywords[:4]))
 
     # 5. Armar resultado final
     resultado_final = {
         "file_hash": _hash_rapido(ruta),
         "duracion_seg": round(duracion, 1),
-        "intervalo": intervalo,
+        "imgs_por_escena": imgs_por_escena,
+        "mejores_por_escena": mejores_por_escena,
         "sensibilidad_escena": sensibilidad,
         "modelo": modelo,
         "fecha": datetime.now().isoformat(),
-        "fotogramas": fotogramas_analizados,
+        "fotogramas": fotogramas_planos,
+        "escenas": escenas_resultado,
     }
 
     return resultado_final
@@ -517,7 +657,8 @@ def analizar_video(
 def procesar_desde_db(
     ruta_db: str,
     modelo: str = MODELO_VISION_DEFAULT,
-    intervalo: float = 30.0,
+    imgs_por_escena: int = 10,
+    mejores_por_escena: int = 3,
     sensibilidad: float = SENSIBILIDAD_ESCENA,
     usar_proxy: bool = True,
     limite: Optional[int] = None,
@@ -560,7 +701,8 @@ def procesar_desde_db(
         resultado = analizar_video(
             vid["ruta"],
             modelo=modelo,
-            intervalo=intervalo,
+            imgs_por_escena=imgs_por_escena,
+            mejores_por_escena=mejores_por_escena,
             sensibilidad=sensibilidad,
             usar_proxy=usar_proxy,
             dry_run=False,
@@ -585,7 +727,8 @@ def procesar_desde_db(
 def procesar_desde_carpeta(
     carpeta: str,
     modelo: str = MODELO_VISION_DEFAULT,
-    intervalo: float = 30.0,
+    imgs_por_escena: int = 10,
+    mejores_por_escena: int = 3,
     sensibilidad: float = SENSIBILIDAD_ESCENA,
     usar_proxy: bool = True,
     dry_run: bool = False,
@@ -627,7 +770,8 @@ def procesar_desde_carpeta(
             continue
 
         resultado = analizar_video(
-            ruta, modelo=modelo, intervalo=intervalo,
+            ruta, modelo=modelo, imgs_por_escena=imgs_por_escena,
+            mejores_por_escena=mejores_por_escena,
             sensibilidad=sensibilidad, usar_proxy=usar_proxy,
             dry_run=False,
         )
@@ -645,7 +789,8 @@ def procesar_desde_carpeta(
 def procesar_archivo_individual(
     ruta: str,
     modelo: str = MODELO_VISION_DEFAULT,
-    intervalo: float = 30.0,
+    imgs_por_escena: int = 10,
+    mejores_por_escena: int = 3,
     sensibilidad: float = SENSIBILIDAD_ESCENA,
     usar_proxy: bool = True,
     json_out: Optional[str] = None,
@@ -657,7 +802,8 @@ def procesar_archivo_individual(
         raise ValueError(f"No es un video soportado: {Path(ruta).suffix}")
 
     resultado = analizar_video(
-        ruta, modelo=modelo, intervalo=intervalo,
+        ruta, modelo=modelo, imgs_por_escena=imgs_por_escena,
+        mejores_por_escena=mejores_por_escena,
         sensibilidad=sensibilidad, usar_proxy=usar_proxy,
         dry_run=False,
     )
@@ -668,15 +814,17 @@ def procesar_archivo_individual(
 
     # Mostrar resumen
     fotos = resultado["fotogramas"]
+    escenas = resultado.get("escenas", [])
     print(f"\n  Duración: {resultado['duracion_seg']:.0f}s "
           f"({resultado['duracion_seg']/60:.0f} min)")
+    print(f"  Escenas detectadas: {len(escenas)}")
     print(f"  Fotogramas analizados: {len(fotos)}")
     print(f"  Modelo: {resultado['modelo']}")
     print()
 
     for f in fotos[:5]:
         tags_str = ", ".join(f["tags"][:4])
-        print(f"  [{f['timestamp']:6.1f}s] ({f['origen']:>9s}) {tags_str}")
+        print(f"  [{f['timestamp']:6.1f}s] (escena {f.get('escena', '?')}) {tags_str}")
     if len(fotos) > 5:
         print(f"  ... y {len(fotos) - 5} fotogramas más")
 
@@ -721,12 +869,14 @@ def listar_modelos():
         print(f"Error al conectar con Ollama: {e}")
 
 
-def main():
+def main(argv: list[str] | None = None):
     parser = argparse.ArgumentParser(
         description="Análisis visual de videos con IA.\n\n"
-                    "Combina detección de cambios de escena (ffmpeg) con muestreo\n"
-                    "cada N segundos para analizar fotogramas clave con modelos\n"
-                    "de visión (moondream).\n\n"
+                    "Detecta cambios de escena (ffmpeg), muestrea ~N imágenes\n"
+                    "distribuidas dentro de cada escena, elige las más nítidas\n"
+                    "por varianza del Laplaciano y analiza la más representativa\n"
+                    "con UNA llamada de visión por escena (minicpm-v4.6,\n"
+                    "keywords + descripción combinadas).\n\n"
                     "Modos:\n"
                     "  --file ruta    : analiza un solo video\n"
                     "  --db ruta      : procesa videos de la DB (post-ingesta)\n"
@@ -742,8 +892,12 @@ def main():
     parser.add_argument("--modelo", default=MODELO_VISION_DEFAULT,
                         help=f"Modelo de visión. Usar --list-models para "
                              f"ver los instalados. (default: {MODELO_VISION_DEFAULT})")
-    parser.add_argument("--interval", type=float, default=30.0,
-                        help="Segundos máximos entre fotogramas (default: 30)")
+    parser.add_argument("--por-escena", dest="imgs_por_escena", type=int, default=10,
+                        help="Imágenes a muestrear dentro de cada escena "
+                             "(default: 10; si la escena dura menos, se toman las que quepan)")
+    parser.add_argument("--mejores-por-escena", type=int, default=3,
+                        help="Cuántas imágenes conservar por escena tras la "
+                             "selección por nitidez (default: 3)")
     parser.add_argument("--sensibilidad", type=float, default=SENSIBILIDAD_ESCENA,
                         help="Sensibilidad de detección de escenas 0.0-1.0, "
                              "menor = más sensible (default: 0.4)")
@@ -763,7 +917,7 @@ def main():
     # Exportación individual
     parser.add_argument("--json", help="Exportar resultado a JSON (solo modo --file)")
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if args.list_models:
         listar_modelos()
@@ -790,7 +944,8 @@ def main():
             procesar_archivo_individual(
                 ruta=args.file,
                 modelo=args.modelo,
-                intervalo=args.interval,
+                imgs_por_escena=args.imgs_por_escena,
+                mejores_por_escena=args.mejores_por_escena,
                 sensibilidad=args.sensibilidad,
                 usar_proxy=usar_proxy,
                 json_out=args.json,
@@ -800,7 +955,8 @@ def main():
             procesar_desde_db(
                 ruta_db=args.db,
                 modelo=args.modelo,
-                intervalo=args.interval,
+                imgs_por_escena=args.imgs_por_escena,
+                mejores_por_escena=args.mejores_por_escena,
                 sensibilidad=args.sensibilidad,
                 usar_proxy=usar_proxy,
                 limite=args.limit,
@@ -812,7 +968,8 @@ def main():
             procesar_desde_carpeta(
                 carpeta=args.folder,
                 modelo=args.modelo,
-                intervalo=args.interval,
+                imgs_por_escena=args.imgs_por_escena,
+                mejores_por_escena=args.mejores_por_escena,
                 sensibilidad=args.sensibilidad,
                 usar_proxy=usar_proxy,
                 dry_run=args.dry_run,

@@ -53,9 +53,6 @@ EXT_ARCHIVE = {".zip", ".rar", ".7z", ".tar", ".gz"}
 # Pixel size para content_hash de imágenes (rápido, suficiente para detectar duplicados visuales)
 CONTENT_HASH_IMAGE_SIZE = (32, 32)
 
-# Umbral para avisar antes de calcular content_hash de video (500 MB)
-VIDEO_HASH_WARN_THRESHOLD = 500 * 1024 * 1024
-
 # Tipo de fingerprint por defecto: rápido (tamaño + fecha modificación)
 # Usar --full-hash para SHA-256 completo
 
@@ -118,42 +115,6 @@ def content_hash_image(filepath: str) -> str:
     except Exception as e:
         log.warning("  No se pudo calcular content_hash para imagen %s: %s", filepath, e)
         return sha256_file(filepath)
-
-
-def content_hash_video(filepath: str) -> str | None:
-    """
-    Content hash para videos: extrae un frame keyframe con ffmpeg y lo hashea.
-    Si falla (formato no soportado, archivo corrupto), devuelve None.
-    content_hash = None es válido en DB; la detección de duplicados visuales
-    quedará pendiente para un post-proceso con mejor soporte de codecs.
-    """
-    try:
-        # Extraer un frame a los 0.5s (keyframe) en PNG a stdout
-        cmd = [
-            "ffmpeg", "-y",
-            "-ss", "0.5",
-            "-i", filepath,
-            "-vframes", "1",
-            "-f", "image2pipe",
-            "-vcodec", "png",
-            "-",
-        ]
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            timeout=30,
-            startupinfo=subprocess.STARTUPINFO(
-                subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0
-            ) if sys.platform == "win32" else None,
-        )
-        if result.returncode == 0 and len(result.stdout) > 0:
-            return sha256_bytes(result.stdout)
-    except Exception:
-        pass
-    # No hacer sha256_file(filepath) — sería lentísimo en videos grandes
-    # y además el hash del contenedor no sirve para detectar duplicados visuales.
-    log.warning("No se pudo extraer frame para content_hash: %s", filepath)
-    return None
 
 
 def content_hash_audio(filepath: str) -> str:
@@ -994,7 +955,6 @@ def process_file(
     root: str,
     conn: sqlite3.Connection,
     exiftool_path: str | None,
-    compute_video_hash: bool,
     use_full_hash: bool,
     ingest_stats: dict,
     ingest_batch_id: int | None = None,
@@ -1135,14 +1095,9 @@ def process_file(
             record["author_source"] = author_source
             log.info("  -> Autor: %s (source: %s)", author, author_source)
 
-        # Content hash (solo si se pide explícitamente, porque es lento en videos grandes)
-        if compute_video_hash:
-            if size_bytes > VIDEO_HASH_WARN_THRESHOLD:
-                log.warning("  Video grande (%.1f GB). Calculando content_hash... puede tomar tiempo.",
-                            size_bytes / (1024**3))
-            content_hash = content_hash_video(filepath)
-        else:
-            content_hash = file_hash
+        # Content hash de video: siempre file_hash (el hash visual de video es
+        # lento y no se usa; la detección de duplicados visuales queda para imágenes)
+        content_hash = file_hash
 
     elif filetype == "audio":
         # Metadata con ffprobe
@@ -1288,14 +1243,6 @@ Ejemplos:
         "--dry-run",
         action="store_true",
         help="Solo escanea y muestra qué haría, no escribe en DB",
-    )
-    parser.add_argument(
-        "--compute-video-hash",
-        action="store_true",
-        help=(
-            "Calcular content_hash de videos extrayendo un frame (lento en archivos grandes). "
-            "Por defecto usa file_hash como content_hash para videos."
-        ),
     )
     parser.add_argument(
         "--full-hash",
@@ -1477,7 +1424,7 @@ Ejemplos:
             pbar.update(1)
             continue
 
-        process_file(filepath, root, conn, exiftool_path, args.compute_video_hash,
+        process_file(filepath, root, conn, exiftool_path,
                      args.full_hash, stats, ingest_batch_id,
                      allow_no_timestamp=args.allow_no_timestamp)
         pbar.update(1)

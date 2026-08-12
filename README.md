@@ -97,6 +97,11 @@ python flujos.py --help         # Ayuda general
 | `export-csv [--table] [--output]` | Exportar tablas de la DB a CSV |
 | `import-telegram` / `tg` | Importar export de Telegram a la DB |
 | `mover --new-root X --mode mover` | Mover/copiar medios y actualizar rutas en DB |
+| `detectar-contenedores` / `contenedores` | Auditar contenedores de video/audio con ffprobe (streams faltantes) → `contenedor_estado` |
+| `repetir-contenido` / `repetidos` | Buscar contenido repetido por coincidencias de audio (solo reporta, no escribe) |
+| `audio-frame` / `crossref` | Correlacionar contenido de audio con frames de video |
+| `analizar-video` / `analizar` | Analizar videos con IA: escenas + keywords (scene detection → muestreo → visión) |
+| `keypoints-contexto` / `keypoints` | Keypoints de contexto (devenir geográfico) contra los tracks GPX |
 
 Cada subcomando acepta `--help` para ver sus opciones específicas.
 
@@ -108,7 +113,7 @@ Al ejecutar `python flujos.py` sin argumentos se ingresa al menú TUI:
 
 ```
 1. Preparar medios
-  └─ 1. Limpieza de tandas de fotografías
+  └─ 1. Limpieza de tandas de fotografias
 
 2. Ingesta
   ├─ 1. Ingerir multimedia (fotos, sonidos, videos, etc.)
@@ -123,54 +128,87 @@ Al ejecutar `python flujos.py` sin argumentos se ingresa al menú TUI:
   │  ├─ 2. Elegir pasos manualmente
   │  ├─ 3. Colores dominantes
   │  ├─ 4. Keywords con IA
-  │  ├─ 5. Descripción con IA
-  │  ├─ 6. Keywords + Descripción
+  │  ├─ 5. Descripcion con IA
+  │  ├─ 6. Keywords + Descripcion (pasada unica, mas lenta)
   │  ├─ 7. Audio tagging (sonidos ambientales)
-  │  ├─ 8. Transcripción
-  │  ├─ 9. Keypoints
+  │  ├─ 8. Transcripcion (audios/videos)
+  │  ├─ 9. Keypoints de transcripciones
   │  ├─ n. Siguiente >> → Hoja 2
   │  └─ 0. Volver
-  ├─ Hoja 2: Etiquetado + inferencia y ubicación
+  ├─ Hoja 2: Etiquetado + inferencia y ubicacion
   │  ├─ 1. Keywords desde textos y transcripciones
   │  │   ├─ 1. Desde transcripciones (audio/video)
+  │  │   │   ├─ 1. Procesar (solo pendientes)
+  │  │   │   ├─ 2. Re-procesar todos (update)
+  │  │   │   ├─ 3. Limpiar y regenerar (replace)
+  │  │   │   ├─ 4. Previsualizar (dry-run)
+  │  │   │   └─ 0. Volver
   │  │   ├─ 2. Desde textos (.md ingresados)
+  │  │   │   └─ (mismos 4 modos + 0. Volver)
   │  │   └─ 0. Volver
-  │  ├─ 2. Refinar keywords (normaliza + sinónimos)
-  │  │   ├─ 1. Imágenes (ia_keywords)
+  │  ├─ 2. Refinar keywords (normalizar + sinonimos)
+  │  │   ├─ 1. Imagenes (ia_keywords)
+  │  │   │   ├─ 1. Refinar todos (update)
+  │  │   │   ├─ 2. Previsualizar (dry-run)
+  │  │   │   └─ 0. Volver
   │  │   ├─ 2. Transcripciones (ia_keywords_transcripcion)
   │  │   ├─ 3. Textos (ia_keywords_texto)
   │  │   └─ 0. Volver
   │  ├─ 3. Inferir timestamps
   │  ├─ 4. Inferir GPS
   │  ├─ 5. Calcular gradientes de ruta
-  │  ├─ 6. Localización (geocode)
-  │  ├─ 7. Condiciones climáticas
-  │  ├─ 8. Día de la semana
-  │  ├─ 9. Posición del sol (astronomía)
+  │  ├─ 6. Localizacion (provincia, municipio, localidad)
+  │  ├─ 7. Condiciones climaticas
+  │  ├─ 8. Dia de la semana
+  │  ├─ 9. Posicion del sol (astronomia)
   │  ├─ p. << Anterior → Hoja 1
   │  ├─ n. Siguiente >> → Hoja 3
   │  └─ 0. Volver
-  └─ Hoja 3: Cierre
-     ├─ 1. Embeddings
-     │   ├─ 1. Generar embeddings
-     │   ├─ 2. Previsualizar (dry-run)
-     │   └─ 0. Volver
-     ├─ p. << Anterior → Hoja 2
-     └─ 0. Volver
+  ├─ Hoja 3: Analisis de video
+  │  ├─ 1. Analizar video (escenas + IA)
+  │  │   ├─ 1. Analizar un video individual
+  │  │   ├─ 2. Analizar todos los pendientes de la DB
+  │  │   ├─ 3. Previsualizar (dry-run)
+  │  │   └─ 0. Volver
+  │  ├─ 2. Keypoints de contexto (devenir geografico)
+  │  │   ├─ 1. Procesar (solo pendientes)
+  │  │   ├─ 2. Re-procesar todos (update)
+  │  │   ├─ 3. Limpiar y regenerar (replace)
+  │  │   ├─ 4. Previsualizar (dry-run)
+  │  │   └─ 0. Volver
+  │  ├─ p. << Anterior → Hoja 2
+  │  └─ 0. Volver
 
 4. Consultar base de datos
   ├─ 1. Ver resumen de la DB
   └─ 2. Listar... (tipo, autor, carpeta, color, provincia, texto, GPS, detalle)
 
 5. Mantenimiento DB
-  ├─ 1. Relocalizar medios
-  ├─ 2. Posición del sol (astronomía)
-  ├─ 3. Backfill end_time
-  ├─ 4. Backup DB
-  ├─ 5. Restore DB desde backup
-  ├─ 6. Resetear DB
-  ├─ 7. Exportar DB a CSV
-  └─ 8. Mover/Copiar medios
+  ├─ Hoja 1: Mantenimiento general
+  │  ├─ 1. Relocalizar medios (cambio de raiz)
+  │  ├─ 2. Calcular posición del sol (astronomía)
+  │  ├─ 3. Backfill end_time
+  │  ├─ 4. Backup DB (solo backup, sin borrar)
+  │  ├─ 5. Restore DB desde backup
+  │  ├─ 6. Resetear DB (backup + limpiar)
+  │  ├─ 7. Exportar DB a CSV
+  │  ├─ 8. Mover/Copiar medios
+  │  ├─ 9. Auditar contenedores (streams faltantes)
+  │  │   ├─ 1. Ejecutar auditoría (anotar estado en DB)
+  │  │   ├─ 2. Previsualizar (dry-run)
+  │  │   └─ 0. Volver
+  │  ├─ n. Siguiente >> → Hoja 2
+  │  └─ 0. Volver
+  ├─ Hoja 2: Auditoría de medios
+  │  ├─ 1. Buscar contenido repetido (audio)
+  │  │   ├─ 1. Comparar un archivo contra el resto
+  │  │   ├─ 2. Todos contra todos
+  │  │   └─ 0. Volver
+  │  ├─ 2. Correlacionar audio con frames
+  │  │   ├─ 1. Correlacionar audio con frames
+  │  │   └─ 0. Volver
+  │  ├─ p. << Anterior → Hoja 1
+  │  └─ 0. Volver
 
 6. Mapa de ruta (Folium)
 
@@ -209,6 +247,10 @@ Todas las operaciones que modifican la DB preguntan el modo
 | `scripts/check_db.py` | Inspección de la DB | Consulta |
 | `scripts/check_gps.py` | Verifica GPS en archivos via ExifTool | Consulta |
 | `scripts/check_db_data.py` | Stats de weather, dia_semana y geocode | Consulta |
+| `scripts/keypoints_contexto.py` | Keypoints de contexto (devenir geográfico): interpola track GPX, transiciones elevación/astronomía/movimiento, georef+clima con cache → `media_keypoints` (`contexto_*`) | Enriquecimiento |
+| `scripts/detectar_contenedores.py` | Audita contenedores de video/audio con ffprobe (streams faltantes) → `contenedor_estado`/`contenedor_streams` | Auditoría |
+| `scripts/repetir_contenido.py` | Detecta contenido repetido por audio (cross-correlación RMS; solo reporta, no escribe) | Auditoría |
+| `scripts/audio_frame_crossref.py` | Correlaciona sonidos (CED-mini) con frames de video (solo reporta, no escribe) | Auditoría |
 | `scripts/fix_gps_sign.py` | Corrección de signo GPS (herramienta de mantenimiento) | Mantenimiento |
 | `scripts/test_gradiente.py` | Tests unitarios de gradiente.py | — |
 
@@ -218,14 +260,14 @@ Todas las operaciones que modifican la DB preguntan el modo
 |--------|-----------|
 | `ollama_client.py` | Cliente Ollama compartido (visión + texto + embeddings) |
 | `image_analysis.py` | Keywords + descripción de imágenes vía Ollama (keywords libres, sin género) |
-| `video_analysis.py` | Análisis de videos (keyframes + descripción) |
-| `analyze_video.py` | Scene-change detection + análisis visual |
+| `analyze_video.py` | Análisis de videos por escenas: scene detection → ~10 imgs/escena → nitidez → 1 llamada de visión por escena (keywords + descripción, máx 20 tags) |
+| `keypoints_video.py` | Keypoints semánticos de video: `media_keypoints` key=`escena`/`keyword`, source `ollama` (desde `video_analysis`) |
 | `tag_images.py` | Etiquetar imágenes (modo DB o sidecar) |
 | `transcribe.py` | Transcripción vía faster-whisper (independiente, sin DB) — VAD + filtro de confianza |
 | `transcribe_media.py` | Transcripción desde DB |
 | `batch_selector.py` | Selección de mejor imagen de tanda con IA |
 | `clustering.py` | Agrupamiento por tags o embeddings |
-| `generate_embeddings.py` | Embeddings vectoriales (nomic-embed-text) |
+| `generate_embeddings.py` | Embeddings vectoriales (nomic-embed-text) — retirado del TUI, rediseño pendiente (ver ROADMAP) |
 | `refinar_keywords.py` | Refina y unifica keywords IA por familia (léxico + sinónimos, sin género) — `--clave` (imágenes/transcripciones/textos) |
 | `traducir_metadata.py` | Traduce metadata de IA EN → ES sobre la DB (keywords/descripciones) |
 | `keywords_transcripciones.py` | Keywords del sentido (qwen2.5:3b): `--origen transcripcion` → `ia_keywords_transcripcion`; `--origen texto` → `ia_keywords_texto` |
@@ -319,6 +361,11 @@ Metadatos variables en formato clave-valor:
 | `weather_pressure_hpa` | Presión atmosférica superficial (hPa) | fetch_weather.py |
 | `weather_hour_utc` | Hora del dato climático | fetch_weather.py |
 | `weather_source` | `open-meteo-era5` | fetch_weather.py |
+| `video_analysis` | JSON del análisis de video por escenas (escenas, keywords, descripciones, fotogramas) | analyze_video.py |
+| `contenedor_estado` | `ok`\|`sin_video`\|`sin_audio`\|`sin_contenido`\|`error_ffprobe`\|`archivo_faltante` | detectar_contenedores.py |
+| `contenedor_streams` | JSON con el detalle de los streams detectados | detectar_contenedores.py |
+| `keypoints_video_estado` | `ok`\|`sin_datos` — sentinel de procesado de keypoints de video | keypoints_video.py |
+| `keypoints_contexto_estado` | `ok`\|`sin_datos` — sentinel de procesado de keypoints de contexto | keypoints_contexto.py |
 
 ### Tabla `media_keypoints`
 
@@ -329,9 +376,9 @@ Segmentos temporales con timestamp (ej: segmentos de transcripción):
 | `media_id` | Referencia a media(id) |
 | `timestamp_offset_secs` | Offset desde inicio del medio |
 | `timestamp_absolute` | timestamp_utc + offset |
-| `key` | Tipo de keypoint (ej: `transcript_segment`) |
+| `key` | Tipo de keypoint: `transcription` (whisper), `contexto_*` (contexto geográfico), `escena`/`keyword` (análisis de video) |
 | `value` | Contenido del segmento |
-| `source` | Origen (faster-whisper, etc.) |
+| `source` | Origen (faster-whisper, ollama, track_interpolado, estimado, gps_propio, etc.) |
 
 ### Tabla `media_embeddings`
 
@@ -636,7 +683,7 @@ pip install torch --index-url https://download.pytorch.org/whl/cu121
 │   ├── ingest.py              # Ingesta de medios
 │   ├── ingest_gpx.py          # Ingesta de tracks GPS (GPX)
 │   ├── import_telegram.py     # Importar export de Telegram
-│   ├── improve_db.py          # Post-procesamiento (10 pasos)
+│   ├── improve_db.py          # Post-procesamiento (9 pasos)
 │   ├── query.py               # Consultas a DB
 │   ├── exportar_csv.py        # Exportar DB a CSV
 │   ├── relocate.py            # Relocalizar medios
@@ -655,14 +702,18 @@ pip install torch --index-url https://download.pytorch.org/whl/cu121
 │   ├── check_db.py            # Inspección de DB
 │   ├── check_gps.py           # Verificación GPS
 │   ├── check_db_data.py       # Helper: clima, día, geocode
+│   ├── keypoints_contexto.py  # Keypoints de contexto (devenir geográfico)
+│   ├── detectar_contenedores.py  # Auditoría de contenedores (ffprobe)
+│   ├── repetir_contenido.py   # Contenido repetido por audio
+│   ├── audio_frame_crossref.py  # Correlación audio ↔ frames
 │   ├── fix_gps_sign.py        # Corrección de signo GPS
 │   ├── test_gradiente.py      # Tests de gradiente
 │   └── ai_media/              # Scripts de IA
 │       ├── __init__.py
 │       ├── ollama_client.py
 │       ├── image_analysis.py
-│       ├── video_analysis.py
 │       ├── analyze_video.py
+│       ├── keypoints_video.py
 │       ├── tag_images.py
 │       ├── transcribe.py
 │       ├── transcribe_media.py

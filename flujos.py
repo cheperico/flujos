@@ -89,6 +89,15 @@ COMANDOS:
   improve-db        Ejecutar pasos de mejora sobre la DB (colores,
                     keywords, transcripcion, keypoints, timestamps, GPS).
 
+  analizar-video    Analizar videos con IA: scene detection + muestreo por
+                    escena + keywords (minicpm-v4.6).
+                    Ej: python flujos.py analizar-video --dry-run
+
+  keypoints-contexto Keypoints de contexto (devenir geografico) contra los
+                    tracks GPX: elevacion, astronomia, movimiento, ubicacion
+                    y clima en media_keypoints.
+                    Ej: python flujos.py keypoints-contexto --dry-run
+
   mapa              Generar un mapa HTML interactivo con Folium
                     a partir de los GPS de la BD.
                     Ej: python flujos.py mapa --heatmap --road-colors
@@ -108,8 +117,21 @@ COMANDOS:
   import-telegram  Importar un export de Telegram (chats, mensajes, multimedia).
                    Ej: python flujos.py import-telegram -e RUTA_AL_EXPORT
 
+  ingest-textos    Ingerir textos .md de la carpeta textos/ como medios type='text'.
+                   Ej: python flujos.py ingest-textos
+
   mover            Mover o copiar archivos a nueva ubicacion y actualizar DB.
                    Ej: python flujos.py mover --new-root NUEVA_RAIZ --mode mover
+
+  detectar-contenedores  Auditar contenedores de video/audio con ffprobe
+                   (streams faltantes, estado por medio).
+                   Ej: python flujos.py detectar-contenedores --dry-run
+
+  repetir-contenido      Buscar contenido repetido por coincidencias de audio.
+                   Ej: python flujos.py repetir-contenido --contra C:/audio.mp3
+
+  audio-frame      Correlacionar contenido de audio con frames de video.
+                   Ej: python flujos.py audio-frame --archivo C:/video.mp4
 
   --tui       Menu interactivo (tambien sin argumentos).
 
@@ -197,22 +219,100 @@ def _preguntar_sn(pregunta: str, default: bool = False) -> bool:
     return r == "s"
 
 
-def _menu(titulo: str, opciones: dict[str, tuple[str, Callable]], db_path: str | None = None):
+def _menu(titulo: str, opciones: dict[str, tuple[str, Callable]], db_path: str | None = None,
+          intro: str | None = None, titulo_ancho: int | None = None,
+          pre_titulo: Callable[[], None] | None = None,
+          etiqueta_salir: str = "Volver",
+          on_salir: Callable[[], None] | None = None,
+          cerrar_al_ejecutar: bool = False):
     """Menu generico con loop: imprime titulo, opciones ("1) nombre"),
     pide "  Opcion: ", ejecuta la funcion asociada a la clave.
-    La clave "0" (volver) esta reservada y SIEMPRE rompe el loop.
+    La clave "0" (volver) esta reservada y SIEMPRE rompe el loop;
+    si on_salir esta definido, se ejecuta antes de romper.
     Si la clave no existe imprime "  Opcion invalida." y pausa().
-    Las funciones reciben db_path como argumento."""
+    Las funciones reciben db_path como argumento.
+    intro: linea opcional impresa tras el titulo (seguida de una linea en blanco).
+    titulo_ancho: si se pasa, envuelve el titulo con ese numero de '=' a cada lado
+    (por defecto usa '=== {titulo} ===').
+    pre_titulo: callable que reemplaza a limpiar_pantalla + titulo + intro al inicio
+    de cada iteracion. Cuando esta presente NO se limpia la pantalla (el callable lo
+    hace, ej: mostrar_bienvenida) ni se imprime el titulo ni el intro.
+    etiqueta_salir: texto de la ultima opcion "0" (default "Volver").
+    on_salir: callable opcional ejecutado al elegir "0" (antes de romper el loop).
+    cerrar_al_ejecutar: si es True, tras ejecutar una opcion valida el loop rompe
+    (en lugar de volver a mostrar el menu)."""
     while True:
-        limpiar_pantalla()
-        print(f"=== {titulo} ===\n")
+        if pre_titulo:
+            pre_titulo()
+        else:
+            limpiar_pantalla()
+            if titulo_ancho:
+                print(f"{'=' * titulo_ancho} {titulo} {'=' * titulo_ancho}\n")
+            else:
+                print(f"=== {titulo} ===\n")
+            if intro:
+                print(intro)
+                print()
         for clave, (etiqueta, _llamada) in opciones.items():
             print(f"  {clave}) {etiqueta}")
+        print(f"  0) {etiqueta_salir}\n")
+
+        opc = input("  Opcion: ").strip()
+        if opc == "0":
+            if on_salir:
+                on_salir()
+            break
+        if opc in opciones:
+            _, llamada = opciones[opc]
+            llamada(db_path)
+            if cerrar_al_ejecutar:
+                break
+        else:
+            print("  Opcion invalida.")
+            pausa()
+
+
+def _menu_paginado(titulo: str, hojas: list[tuple[str, dict]], db_path: str | None = None):
+    """Menu paginado: hasta 9 opciones por hoja, navegacion n/p/0.
+    hojas: lista de (subtitulo, opciones) donde opciones es dict[clave -> (etiqueta, callable)]
+    (igual formato que _menu). Imprime '=== titulo ===', el subtitulo de la hoja actual
+    (con su salto de linea incluido) y las opciones '  clave) etiqueta'.
+    Navegacion: si hay hoja anterior '  p) << Anterior', si hay siguiente
+    '  n) Siguiente >>' (en hojas con ambas, p se lista primero, luego n).
+    Siempre '  0) Volver'. En la ultima hoja 'n' es invalida y en la primera 'p' es invalida
+    ('  Opcion invalida.' + pausa()). El indice de hoja arranca en la primera."""
+    num_hoja = 0
+    total = len(hojas)
+    while True:
+        limpiar_pantalla()
+        subtitulo, opciones = hojas[num_hoja]
+        print(f"=== {titulo} ===\n")
+        print(subtitulo)
+        for clave, (etiqueta, _llamada) in opciones.items():
+            print(f"  {clave}) {etiqueta}")
+        if num_hoja > 0:
+            print("  p) << Anterior")
+        if num_hoja < total - 1:
+            print("  n) Siguiente >>")
         print("  0) Volver\n")
 
         opc = input("  Opcion: ").strip()
         if opc == "0":
             break
+        if opc.lower() in ("n", "next"):
+            if num_hoja < total - 1:
+                num_hoja += 1
+            else:
+                print("  Opcion invalida.")
+                pausa()
+            continue
+        if opc.lower() in ("p", "prev"):
+            if num_hoja > 0:
+                num_hoja -= 1
+            else:
+                print("  Opcion invalida.")
+                pausa()
+            continue
         if opc in opciones:
             _, llamada = opciones[opc]
             llamada(db_path)
@@ -278,15 +378,15 @@ def opcion_ingesta(db_path: str | None = None):
                 pausa()
                 continue
 
-            recursive = input("  ?Incluir subcarpetas? (s/N): ").strip().lower() == "s"
-            dry_run = input("  ?Solo previsualizar (dry-run)? (s/N): ").strip().lower() == "s"
+            recursive = _preguntar_sn("Incluir subcarpetas")
+            dry_run = _preguntar_sn("Solo previsualizar (dry-run)")
 
             # Selección de tipos de medio
             print("\n  Tipos de medio a ingerir (Enter = todos):")
-            incluir_img = input("  ?Fotos? (s/N): ").strip().lower() == "s"
-            incluir_vid = input("  ?Videos? (s/N): ").strip().lower() == "s"
-            incluir_aud = input("  ?Audios? (s/N): ").strip().lower() == "s"
-            incluir_txt = input("  ?Textos? (s/N): ").strip().lower() == "s"
+            incluir_img = _preguntar_sn("Fotos")
+            incluir_vid = _preguntar_sn("Videos")
+            incluir_aud = _preguntar_sn("Audios")
+            incluir_txt = _preguntar_sn("Textos")
             tipos_seleccionados = []
             if incluir_img: tipos_seleccionados.append("image")
             if incluir_vid: tipos_seleccionados.append("video")
@@ -295,7 +395,7 @@ def opcion_ingesta(db_path: str | None = None):
 
             # Manejo de archivos sin timestamp
             print("")
-            permitir_sin_ts = input("  ?Ingerir archivos sin timestamp? (s/N): ").strip().lower() == "s"
+            permitir_sin_ts = _preguntar_sn("Ingerir archivos sin timestamp")
 
             custom_db = input(f"  ?Usar otra DB? (default: {leer_db(db_path)}) [Enter para default]: ").strip()
 
@@ -303,8 +403,7 @@ def opcion_ingesta(db_path: str | None = None):
             print(f"\n  Resumen: root={root}  recursivo={'SI' if recursive else 'NO'}  "
                   f"tipos={tipo_str}  sin_ts={'SI' if permitir_sin_ts else 'NO -> se salta'}"
                   f"  dry_run={'SI' if dry_run else 'NO'}")
-            confirm = input("  ?Ejecutar ingesta? (s/N): ").strip().lower()
-            if confirm != "s":
+            if not _preguntar_sn("Ejecutar ingesta"):
                 print("  Cancelado.")
                 pausa()
                 continue
@@ -312,14 +411,13 @@ def opcion_ingesta(db_path: str | None = None):
             print("\n  Ejecutando ingesta...\n")
             from scripts import ingest
             args = ["--root", root]
-            if recursive:
-                args.append("--recursive")
+            _args_sn(args, [
+                (recursive, "--recursive"),
+                (permitir_sin_ts, "--allow-no-timestamp"),
+                (dry_run, "--dry-run"),
+            ])
             if tipos_seleccionados:
                 args.extend(["--types", ",".join(tipos_seleccionados)])
-            if permitir_sin_ts:
-                args.append("--allow-no-timestamp")
-            if dry_run:
-                args.append("--dry-run")
             if custom_db:
                 args.extend(["--db", custom_db])
             elif db_path:
@@ -378,9 +476,9 @@ def opcion_importar_telegram(db_path: str | None = None):
         pausa()
         return
 
-    include_system = input("  ?Incluir mensajes de sistema? (S/n): ").strip().lower() != "n"
-    ingest_media = input("  ?Ingerir multimedia en tabla media? (S/n): ").strip().lower() != "n"
-    dry_run = input("  ?Solo previsualizar (dry-run)? (s/N): ").strip().lower() == "s"
+    include_system = _preguntar_sn("Incluir mensajes de sistema", default=True)
+    ingest_media = _preguntar_sn("Ingerir multimedia en tabla media", default=True)
+    dry_run = _preguntar_sn("Solo previsualizar (dry-run)")
     destino = input("  ?Copiar media a carpeta canónica? (ej: D:/Medios) [Enter = no]: ").strip()
 
     print(f"\n  Resumen: export={export_path}  modo={modo_str}"
@@ -388,20 +486,18 @@ def opcion_importar_telegram(db_path: str | None = None):
           f"  ingest_media={'SI' if ingest_media else 'NO'}"
           f"  dry_run={'SI' if dry_run else 'NO'}"
           f"  destino={destino or '(no copiar)'}")
-    confirm = input("  ?Ejecutar importación? (s/N): ").strip().lower()
-    if confirm != "s":
+    if not _preguntar_sn("Ejecutar importación"):
         print("  Cancelado.")
         pausa()
         return
 
     from scripts import import_telegram
     args = ["--export-path", export_path, "--mode", modo_str]
-    if not include_system:
-        args.append("--no-system")
-    if not ingest_media:
-        args.append("--no-ingest")
-    if dry_run:
-        args.append("--dry-run")
+    _args_sn(args, [
+        (not include_system, "--no-system"),
+        (not ingest_media, "--no-ingest"),
+        (dry_run, "--dry-run"),
+    ])
     if destino:
         args.extend(["--destino", destino])
     if db_path:
@@ -430,12 +526,11 @@ def opcion_ingestar_textos(db_path: str | None = None):
         pausa()
         return
 
-    dry_run = input("  ?Solo previsualizar (dry-run)? (s/N): ").strip().lower() == "s"
+    dry_run = _preguntar_sn("Solo previsualizar (dry-run)")
     custom_db = input(f"  ?Usar otra DB? (default: {leer_db(db_path)}) [Enter para default]: ").strip()
 
     print(f"\n  Resumen: root={root}  modo={modo_str}  dry_run={'SI' if dry_run else 'NO'}")
-    confirm = input("  ?Ejecutar ingesta? (s/N): ").strip().lower()
-    if confirm != "s":
+    if not _preguntar_sn("Ejecutar ingesta"):
         print("  Cancelado.")
         pausa()
         return
@@ -507,23 +602,10 @@ def opcion_listar(db_path: str | None = None):
 
 def opcion_consultar(db_path: str | None = None):
     """Menu: Consultar base de datos."""
-    while True:
-        limpiar_pantalla()
-        print("=== CONSULTAR BASE DE DATOS ===\n")
-        print("  1) Ver resumen de la DB")
-        print("  2) Listar...")
-        print("  0) Volver\n")
-
-        opc = input("  Opcion: ").strip()
-        if opc == "1":
-            opcion_check_db(db_path)
-        elif opc == "2":
-            opcion_listar(db_path)
-        elif opc == "0":
-            break
-        else:
-            print("  Opcion invalida.")
-            pausa()
+    _menu("CONSULTAR BASE DE DATOS", {
+        "1": ("Ver resumen de la DB", opcion_check_db),
+        "2": ("Listar...", opcion_listar),
+    }, db_path)
 
 
 def opcion_relocalizar(db_path: str | None = None):
@@ -556,7 +638,7 @@ def opcion_relocalizar(db_path: str | None = None):
             pausa()
             return
 
-    dry_run = input("  ?Solo previsualizar (dry-run)? (s/N): ").strip().lower() == "s"
+    dry_run = _preguntar_sn("Solo previsualizar (dry-run)")
 
     from scripts import relocate
     relocate.main(["--new-root", new_root] + (["--dry-run"] if dry_run else []))
@@ -597,21 +679,9 @@ def opcion_check_db(db_path: str | None = None):
 
 def opcion_exportar(db_path: str | None = None):
     """Menu: Exportar DB a medios (relocalizar)."""
-    while True:
-        limpiar_pantalla()
-        print("=== EXPORTAR DB A MEDIOS ===\n")
-        print("  Actualiza las rutas cuando los archivos se mudan de ubicacion.\n")
-        print("  1) Relocalizar medios (cambiar raiz)")
-        print("  0) Volver\n")
-
-        opc = input("  Opcion: ").strip()
-        if opc == "1":
-            opcion_relocalizar(db_path)
-        elif opc == "0":
-            break
-        else:
-            print("  Opcion invalida.")
-            pausa()
+    _menu("EXPORTAR DB A MEDIOS", {
+        "1": ("Relocalizar medios (cambiar raiz)", opcion_relocalizar),
+    }, db_path, intro="  Actualiza las rutas cuando los archivos se mudan de ubicacion.")
 
 
 def opcion_gradient():
@@ -989,6 +1059,17 @@ def _ejecutar_improve_db(pasos: str | None = None, modo: str = "skip"):
     improve_db.main(args)
 
 
+def _ejecutar_paso_mejora(pasos: str | None, db_path: str | None = None):
+    """Pide modo y ejecuta improve_db con los pasos dados."""
+    modo = _preguntar_modo(db_path)
+    if modo is None:
+        print("  Cancelado.")
+        pausa()
+        return
+    _ejecutar_improve_db(pasos=pasos, modo=modo)
+    pausa()
+
+
 def _auto_backup(db_path: str) -> str | None:
     """Crea un backup automático con timestamp. Retorna la ruta del backup o None."""
     import shutil
@@ -1064,7 +1145,7 @@ def _elegir_modo_pregunta(db_path: str | None, descripcion: str,
     return {"s": "skip", "u": "update", "r": "replace"}.get(m, "skip")
 
 
-def opcion_improve_db():
+def opcion_improve_db(db_path: str | None = None):
     """Menu para ejecutar pasos de mejora sobre la DB (hojas paginadas).
     Regla de navegacion: hasta 9 opciones por hoja (1-9); cuando se superan,
     se crea una hoja nueva. n = Siguiente >>, p = << Anterior, 0 = Volver.
@@ -1073,176 +1154,50 @@ def opcion_improve_db():
     primero, seguido de Transcripcion y Keypoints), Hoja 2 (etiquetado +
     inferencia y ubicacion, 9 opc: Keywords desde textos y transcripciones 1 y Refinar
     keywords 2 = fin de la seccion de etiquetado, antes de timestamps/GPS),
-    Hoja 3 (cierre, 1 opc: embeddings)."""
-    db_path = leer_db()
-    hoja = 1  # 1: IA y color, 2: etiquetado + inferencia y ubicacion, 3: cierre
-    while True:
-        limpiar_pantalla()
-        print("=== MEJORAR BASE DE DATOS ===\n")
+    Hoja 3 (Analisis de video, 2 opc: Analizar video con escenas + IA y
+    Keypoints de contexto).
+    El menu tiene 3 hojas (embeddings retirado del TUI: rediseno pendiente)."""
+    db_path = leer_db(db_path)
 
-        if hoja == 1:
-            print("  -- Pasos de IA y color --\n")
-            print("  1) Todos los pasos (skip)")
-            print("  2) Elegir pasos manualmente")
-            print("  3) Colores dominantes")
-            print("  4) Keywords con IA")
-            print("  5) Descripcion con IA")
-            print("  6) Keywords + Descripcion (pasada unica, mas lenta)")
-            print("  7) Audio tagging (sonidos ambientales)")
-            print("  8) Transcripcion (audios/videos)")
-            print("  9) Keypoints de transcripciones")
-            print("  n) Siguiente >>")
-            print("  0) Volver\n")
-        elif hoja == 2:
-            print("  -- Etiquetado + inferencia y ubicacion --\n")
-            print("  1) Keywords desde textos y transcripciones")
-            print("  2) Refinar keywords (normalizar + sinonimos)")
-            print("  3) Inferir timestamps")
-            print("  4) Inferir GPS")
-            print("  5) Calcular gradientes de ruta")
-            print("  6) Localizacion (provincia, municipio, localidad)")
-            print("  7) Condiciones climaticas")
-            print("  8) Dia de la semana")
-            print("  9) Posicion del sol (astronomia)")
-            print("  p) << Anterior")
-            print("  n) Siguiente >>")
-            print("  0) Volver\n")
-        else:
-            print("  -- Pasos de cierre --\n")
-            print("  1) Embeddings")
-            print("  p) << Anterior")
-            print("  0) Volver\n")
+    def _opcion_pasos_manuales(db):
+        pasos = input("  Pasos (separados por coma, ej: colors,keywords): ").strip()
+        if pasos:
+            modo = _preguntar_modo(db)
+            if modo is None:
+                print("  Cancelado.")
+                pausa()
+                return
+            _ejecutar_improve_db(pasos=pasos, modo=modo)
+        pausa()
 
-        opc = input("  Opcion: ").strip()
-
-        if hoja == 1:
-            if opc == "1":
-                modo = _preguntar_modo(db_path)
-                if modo is None:
-                    print("  Cancelado.")
-                    pausa()
-                    continue
-                _ejecutar_improve_db(modo=modo)
-                pausa()
-            elif opc == "2":
-                pasos = input("  Pasos (separados por coma, ej: colors,keywords): ").strip()
-                if pasos:
-                    modo = _preguntar_modo(db_path)
-                    if modo is None:
-                        print("  Cancelado.")
-                        pausa()
-                        continue
-                    _ejecutar_improve_db(pasos=pasos, modo=modo)
-                pausa()
-            elif opc == "3":
-                modo = _preguntar_modo(db_path)
-                if modo is None:
-                    print("  Cancelado.")
-                    pausa()
-                    continue
-                _ejecutar_improve_db(pasos="colors", modo=modo)
-                pausa()
-            elif opc == "4":
-                modo = _preguntar_modo(db_path)
-                if modo is None:
-                    print("  Cancelado.")
-                    pausa()
-                    continue
-                _ejecutar_improve_db(pasos="keywords", modo=modo)
-                pausa()
-            elif opc == "5":
-                modo = _preguntar_modo(db_path)
-                if modo is None:
-                    print("  Cancelado.")
-                    pausa()
-                    continue
-                _ejecutar_improve_db(pasos="descriptions", modo=modo)
-                pausa()
-            elif opc == "6":
-                modo = _preguntar_modo(db_path)
-                if modo is None:
-                    print("  Cancelado.")
-                    pausa()
-                    continue
-                _ejecutar_improve_db(pasos="keywords,descriptions", modo=modo)
-                pausa()
-            elif opc == "7":
-                opcion_audio_tagging(db_path)
-            elif opc == "8":
-                modo = _preguntar_modo(db_path)
-                if modo is None:
-                    print("  Cancelado.")
-                    pausa()
-                    continue
-                _ejecutar_improve_db(pasos="transcribe", modo=modo)
-                pausa()
-            elif opc == "9":
-                modo = _preguntar_modo(db_path)
-                if modo is None:
-                    print("  Cancelado.")
-                    pausa()
-                    continue
-                _ejecutar_improve_db(pasos="keypoints", modo=modo)
-                pausa()
-            elif opc.lower() in ("n", "next"):
-                hoja = 2
-            elif opc == "0":
-                break
-            else:
-                print("  Opcion invalida.")
-                pausa()
-
-        elif hoja == 2:
-            if opc == "1":
-                opcion_keywords_transcripciones(db_path)
-            elif opc == "2":
-                opcion_refinar_keywords(db_path)
-            elif opc == "3":
-                modo = _preguntar_modo(db_path)
-                if modo is None:
-                    print("  Cancelado.")
-                    pausa()
-                    continue
-                _ejecutar_improve_db(pasos="timestamps", modo=modo)
-                pausa()
-            elif opc == "4":
-                modo = _preguntar_modo(db_path)
-                if modo is None:
-                    print("  Cancelado.")
-                    pausa()
-                    continue
-                _ejecutar_improve_db(pasos="gps", modo=modo)
-                pausa()
-            elif opc == "5":
-                opcion_gradient()
-            elif opc == "6":
-                opcion_geocode()
-            elif opc == "7":
-                opcion_weather()
-            elif opc == "8":
-                opcion_dia_semana()
-            elif opc == "9":
-                opcion_astronomia()
-            elif opc.lower() in ("p", "prev"):
-                hoja = 1
-            elif opc.lower() in ("n", "next"):
-                hoja = 3
-            elif opc == "0":
-                break
-            else:
-                print("  Opcion invalida.")
-                pausa()
-
-        else:  # hoja == 3
-            if opc == "1":
-                opcion_embeddings()
-            elif opc.lower() in ("p", "prev"):
-                hoja = 2
-            elif opc == "0":
-                break
-            else:
-                print("  Opcion invalida.")
-                pausa()
+    _menu_paginado("MEJORAR BASE DE DATOS", [
+        ("  -- Pasos de IA y color --\n", {
+            "1": ("Todos los pasos (skip)", lambda db: _ejecutar_paso_mejora(None, db)),
+            "2": ("Elegir pasos manualmente", _opcion_pasos_manuales),
+            "3": ("Colores dominantes", lambda db: _ejecutar_paso_mejora("colors", db)),
+            "4": ("Keywords con IA", lambda db: _ejecutar_paso_mejora("keywords", db)),
+            "5": ("Descripcion con IA", lambda db: _ejecutar_paso_mejora("descriptions", db)),
+            "6": ("Keywords + Descripcion (pasada unica, mas lenta)", lambda db: _ejecutar_paso_mejora("keywords,descriptions", db)),
+            "7": ("Audio tagging (sonidos ambientales)", opcion_audio_tagging),
+            "8": ("Transcripcion (audios/videos)", lambda db: _ejecutar_paso_mejora("transcribe", db)),
+            "9": ("Keypoints de transcripciones", lambda db: _ejecutar_paso_mejora("keypoints", db)),
+        }),
+        ("  -- Etiquetado + inferencia y ubicacion --\n", {
+            "1": ("Keywords desde textos y transcripciones", opcion_keywords_transcripciones),
+            "2": ("Refinar keywords (normalizar + sinonimos)", opcion_refinar_keywords),
+            "3": ("Inferir timestamps", lambda db: _ejecutar_paso_mejora("timestamps", db)),
+            "4": ("Inferir GPS", lambda db: _ejecutar_paso_mejora("gps", db)),
+            "5": ("Calcular gradientes de ruta", lambda db: opcion_gradient()),
+            "6": ("Localizacion (provincia, municipio, localidad)", lambda db: opcion_geocode()),
+            "7": ("Condiciones climaticas", lambda db: opcion_weather()),
+            "8": ("Dia de la semana", lambda db: opcion_dia_semana()),
+            "9": ("Posicion del sol (astronomia)", lambda db: opcion_astronomia()),
+        }),
+        ("  -- Analisis de video --\n", {
+            "1": ("Analizar video (escenas + IA)", opcion_analizar_video),
+            "2": ("Keypoints de contexto (devenir geografico)", opcion_keypoints_contexto),
+        }),
+    ], db_path)
 
 
 def opcion_weather():
@@ -1313,31 +1268,6 @@ def opcion_dia_semana():
     pausa()
 
 
-def opcion_embeddings():
-    """Submenu: generar embeddings vectoriales para búsqueda semántica."""
-    import subprocess
-    script = os.path.join(os.path.dirname(__file__), "scripts", "ai_media", "generate_embeddings.py")
-    db_flag = ["--db", leer_db()]
-
-    limpiar_pantalla()
-    print("=== EMBEDDINGS ===\n")
-
-    print("  1) Generar embeddings (solo pendientes)")
-    print("  2) Previsualizar (dry-run)")
-    print("  0) Volver\n")
-
-    opc = input("  Opcion: ").strip()
-
-    if opc == "1":
-        subprocess.run([sys.executable, script] + db_flag)
-    elif opc == "2":
-        subprocess.run([sys.executable, script] + db_flag + ["--dry-run"])
-    elif opc == "0":
-        return
-
-    pausa()
-
-
 def opcion_refinar_keywords(db_path: str | None = None):
     """
     Refina las keywords de IA: normaliza (léxico) y unifica sinónimos del
@@ -1350,52 +1280,23 @@ def opcion_refinar_keywords(db_path: str | None = None):
     script = os.path.join(os.path.dirname(__file__), "scripts", "ai_media", "refinar_keywords.py")
     db_flag = ["--db", db_path or leer_db()]
 
-    familias = {
-        "1": ("ia_keywords", "IMAGENES (ia_keywords)"),
-        "2": ("ia_keywords_transcripcion", "TRANSCRIPCIONES (ia_keywords_transcripcion)"),
-        "3": ("ia_keywords_texto", "TEXTOS (ia_keywords_texto)"),
-    }
+    def _correr_refinar(db, clave, update):
+        subprocess.run([sys.executable, script] + db_flag
+                       + (["--clave", clave, "--mode", "update"] if update
+                          else ["--clave", clave, "--dry-run"]))
+        pausa()
 
-    while True:
-        limpiar_pantalla()
-        print("=== REFINAR KEYWORDS ===\n")
-        print("  Normaliza y unifica las keywords por familia (léxico + diccionario):\n")
-        print("  1) Imagenes (ia_keywords)")
-        print("  2) Transcripciones (ia_keywords_transcripcion)")
-        print("  3) Textos (ia_keywords_texto)")
-        print("  0) Volver\n")
+    def _submenu_refinar(db, clave, titulo):
+        _menu(f"REFINAR {titulo}", {
+            "1": ("Refinar todos (update)", lambda d: _correr_refinar(d, clave, True)),
+            "2": ("Previsualizar (dry-run)", lambda d: _correr_refinar(d, clave, False)),
+        }, db_path, cerrar_al_ejecutar=True)
 
-        opc = input("  Opcion: ").strip()
-        if opc not in familias:
-            if opc == "0":
-                return
-            print("  Opcion invalida.")
-            pausa()
-            continue
-
-        clave, titulo = familias[opc]
-        while True:
-            limpiar_pantalla()
-            print(f"=== REFINAR {titulo} ===\n")
-            print("  1) Refinar todos (update)")
-            print("  2) Previsualizar (dry-run)")
-            print("  0) Volver\n")
-
-            sub_opcion = input("  Opcion: ").strip()
-            if sub_opcion == "1":
-                subprocess.run([sys.executable, script] + db_flag
-                               + ["--clave", clave, "--mode", "update"])
-                pausa()
-                break
-            if sub_opcion == "2":
-                subprocess.run([sys.executable, script] + db_flag
-                               + ["--clave", clave, "--dry-run"])
-                pausa()
-                break
-            if sub_opcion == "0":
-                break
-            print("  Opcion invalida.")
-            pausa()
+    _menu("REFINAR KEYWORDS", {
+        "1": ("Imagenes (ia_keywords)", lambda db: _submenu_refinar(db, "ia_keywords", "IMAGENES (ia_keywords)")),
+        "2": ("Transcripciones (ia_keywords_transcripcion)", lambda db: _submenu_refinar(db, "ia_keywords_transcripcion", "TRANSCRIPCIONES (ia_keywords_transcripcion)")),
+        "3": ("Textos (ia_keywords_texto)", lambda db: _submenu_refinar(db, "ia_keywords_texto", "TEXTOS (ia_keywords_texto)")),
+    }, db_path, intro="  Normaliza y unifica las keywords por familia (léxico + diccionario):")
 
 
 def opcion_keywords_transcripciones(db_path: str | None = None):
@@ -1409,53 +1310,27 @@ def opcion_keywords_transcripciones(db_path: str | None = None):
     script = os.path.join(os.path.dirname(__file__), "scripts", "ai_media", "keywords_transcripciones.py")
     db_flag = ["--db", db_path or leer_db()]
 
-    origenes = {"1": "transcripcion", "2": "texto"}
-    titulos = {"transcripcion": "TRANSCRIPCIONES (audio/video)",
-               "texto": "TEXTOS (.md)"}
-    modos = {"1": "skip", "2": "update", "3": "replace"}
+    def _correr_origen(db, origen, modo):
+        if modo is None:
+            subprocess.run([sys.executable, script] + db_flag
+                           + ["--origen", origen, "--dry-run"])
+        else:
+            subprocess.run([sys.executable, script] + db_flag
+                           + ["--origen", origen, "--mode", modo])
+        pausa()
 
-    while True:
-        limpiar_pantalla()
-        print("=== KEYWORDS DESDE TEXTOS Y TRANSCRIPCIONES ===\n")
-        print("  Extrae keywords del SENTIDO de las transcripciones de audio/video\n"
-              "  o de los textos ingresados (.md). Usa Ollama (qwen2.5:3b).\n")
-        print("  1) Desde transcripciones (audio/video)")
-        print("  2) Desde textos (.md ingresados)")
-        print("  0) Volver\n")
+    def _submenu_origen(db, origen, titulo):
+        _menu(f"KEYWORDS DESDE {titulo}", {
+            "1": ("Procesar (solo pendientes)", lambda d: _correr_origen(d, origen, "skip")),
+            "2": ("Re-procesar todos (update)", lambda d: _correr_origen(d, origen, "update")),
+            "3": ("Limpiar y regenerar (replace)", lambda d: _correr_origen(d, origen, "replace")),
+            "4": ("Previsualizar (dry-run)", lambda d: _correr_origen(d, origen, None)),
+        }, db_path, cerrar_al_ejecutar=True)
 
-        opc = input("  Opcion: ").strip()
-        if opc not in origenes:
-            if opc == "0":
-                return
-            print("  Opcion invalida.")
-            pausa()
-            continue
-
-        origen = origenes[opc]
-        while True:
-            limpiar_pantalla()
-            print(f"=== KEYWORDS DESDE {titulos[origen]} ===\n")
-            print("  1) Procesar (solo pendientes)")
-            print("  2) Re-procesar todos (update)")
-            print("  3) Limpiar y regenerar (replace)")
-            print("  4) Previsualizar (dry-run)")
-            print("  0) Volver\n")
-
-            sub_opcion = input("  Opcion: ").strip()
-            if sub_opcion in modos:
-                subprocess.run([sys.executable, script] + db_flag
-                               + ["--origen", origen, "--mode", modos[sub_opcion]])
-                pausa()
-                break
-            if sub_opcion == "4":
-                subprocess.run([sys.executable, script] + db_flag
-                               + ["--origen", origen, "--dry-run"])
-                pausa()
-                break
-            if sub_opcion == "0":
-                break
-            print("  Opcion invalida.")
-            pausa()
+    _menu("KEYWORDS DESDE TEXTOS Y TRANSCRIPCIONES", {
+        "1": ("Desde transcripciones (audio/video)", lambda db: _submenu_origen(db, "transcripcion", "TRANSCRIPCIONES (audio/video)")),
+        "2": ("Desde textos (.md ingresados)", lambda db: _submenu_origen(db, "texto", "TEXTOS (.md)")),
+    }, db_path, intro="  Extrae keywords del SENTIDO de las transcripciones de audio/video\n  o de los textos ingresados (.md). Usa Ollama (qwen2.5:3b).")
 
 
 def opcion_audio_tagging(db_path: str | None = None):
@@ -1491,7 +1366,83 @@ def opcion_audio_tagging(db_path: str | None = None):
     pausa()
 
 
-def opcion_geocode():
+def opcion_analizar_video(db_path: str | None = None):
+    """
+    Analiza videos con IA: scene detection + muestreo por escena + keywords.
+
+    Llama a analyze_video.py (--file para un video individual, --db para los
+    pendientes de la DB o --dry-run para previsualizar).
+    """
+    import subprocess
+    script = os.path.join(os.path.dirname(__file__), "scripts", "ai_media", "analyze_video.py")
+
+    def _analizar_individual(db):
+        ruta = input("  Ruta al video: ").strip()
+        if not ruta:
+            print("  Cancelado.")
+            pausa()
+            return
+        if not os.path.isfile(ruta):
+            print("  Archivo no encontrado.")
+            pausa()
+            return
+        subprocess.run([sys.executable, script, "--file", ruta])
+        pausa()
+
+    def _analizar_pendientes(db):
+        subprocess.run([sys.executable, script, "--db", db or leer_db()])
+        pausa()
+
+    def _analizar_dry(db):
+        subprocess.run([sys.executable, script, "--db", db or leer_db(), "--dry-run"])
+        pausa()
+
+    _menu("ANALIZAR VIDEO (escenas + IA)", {
+        "1": ("Analizar un video individual", _analizar_individual),
+        "2": ("Analizar todos los pendientes de la DB", _analizar_pendientes),
+        "3": ("Previsualizar (dry-run)", _analizar_dry),
+    }, db_path, intro=(
+        "Detecta cambios de escena (ffmpeg), muestrea ~10 imágenes por\n"
+        "  escena, elige las más nítidas y las analiza con minicpm-v4.6\n"
+        "  (keywords + descripción en una sola llamada por escena)."
+    ))
+
+
+def opcion_keypoints_contexto(db_path: str | None = None):
+    """
+    Escribe keypoints de contexto (devenir geográfico) en media_keypoints.
+
+    Interpola la posición de videos/audios contra el track GPX (F1),
+    marca transiciones baratas de elevación/astronomía/movimiento (F2),
+    enriquece con Georef + clima con cache (F3) y escribe keypoints
+    no redundantes (F4). Llama a scripts/keypoints_contexto.py.
+    """
+    import subprocess
+    script = os.path.join(os.path.dirname(__file__), "scripts", "keypoints_contexto.py")
+
+    def _ejecutar(modo: str):
+        def _run(db):
+            subprocess.run([sys.executable, script, "--db", db or leer_db(), "--mode", modo])
+            pausa()
+        return _run
+
+    def _dry(db):
+        subprocess.run([sys.executable, script, "--db", db or leer_db(), "--dry-run"])
+        pausa()
+
+    _menu("KEYPOINTS DE CONTEXTO (devenir geografico)", {
+        "1": ("Procesar (solo pendientes)", _ejecutar("skip")),
+        "2": ("Re-procesar todos (update)", _ejecutar("update")),
+        "3": ("Limpiar y regenerar (replace)", _ejecutar("replace")),
+        "4": ("Previsualizar (dry-run)", _dry),
+    }, db_path, intro=(
+        "Reconstruye la posicion de cada video/audio contra el track GPX\n"
+        "  (interpolacion lineal por timestamp): cambios de elevacion, dia/\n"
+        "  crepusculo/noche, movimiento, municipio/provincia y clima."
+    ))
+
+
+def opcion_geocode(db_path: str | None = None):
     """Menu para geocodificación inversa de coordenadas GPS."""
     limpiar_pantalla()
     print("=== LOCALIZACION (Geocodificar GPS) ===\n")
@@ -1502,7 +1453,7 @@ def opcion_geocode():
 
     opc = input("  Opcion: ").strip()
 
-    db_path = leer_db()
+    db_path = db_path or leer_db()
     from scripts import geocode
 
     if opc == "1":
@@ -1525,15 +1476,99 @@ def opcion_geocode():
 
 def opcion_mantenimiento(db_path: str | None = None):
     """Menu: mantenimiento general de la DB (backup, restore, exportar, etc)."""
-    _menu("MANTENIMIENTO DB", {
-        "1": ("Relocalizar medios (cambio de raiz)", opcion_relocalizar),
-        "2": ("Calcular posición del sol (astronomía)", opcion_astronomia),
-        "3": ("Backfill end_time", opcion_backfill_end_time),
-        "4": ("Backup DB (solo backup, sin borrar)", opcion_backup_db),
-        "5": ("Restore DB desde backup", opcion_restore_db),
-        "6": ("Resetear DB (backup + limpiar)", opcion_reset_db),
-        "7": ("Exportar DB a CSV", opcion_exportar_csv),
-        "8": ("Mover/Copiar medios", opcion_mover_media),
+    _menu_paginado("MANTENIMIENTO DB", [
+        ("  -- Mantenimiento general --\n", {
+            "1": ("Relocalizar medios (cambio de raiz)", opcion_relocalizar),
+            "2": ("Calcular posición del sol (astronomía)", opcion_astronomia),
+            "3": ("Backfill end_time", opcion_backfill_end_time),
+            "4": ("Backup DB (solo backup, sin borrar)", opcion_backup_db),
+            "5": ("Restore DB desde backup", opcion_restore_db),
+            "6": ("Resetear DB (backup + limpiar)", opcion_reset_db),
+            "7": ("Exportar DB a CSV", opcion_exportar_csv),
+            "8": ("Mover/Copiar medios", opcion_mover_media),
+            "9": ("Auditar contenedores (streams faltantes)", opcion_auditar_contenedores),
+        }),
+        ("  -- Auditoría de medios --\n", {
+            "1": ("Buscar contenido repetido (audio)", opcion_repetir_contenido),
+            "2": ("Correlacionar audio con frames", opcion_crossref_audio_frame),
+        }),
+    ], db_path)
+
+
+def opcion_auditar_contenedores(db_path: str | None = None):
+    """Menu: auditar contenedores de video/audio con ffprobe."""
+    from scripts import detectar_contenedores
+
+    def _ejecutar(db):
+        db = db or leer_db()
+        modo = _preguntar_modo(db)
+        if modo is None:
+            print("  Cancelado.")
+            pausa()
+            return
+        args = ["--db", db]
+        if modo != "skip":
+            args += ["--mode", modo]
+        detectar_contenedores.main(args)
+        pausa()
+
+    def _dry(db):
+        detectar_contenedores.main(["--db", db or leer_db(), "--dry-run"])
+        pausa()
+
+    _menu("AUDITAR CONTENEDORES", {
+        "1": ("Ejecutar auditoría (anotar estado en DB)", _ejecutar),
+        "2": ("Previsualizar (dry-run)", _dry),
+    }, db_path)
+
+
+def opcion_repetir_contenido(db_path: str | None = None):
+    """Menu: buscar contenido repetido por coincidencias de audio."""
+    from scripts import repetir_contenido
+
+    def _contra(db):
+        contra = input("  Ruta del archivo a comparar contra el resto: ").strip()
+        if not contra:
+            print("  Cancelado.")
+            pausa()
+            return
+        args = ["--db", db or leer_db(), "--contra", contra]
+        if _preguntar_sn("Ejecutar"):
+            repetir_contenido.main(args)
+        pausa()
+
+    def _todos(db):
+        args = ["--db", db or leer_db()]
+        if _preguntar_sn("Ejecutar todos contra todos"):
+            repetir_contenido.main(args)
+        pausa()
+
+    _menu("CONTENIDO REPETIDO (AUDIO)", {
+        "1": ("Comparar un archivo contra el resto", _contra),
+        "2": ("Todos contra todos", _todos),
+    }, db_path)
+
+
+def opcion_crossref_audio_frame(db_path: str | None = None):
+    """Menu: correlacionar contenido de audio con frames de video."""
+    from scripts import audio_frame_crossref
+
+    def _ejecutar(db):
+        archivo = input("  Archivo de video/audio a analizar (ruta): ").strip()
+        if not archivo:
+            print("  Cancelado.")
+            pausa()
+            return
+        args = ["--db", db or leer_db(), "--archivo", archivo]
+        frames_dir = input("  Carpeta para extraer frames (Enter = no extraer): ").strip()
+        if frames_dir:
+            args += ["--frames-dir", frames_dir]
+        if _preguntar_sn("Ejecutar"):
+            audio_frame_crossref.main(args)
+        pausa()
+
+    _menu("AUDIO <-> FRAMES", {
+        "1": ("Correlacionar audio con frames", _ejecutar),
     }, db_path)
 
 
@@ -1586,16 +1621,15 @@ def opcion_ingestar_gpx(db_path: str | None = None):
         pausa()
         return
 
-    omitir_wpts = input("  ?Omitir waypoints? (s/N): ").strip().lower() == "s"
-    omitir_alt = input("  ?Omitir backfill de altitud? (s/N): ").strip().lower() == "s"
-    dry_run = input("  ?Solo previsualizar (dry-run)? (s/N): ").strip().lower() == "s"
+    omitir_wpts = _preguntar_sn("Omitir waypoints")
+    omitir_alt = _preguntar_sn("Omitir backfill de altitud")
+    dry_run = _preguntar_sn("Solo previsualizar (dry-run)")
 
     print(f"\n  Resumen: gpx={gpx_path}  modo={modo_str}"
           f"  waypoints={'NO' if omitir_wpts else 'SI'}"
           f"  altitud={'NO' if omitir_alt else 'SI'}"
           f"  dry_run={'SI' if dry_run else 'NO'}")
-    confirm = input("  ?Ejecutar? (s/N): ").strip().lower()
-    if confirm != "s":
+    if not _preguntar_sn("Ejecutar"):
         print("  Cancelado.")
         pausa()
         return
@@ -1604,12 +1638,11 @@ def opcion_ingestar_gpx(db_path: str | None = None):
     from scripts import ingest_gpx
     args = ["--gpx", gpx_path]
     args.extend(["--mode", modo_str])
-    if omitir_wpts:
-        args.append("--no-waypoints")
-    if omitir_alt:
-        args.append("--no-altitude")
-    if dry_run:
-        args.append("--dry-run")
+    _args_sn(args, [
+        (omitir_wpts, "--no-waypoints"),
+        (omitir_alt, "--no-altitude"),
+        (dry_run, "--dry-run"),
+    ])
     if db_path:
         args.extend(["--db", db_path])
     ingest_gpx.main(args)
@@ -1680,117 +1713,114 @@ def opcion_mover_media(db_path: str | None = None):
 
 def opcion_ayuda():
     """Submenu de ayuda con detalle por comando."""
-    while True:
+    def _ayuda_general(_db):
         limpiar_pantalla()
-        print("============ AYUDA ============\n")
-        print("  Elija un comando para ver su ayuda detallada:\n")
-        print("  1) Ayuda general")
-        print("  2) ingest  - Ingestion de medios")
-        print("  3) query   - Consultas a la base de datos")
-        print("  4) relocate - Relocalizar medios")
-        print("  5) improve-db - Mejorar base de datos")
-        print("  6) geocode - Geocodificar coordenadas GPS")
-        print("  7) gradient - Calcular gradientes de ruta")
-        print("  8) astronomia - Posición del sol y twilight")
-        print("  9) check-db / check-gps")
-        print("  0) Volver\n")
+        print(AYUDA)
+        pausa()
 
-        opc = input("  Opcion: ").strip()
+    def _ayuda_ingest(_db):
+        from scripts import ingest
+        ingest.main(["--help"])
+        pausa()
 
-        if opc == "1":
-            limpiar_pantalla()
-            print(AYUDA)
-            pausa()
-        elif opc == "2":
-            from scripts import ingest
-            ingest.main(["--help"])
-            pausa()
-        elif opc == "3":
-            from scripts import query
-            query.main(["--help"])
-            pausa()
-        elif opc == "4":
-            from scripts import relocate
-            relocate.main(["--help"])
-            pausa()
-        elif opc == "5":
-            limpiar_pantalla()
-            print("============ IMPROVE-DB ============\n")
-            print("  Ejecuta pasos de mejora sobre la base de datos.")
-            print("  Uso: python flujos.py improve-db [--steps X,Y] [--mode skip|update|replace]\n")
-            print("  Pasos disponibles:")
-            print("    colors        Extraer colores dominantes")
-            print("    keywords      Etiquetar con IA")
-            print("    descriptions  Describir con IA")
-            print("    transcribe    Transcribir audios/videos")
-            print("    keypoints     Poblar keypoints desde transcripciones")
-            print("    timestamps    Inferir timestamps faltantes")
-            print("    gps           Inferir GPS")
-            print()
-            print("  --list  para listar todos los pasos.")
-            pausa()
-        elif opc == "6":
-            limpiar_pantalla()
-            print("============ GEOCODE ============\n")
-            print("  Geocodifica coordenadas GPS (lat,lon) a provincia/localidad")
-            print("  usando la API Georef Argentina (batch).\n")
-            print("  Uso: python flujos.py geocode [--limit N] [--dry-run]\n")
-            print("  Tambien desde consola:")
-            print("    python scripts/geocode.py --coords -34.6037,-58.3816")
-            pausa()
-        elif opc == "7":
-            limpiar_pantalla()
-            print("============ GRADIENT ============\n")
-            print("  Calcula pendientes y esfuerzo fisico entre puntos GPS")
-            print("  consecutivos, ordenados por timestamp.\n")
-            print("  Columnas que actualiza:\n")
-            print("    distance_from_prev_m    Distancia Haversine (m)")
-            print("    elevation_gain_m        Cambio de elevacion (m)")
-            print("    gradient_pct            Pendiente porcentual")
-            print("    cumul_distance_m        Distancia acumulada (m)")
-            print("    cumul_elevation_gain_m  Ganancia elevacion acumulada (m)\n")
-            print("  Uso: python flujos.py gradient [--dry-run] [--verbose]\n")
-            print("  Tambien desde consola:")
-            print("    python scripts/gradiente.py --dry-run --verbose")
-            pausa()
-        elif opc == "8":
-            limpiar_pantalla()
-            print("============ ASTRONOMIA ============\n")
-            print("  Calcula la posición del sol (elevación, azimut) y clasifica")
-            print("  el momento del día usando el algoritmo NOAA Solar Calculator.\n")
-            print("  Columnas que actualiza:\n")
-            print("    sun_elevation      Altura del sol sobre horizonte (°)")
-            print("    sun_azimuth        Dirección del sol (0°=N, 90°=E)")
-            print("    sun_distance_au    Distancia al sol en UA")
-            print("    twilight_period    Clasificación: día, golden_hour, blue_hour,")
-            print("                       crepúsculo civil/naútico/astronómico, noche\n")
-            print("  Uso: python flujos.py astronomia [--dry-run] [--verbose]\n")
-            print("  Requiere: latitude, longitude y timestamp_utc en la DB.")
-            print("  Algoritmo: NOAA Solar Calculator (Python puro, 0 dependencias)\n")
-            print("  Precision: ~0.01°\n")
-            pausa()
-        elif opc == "9":
-            limpiar_pantalla()
-            print("============ CHECK-DB ============\n")
-            print("  Inspecciona todos los registros de la base de datos.")
-            print("  Uso: python flujos.py check-db\n")
-            print("============ CHECK-GPS ============\n")
-            print("  Revisa que archivos tienen GPS en el sistema de archivos.")
-            print("  Uso: python flujos.py check-gps\n")
-            print("  Para un analisis completo: python scripts/check_gps.py")
-            pausa()
-        elif opc == "0":
-            break
-        else:
-            print("  Opcion invalida.")
-            pausa()
+    def _ayuda_query(_db):
+        from scripts import query
+        query.main(["--help"])
+        pausa()
+
+    def _ayuda_relocate(_db):
+        from scripts import relocate
+        relocate.main(["--help"])
+        pausa()
+
+    def _ayuda_improve_db(_db):
+        limpiar_pantalla()
+        print("============ IMPROVE-DB ============\n")
+        print("  Ejecuta pasos de mejora sobre la base de datos.")
+        print("  Uso: python flujos.py improve-db [--steps X,Y] [--mode skip|update|replace]\n")
+        print("  Pasos disponibles:")
+        print("    colors        Extraer colores dominantes")
+        print("    keywords      Etiquetar con IA")
+        print("    descriptions  Describir con IA")
+        print("    transcribe    Transcribir audios/videos")
+        print("    keypoints     Poblar keypoints desde transcripciones")
+        print("    timestamps    Inferir timestamps faltantes")
+        print("    gps           Inferir GPS")
+        print()
+        print("  --list  para listar todos los pasos.")
+        pausa()
+
+    def _ayuda_geocode(_db):
+        limpiar_pantalla()
+        print("============ GEOCODE ============\n")
+        print("  Geocodifica coordenadas GPS (lat,lon) a provincia/localidad")
+        print("  usando la API Georef Argentina (batch).\n")
+        print("  Uso: python flujos.py geocode [--limit N] [--dry-run]\n")
+        print("  Tambien desde consola:")
+        print("    python scripts/geocode.py --coords -34.6037,-58.3816")
+        pausa()
+
+    def _ayuda_gradient(_db):
+        limpiar_pantalla()
+        print("============ GRADIENT ============\n")
+        print("  Calcula pendientes y esfuerzo fisico entre puntos GPS")
+        print("  consecutivos, ordenados por timestamp.\n")
+        print("  Columnas que actualiza:\n")
+        print("    distance_from_prev_m    Distancia Haversine (m)")
+        print("    elevation_gain_m        Cambio de elevacion (m)")
+        print("    gradient_pct            Pendiente porcentual")
+        print("    cumul_distance_m        Distancia acumulada (m)")
+        print("    cumul_elevation_gain_m  Ganancia elevacion acumulada (m)\n")
+        print("  Uso: python flujos.py gradient [--dry-run] [--verbose]\n")
+        print("  Tambien desde consola:")
+        print("    python scripts/gradiente.py --dry-run --verbose")
+        pausa()
+
+    def _ayuda_astronomia(_db):
+        limpiar_pantalla()
+        print("============ ASTRONOMIA ============\n")
+        print("  Calcula la posición del sol (elevación, azimut) y clasifica")
+        print("  el momento del día usando el algoritmo NOAA Solar Calculator.\n")
+        print("  Columnas que actualiza:\n")
+        print("    sun_elevation      Altura del sol sobre horizonte (°)")
+        print("    sun_azimuth        Dirección del sol (0°=N, 90°=E)")
+        print("    sun_distance_au    Distancia al sol en UA")
+        print("    twilight_period    Clasificación: día, golden_hour, blue_hour,")
+        print("                       crepúsculo civil/naútico/astronómico, noche\n")
+        print("  Uso: python flujos.py astronomia [--dry-run] [--verbose]\n")
+        print("  Requiere: latitude, longitude y timestamp_utc en la DB.")
+        print("  Algoritmo: NOAA Solar Calculator (Python puro, 0 dependencias)\n")
+        print("  Precision: ~0.01°\n")
+        pausa()
+
+    def _ayuda_check(_db):
+        limpiar_pantalla()
+        print("============ CHECK-DB ============\n")
+        print("  Inspecciona todos los registros de la base de datos.")
+        print("  Uso: python flujos.py check-db\n")
+        print("============ CHECK-GPS ============\n")
+        print("  Revisa que archivos tienen GPS en el sistema de archivos.")
+        print("  Uso: python flujos.py check-gps\n")
+        print("  Para un analisis completo: python scripts/check_gps.py")
+        pausa()
+
+    _menu("AYUDA", {
+        "1": ("Ayuda general", _ayuda_general),
+        "2": ("ingest  - Ingestion de medios", _ayuda_ingest),
+        "3": ("query   - Consultas a la base de datos", _ayuda_query),
+        "4": ("relocate - Relocalizar medios", _ayuda_relocate),
+        "5": ("improve-db - Mejorar base de datos", _ayuda_improve_db),
+        "6": ("geocode - Geocodificar coordenadas GPS", _ayuda_geocode),
+        "7": ("gradient - Calcular gradientes de ruta", _ayuda_gradient),
+        "8": ("astronomia - Posición del sol y twilight", _ayuda_astronomia),
+        "9": ("check-db / check-gps", _ayuda_check),
+    }, intro="  Elija un comando para ver su ayuda detallada:", titulo_ancho=12)
 
 
 def tui():
     """Menu interactivo principal."""
-    while True:
-        mostrar_bienvenida()
-
+    def _cabecera():
+        mostrar_bienvenida()  # NO limpiar dos veces: mostrar_bienvenida ya hace limpiar_pantalla()
         db_path = leer_db()
         if os.path.isfile(db_path):
             conn = sqlite3.connect(db_path)
@@ -1803,38 +1833,19 @@ def tui():
         else:
             print("  (Base de datos no encontrada - ejecuta 'Ingesta' primero)\n")
 
-        print("  1) Preparar medios")
-        print("  2) Ingesta")
-        print("  3) Mejorar base de datos")
-        print("  4) Consultar base de datos")
-        print("  5) Mantenimiento DB")
-        print("  6) Mapa de ruta (Folium)")
-        print("  9) Ayuda")
-        print("  0) Salir\n")
+    def _chau():
+        limpiar_pantalla()
+        print("  Chau.")
 
-        opc = input("  Opcion: ").strip()
-
-        if opc == "1":
-            opcion_preparar(db_path)
-        elif opc == "2":
-            opcion_ingesta(db_path)
-        elif opc == "3":
-            opcion_improve_db()
-        elif opc == "4":
-            opcion_consultar(db_path)
-        elif opc == "5":
-            opcion_mantenimiento(db_path)
-        elif opc == "6":
-            opcion_mapa()
-        elif opc == "9":
-            opcion_ayuda()
-        elif opc == "0":
-            limpiar_pantalla()
-            print("  Chau.")
-            break
-        else:
-            print("  Opcion invalida.")
-            pausa()
+    _menu("", {
+        "1": ("Preparar medios", lambda db: opcion_preparar(db)),
+        "2": ("Ingesta", lambda db: opcion_ingesta(db)),
+        "3": ("Mejorar base de datos", lambda db: opcion_improve_db(db)),
+        "4": ("Consultar base de datos", lambda db: opcion_consultar(db)),
+        "5": ("Mantenimiento DB", lambda db: opcion_mantenimiento(db)),
+        "6": ("Mapa de ruta (Folium)", lambda db: opcion_mapa()),
+        "9": ("Ayuda", lambda db: opcion_ayuda()),
+    }, db_path=leer_db(), pre_titulo=_cabecera, etiqueta_salir="Salir", on_salir=_chau)
 
 
 # ── Mapa de ruta (Folium) ─────────────────────────────────────────────────────
@@ -1855,16 +1866,15 @@ def opcion_mapa():
 
 
     output = input("  Archivo de salida [mapas/mapa_ruta.html]: ").strip() or "mapas/mapa_ruta.html"
-    heatmap = input("  ?Incluir mapa de calor? (s/N): ").strip().lower() == "s"
-    road_colors = input("  ?Colorear segmentos por pendiente? (s/N): ").strip().lower() == "s"
-    no_markers = input("  ?Omitir marcadores? (s/N): ").strip().lower() == "s"
+    heatmap = _preguntar_sn("Incluir mapa de calor")
+    road_colors = _preguntar_sn("Colorear segmentos por pendiente")
+    no_markers = _preguntar_sn("Omitir marcadores")
     custom_db = input(f"  ?Usar otra DB? (default: {leer_db()}) [Enter para default]: ").strip()
 
     print(f"\n  Resumen: output={output}  heatmap={'SI' if heatmap else 'NO'}  "
           f"road_colors={'SI' if road_colors else 'NO'}  "
           f"no_markers={'SI' if no_markers else 'NO'}")
-    confirm = input("  ?Generar mapa? (s/N): ").strip().lower()
-    if confirm != "s":
+    if not _preguntar_sn("Generar mapa"):
         print("  Cancelado.")
         pausa()
         return
@@ -1873,12 +1883,11 @@ def opcion_mapa():
 
     from scripts import mapa_ruta
     args = ["--output", output]
-    if heatmap:
-        args.append("--heatmap")
-    if road_colors:
-        args.append("--road-colors")
-    if no_markers:
-        args.append("--no-markers")
+    _args_sn(args, [
+        (heatmap, "--heatmap"),
+        (road_colors, "--road-colors"),
+        (no_markers, "--no-markers"),
+    ])
     if custom_db:
         args.extend(["--db", custom_db])
     mapa_ruta.main(args)
@@ -1889,11 +1898,30 @@ def opcion_mapa():
 # ── Backfill end_time ─────────────────────────────────────────────────────────
 
 def opcion_backfill_end_time(db_path: str | None = None):
-    """Calcula end_time para registros existentes que no lo tienen."""
+    """Calcula end_time para registros existentes que no lo tienen.
+
+    end_time = timestamp_utc (+ duration_secs para videos/audios), calculado
+    en Python: el datetime() de SQLite no parsea ISO con 'T'/'Z' y devolvía
+    end_time == timestamp_utc. Re-ejecutable: en modo skip/update solo toca
+    registros con end_time NULL.
+    """
+    from datetime import datetime, timedelta, timezone
+
     db_path = leer_db(db_path)
     if not os.path.isfile(db_path):
         print("  No se encuentra la base de datos.")
         return
+
+    def _as_aware_utc(v: str) -> datetime:
+        """Parsea timestamp_utc y lo fuerza a aware UTC.
+
+        El timestamp_utc de la DB está normalizado a UTC, pero por robustez
+        se normaliza la 'Z' y, si quedó naive, se asume UTC.
+        """
+        dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
 
     conn = sqlite3.connect(db_path)
     try:
@@ -1910,43 +1938,71 @@ def opcion_backfill_end_time(db_path: str | None = None):
             print("  Cancelado.")
             return
 
+        # M3: reparar también los end_time que el bug viejo dejó incorrectos
+        # (end_time == timestamp_utc en videos/audios con duration_secs)
+        reparar = _preguntar_sn(
+            "Reparar end_time incorrectos (end_time == timestamp_utc con duración)",
+            default=False,
+        )
+        condicion_pendiente = "end_time IS NULL"
+        if reparar:
+            condicion_pendiente = (
+                "(end_time IS NULL OR "
+                "(end_time = timestamp_utc AND duration_secs IS NOT NULL))"
+            )
+
         if modo == "replace":
             print("  Modo replace: limpiando end_time existentes...")
             conn.execute("UPDATE media SET end_time = NULL WHERE timestamp_utc IS NOT NULL")
             conn.commit()
 
-        # Contar cuántos faltan
+        # Contar cuántos faltan (o están incorrectos)
         pendientes = conn.execute(
-            "SELECT COUNT(*) FROM media WHERE end_time IS NULL AND timestamp_utc IS NOT NULL"
+            f"SELECT COUNT(*) FROM media "
+            f"WHERE {condicion_pendiente} AND timestamp_utc IS NOT NULL"
         ).fetchone()[0]
 
         if pendientes == 0:
-            print("  Todos los registros ya tienen end_time.")
+            print("  Todos los registros ya tienen end_time válido.")
             return
 
         print(f"  Calculando end_time para {pendientes} registros...")
 
-        # Punto: end_time = timestamp_utc
-        updated_punto = conn.execute("""
-            UPDATE media
-            SET end_time = timestamp_utc
-            WHERE end_time IS NULL
+        # Calcular end_time en Python (datetime.fromisoformat soporta 'T' y 'Z'):
+        #   punto:    end_time = timestamp_utc
+        #   segmento: end_time = timestamp_utc + duration_secs
+        updated_punto = 0
+        updated_seg = 0
+        errores = 0
+        filas = conn.execute(f"""
+            SELECT id, timestamp_utc, duration_secs
+            FROM media
+            WHERE {condicion_pendiente}
               AND timestamp_utc IS NOT NULL
-              AND duration_secs IS NULL
-        """).rowcount
-        print(f"    Puntos (fotos/textos): {updated_punto} actualizados.")
+        """).fetchall()
 
-        # Segmento: end_time = timestamp_utc + duration_secs
-        updated_seg = conn.execute("""
-            UPDATE media
-            SET end_time = datetime(timestamp_utc, '+' || CAST(duration_secs AS TEXT) || ' seconds')
-            WHERE end_time IS NULL
-              AND timestamp_utc IS NOT NULL
-              AND duration_secs IS NOT NULL
-        """).rowcount
-        print(f"    Segmentos (videos/audios): {updated_seg} actualizados.")
+        for mid, ts_utc, dur in filas:
+            try:
+                dt_base = _as_aware_utc(ts_utc)
+                if dur is not None:
+                    dt_end = dt_base + timedelta(seconds=float(dur))
+                    updated_seg += 1
+                else:
+                    dt_end = dt_base
+                    updated_punto += 1
+            except (ValueError, TypeError):
+                errores += 1
+                continue
+            conn.execute(
+                "UPDATE media SET end_time = ? WHERE id = ?",
+                (dt_end.isoformat(), mid),
+            )
 
         conn.commit()
+        print(f"    Puntos (fotos/textos): {updated_punto} actualizados.")
+        print(f"    Segmentos (videos/audios): {updated_seg} actualizados.")
+        if errores:
+            print(f"    Errores de parseo (sin actualizar): {errores}")
         print(f"\n  Total actualizados: {updated_punto + updated_seg}")
 
     except sqlite3.OperationalError as e:
@@ -1987,8 +2043,8 @@ def opcion_backup_db(db_path: str | None = None):
 
     print(f"\n  DB actual:    {db_path}")
     print(f"  Registros:    {total}")
-    r = input("\n  ?Crear backup? (s/N): ").strip().lower()
-    if r != "s":
+    print()
+    if not _preguntar_sn("Crear backup"):
         print("  Cancelado.")
         pausa()
         return
@@ -2034,8 +2090,7 @@ def opcion_restore_db(db_path: str | None = None):
     backup_name = backups[sel - 1][1]
 
     print(f"\n  Esto REEMPLAZARÁ la DB actual con: {backup_name}")
-    r = input("  ?Confirmar restauracion? (s/N): ").strip().lower()
-    if r != "s":
+    if not _preguntar_sn("Confirmar restauracion"):
         print("  Cancelado.")
         pausa()
         return
@@ -2059,8 +2114,7 @@ def opcion_reset_db(db_path: str | None = None):
 
     if not os.path.isfile(db_path):
         print("  No hay base de datos que respaldar.")
-        r = input("  ?Crear una DB vacia igual? (s/N): ").strip().lower()
-        if r != "s":
+        if not _preguntar_sn("Crear una DB vacia igual"):
             print("  Cancelado.")
             return
         print("  Creando DB vacia...")
@@ -2081,16 +2135,15 @@ def opcion_reset_db(db_path: str | None = None):
     print(f"  Registros en media:   {total}")
 
     # Confirmar
-    r = input("\n  ?Hacer backup y borrar? (s/N): ").strip().lower()
-    if r != "s":
+    print()
+    if not _preguntar_sn("Hacer backup y borrar"):
         print("  Cancelado.")
         return
 
     # Backup
     ruta = _crear_backup_manual(db_path)
     if ruta is None:
-        r = input("  ?Continuar igual? (s/N): ").strip().lower()
-        if r != "s":
+        if not _preguntar_sn("Continuar igual"):
             return
 
     # Borrar y crear nueva
@@ -2179,8 +2232,7 @@ def opcion_exportar_csv(db_path: str | None = None):
     else:
         print("  Tablas: todas")
     print(f"  Salida: {output_dir or dir_default}<timestamp>/")
-    r = input("  ?Exportar? (s/N): ").strip().lower()
-    if r != "s":
+    if not _preguntar_sn("Exportar"):
         print("  Cancelado.")
         pausa()
         return
@@ -2273,6 +2325,26 @@ def main():
     elif comando == "mover":
         from scripts import mover_media
         mover_media.main(resto)
+
+    elif comando in ("detectar-contenedores", "contenedores"):
+        from scripts import detectar_contenedores
+        detectar_contenedores.main(resto)
+
+    elif comando in ("repetir-contenido", "repetidos"):
+        from scripts import repetir_contenido
+        repetir_contenido.main(resto)
+
+    elif comando in ("audio-frame", "crossref"):
+        from scripts import audio_frame_crossref
+        audio_frame_crossref.main(resto)
+
+    elif comando in ("analizar-video", "analizar"):
+        from scripts.ai_media import analyze_video
+        analyze_video.main(resto)
+
+    elif comando in ("keypoints-contexto", "keypoints"):
+        from scripts import keypoints_contexto
+        keypoints_contexto.main(resto)
 
     elif comando == "mapa":
         from scripts import mapa_ruta

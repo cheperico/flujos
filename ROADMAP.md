@@ -36,7 +36,8 @@ Etapa 5: INSTALACIÓN          →  TouchDesigner + motor de deriva
 | `end_time` para consultas por rango temporal | Alta | ✅ |
 | GPS sign bug (lat/lon positivo en Argentina) | **Corregido** | ✅ Fixeado en ingest.py (`_es_sur_oeste()`, `_parse_gps_position()`) y verificado en los registros con GPS (signo negativo correcto) |
 | Keywords IPTC en JSON (hoy string Python) | Media | ❌ |
-| Content hash de video optimizado | Baja | ❌ |
+| Content hash de video **eliminado** (frame a 0.5s era débil): quitada la opción CLI de hash de video, la función de hash de video y la notificación de duplicados por hash de contenido para video (para imágenes se mantiene con phash) | Baja | ✅ Hecho (Fase 0, 2026-08-11) |
+| **Detección de repetidos (video/sonido)**: pipeline ligero de sospecha N1-N4 — N1 duración idéntica (±0.5s), N2 file_hash (tamaño+fecha, ya se calcula), N3 **banda sonora** (cross-correlación RMS, local — `repetir_contenido.py`), N4 **confirmación visual veloz** (aún pendiente). Mismo pipeline para sonidos. No marca automático: genera lista de candidatos para revisión humana | Alta | ✅ Parcial (Fase 1, 2026-08-11): `repetir_contenido.py` + `detectar_contenedores.py` + `audio_frame_crossref.py`; N4 visual pendiente |
 
 ---
 
@@ -61,6 +62,11 @@ Etapa 5: INSTALACIÓN          →  TouchDesigner + motor de deriva
 | Inferencia de autor desde medios cercanos | Baja | ❌ | — |
 | Detección/corrección de offset de reloj en cámaras | Media | ❌ | — |
 | Merge de metadatos para contenido duplicado | Baja | ❌ | — |
+| **Buscar medios repetidos** (TUI Mejorar DB): corre N1-N4 (ver Etapa 2 — detección de repetidos) y deja la lista de candidatos con señales y nivel de sospecha para que el humano confirme; exportable. Incluye 1e: audio largo = contenedor de audios cortos (huecos de silencio / cortes de tema en `whisper_segments`) | Alta | ❌ Plan 2026-08-09 | — |
+| **Rediseño análisis de contenido de video**: pasar todo a minicpm-v4.6 (moondream descartado, responde mal en español), muestreo = scene detection → ~10 imágenes por escena → selección por nitidez (pipeline de tandas) → tags; límite de tags por escena y por duración de escena (máx 20/escena). Revisar moondream en `batch_selector`/`clustering`/`tag_images` | Media | ✅ Hecho (Fase 3, 2026-08-11) — `analyze_video.py` rediseñado | — |
+| **Keypoints semánticos de video** (prioridad > embeddings): saber cuándo se dice/aparece X → fragmento [inicio, fin] para mostrar según keywords; por contenido transcripto (`whisper_segments`). Pendiente de mejora: keywords de sonidos **no hablados** aún no probadas (esa parte queda a futuro) | Media | ✅ Hecho (Fase 3, 2026-08-11) — `keypoints_video.py` (`escena`/`keyword`); sonidos no hablados sigue pendiente | — |
+| **Keypoints de contexto (devenir geográfico de video/sonido)**: interpolar posición continua del medio sobre el track GPX en su intervalo `[timestamp_utc, end_time]` y marcar los cambios de contexto (municipio, provincia, clima, twilight, elevación) en `media_keypoints` con keys `contexto_*` (source `track_interpolado`). Pipeline en 3 fases: F1 interpolar 30-60s (local), F2 transiciones baratas sin API (elevación/twilight/velocidad), F3 enriquecer candidatos con APIs en frecuencia gruesa 5-10 min + cache por tramo (georef municipio/provincia, open-meteo clima por tramo horario). Permite fragmentar el medio por contexto y combinarlo con keypoints semánticos | Media | ✅ Hecho (Fase 4, 2026-08-11) — `keypoints_contexto.py` (F1-F4 + multi-track + sentinel) | — |
+| **Embeddings desactivados** (modelo/prompt/fuentes/usos no útiles aún): quitar opción del TUI (Hoja 3 "1) Embeddings"), pasar a rediseño profundo antes de re-exponer | Baja | ✅ Retirado del TUI 2026-08-11 | — |
 
 ---
 
@@ -74,7 +80,8 @@ Etapa 5: INSTALACIÓN          →  TouchDesigner + motor de deriva
 | **Gradientes de ruta** (distancia Haversine, elevación, pendiente) | Alta | ✅ | `gradiente.py --mode` (Python puro, sin numpy) |
 | **Posición del sol / twilight** (NOAA) | Alta | ✅ | `astronomia.py --mode` (sin dependencias externas) |
 | Keywords del sentido de transcripciones | Media | ✅ | `keywords_transcripciones.py` |
-| Embeddings vectoriales (búsqueda semántica) | Media | ⏳ | `generate_embeddings.py` + `clustering.py` |
+| Keywords de sonidos **no hablados** (extender audio tagging → sentido semántico; no probado aún) | Media | ❌ Pendiente | — |
+| Embeddings vectoriales (búsqueda semántica) — **desactivados**, rediseño profundo pendiente (ver Etapa 3) | Media | ✅ Desactivado | `generate_embeddings.py` (retirado del TUI) |
 
 ---
 
@@ -136,6 +143,36 @@ Etapa 5: INSTALACIÓN          →  TouchDesigner + motor de deriva
 ---
 
 ## Historial
+
+- **2026-08-09:** **Plan: repetidos, embeddings y análisis de video.**
+  - Detección de repetidos (video/sonido): pipeline de sospecha N1-N4 con banda sonora
+    (chromaprint) como técnica central + confirmación visual veloz; misma técnica para
+    sonidos; opción TUI "Buscar medios repetidos" que deja candidatos para revisión humana;
+    limpieza de tandas en 2 niveles (rápido duración+peso → profundo huella acústica).
+    el hash de contenido de video se elimina (frame a 0.5s, débil) con toda su herencia.
+    `clustering.py` descartado para video.
+  - Embeddings desactivados (rediseño profundo pendiente, fuera del TUI).
+  - Análisis de video: minicpm-v4.6 en todo (moondream descartado), muestreo scene detection
+    → ~10 imágenes/escena → selección por nitidez → tags con límite por escena/duración
+    (máx 20/escena). Keypoints semánticos (por contenido transcripto) prioridad > embeddings;
+    keywords de sonidos no hablados pendiente.
+  - Fecha de decisión: prioridades — repetidos (Alta), keypoints semánticos (Media, sobre
+    embeddings), análisis de video (Media), embeddings (Baja).
+
+- **2026-08-11:** **Plan: keypoints de contexto (devenir geográfico de video/sonido).**
+  - Concepto: un medio con duración tiene un intervalo real `[timestamp_utc, end_time]`; en vez
+    de ubicación estática, interpolar su posición continua sobre el track GPX y detectar los
+    instantes donde el contexto cambia (municipio, provincia, clima, twilight, elevación).
+  - Pipeline F1-F4: interpolar 30-60s (local) → transiciones baratas sin API (elevación,
+    twilight, velocidad) → enriquecer candidatos con APIs (georef municipio/provincia cada
+    5-10 min con cache por tramo, open-meteo clima por tramo horario) → escribir keypoints
+    `contexto_*` en `media_keypoints` (source `track_interpolado`).
+  - Uso: fragmentar el medio por contexto y combinarlo con keypoints semánticos (qué parte
+    mostrar según keywords + contexto del visitante).
+  - Decisiones (defaults): fotos no aplica (puntuales); GPX sin `time` → estimación lineal
+    con source `estimado`; medio fuera del track → solo contexto estático inicial.
+  - Pendientes de confirmar: frecuencia gruesa de APIs (5-10 min) y prioridad track vs GPS
+    propio del medio como fuente de devenir.
 
 - **2026-07-13:** Pipeline completo documentado. Bug ExifTool fixeado.
   `flujos.py` creado. `relocate.py` creado. Tabla `config` agregada.
