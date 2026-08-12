@@ -20,8 +20,16 @@ analyze_video.py), recorre las escenas detectadas y escribe en
         timestamp_absolute    = timestamp_utc + offset
         source = 'ollama'
 
+    - Por cada escena con descripción (aunque no tenga keywords):
+        key   = 'descripcion_escena'
+        value = descripción de la escena (texto de analyze_video.py)
+        timestamp_offset_secs = inicio de la escena
+        timestamp_absolute    = timestamp_utc + offset
+        source = 'ollama'
+
 Esto permite buscar "cuándo aparece X en el video" consultando
-media_keypoints por key='keyword' y value='X'.
+media_keypoints por key='keyword' y value='X', y mostrar "qué pasaba
+en este momento" del video consultando key='descripcion_escena'.
 
 NO toca los keypoints de transcripción (key='transcription', source='whisper'):
 esa lógica vive en improve_db.run_keypoints y queda intacta.
@@ -57,6 +65,7 @@ from db.util import abrir, resolver_db
 KEY_VIDEO_ANALYSIS = "video_analysis"
 KEY_ESCENA = "escena"
 KEY_KEYWORD = "keyword"
+KEY_DESCRIPCION = "descripcion_escena"
 SOURCE = "ollama"
 
 # Sentinel de procesado en media_metadata (M1): evita reprocesar en skip los
@@ -108,7 +117,7 @@ def _consultar_videos_con_analisis(
         query += """
             WHERE m.id NOT IN (
                 SELECT DISTINCT media_id FROM media_keypoints
-                WHERE key IN (?, ?)
+                WHERE key IN (?, ?, ?)
             )
             AND m.id NOT IN (
                 SELECT media_id FROM media_metadata
@@ -116,13 +125,13 @@ def _consultar_videos_con_analisis(
                   AND value IN ('""" + ESTADO_OK + """', '""" + ESTADO_SIN_DATOS + """')
             )
         """
-        params += [KEY_ESCENA, KEY_KEYWORD]
+        params += [KEY_ESCENA, KEY_KEYWORD, KEY_DESCRIPCION]
 
     return conn.execute(query, params).fetchall()
 
 
 def _escenas_desde_analisis(analysis: str) -> list[dict]:
-    """Parsea el JSON de video_analysis y devuelve las escenas con keywords.
+    """Parsea el JSON de video_analysis y devuelve las escenas útiles.
 
     Soportado el formato actual (dict con "escenas") y el legacy
     (array plano de fotogramas sin escenas → lista vacía).
@@ -131,7 +140,8 @@ def _escenas_desde_analisis(analysis: str) -> list[dict]:
         analysis: JSON de media_metadata (video_analysis).
 
     Returns:
-        Lista de dicts de escena (los que tienen keywords no vacías).
+        Lista de dicts de escena (los que tienen keywords o descripción
+        no vacía).
     """
     try:
         data = json.loads(analysis)
@@ -139,7 +149,7 @@ def _escenas_desde_analisis(analysis: str) -> list[dict]:
         return []
 
     escenas = data.get("escenas", []) if isinstance(data, dict) else []
-    return [e for e in escenas if e.get("keywords")]
+    return [e for e in escenas if e.get("keywords") or (e.get("descripcion") or "").strip()]
 
 
 def _generar_batch(media_id: int, ts_utc: str, analysis: str) -> list[tuple]:
@@ -152,7 +162,11 @@ def _generar_batch(media_id: int, ts_utc: str, analysis: str) -> list[tuple]:
 
     Returns:
         Lista de tuplas (media_id, offset, ts_abs, key, value, source).
-        Vacía si no hay escenas con keywords o falta timestamp_utc.
+        Vacía si no hay escenas con keywords/descripción o falta timestamp_utc.
+
+        Por cada escena escribe:
+          - key='escena' + key='keyword' (por keyword) si hay keywords
+          - key='descripcion_escena' si hay descripción no vacía
     """
     escenas = _escenas_desde_analisis(analysis)
     if not escenas:
@@ -169,22 +183,31 @@ def _generar_batch(media_id: int, ts_utc: str, analysis: str) -> list[tuple]:
         offset = float(escena.get("inicio", 0.0))
         keywords = escena.get("keywords", [])
         keywords_limpias = [k.strip() for k in keywords if k and k.strip()]
-        if not keywords_limpias:
+        descripcion = (escena.get("descripcion") or "").strip()
+        if not keywords_limpias and not descripcion:
             continue
 
         ts_abs = (dt_base + timedelta(seconds=offset)).isoformat()
 
-        # Keypoint por escena: keywords agregadas
-        batch.append((
-            media_id, offset, ts_abs,
-            KEY_ESCENA, ", ".join(keywords_limpias), SOURCE,
-        ))
-
-        # Keypoint por keyword individual (para buscar "cuándo aparece X")
-        for kw in keywords_limpias:
+        # Keypoint por escena: keywords agregadas + keyword individual
+        if keywords_limpias:
             batch.append((
                 media_id, offset, ts_abs,
-                KEY_KEYWORD, kw, SOURCE,
+                KEY_ESCENA, ", ".join(keywords_limpias), SOURCE,
+            ))
+
+            # Keypoint por keyword individual (para buscar "cuándo aparece X")
+            for kw in keywords_limpias:
+                batch.append((
+                    media_id, offset, ts_abs,
+                    KEY_KEYWORD, kw, SOURCE,
+                ))
+
+        # Keypoint de descripción de escena (si existe)
+        if descripcion:
+            batch.append((
+                media_id, offset, ts_abs,
+                KEY_DESCRIPCION, descripcion, SOURCE,
             ))
 
     return batch
@@ -238,12 +261,12 @@ def main(argv: list[str] | None = None) -> int:
     # ── Limpiar en replace (y update: regenerar todo) ──
     if args.mode in ("replace", "update"):
         conn.execute(
-            "DELETE FROM media_keypoints WHERE key IN (?, ?)",
-            (KEY_ESCENA, KEY_KEYWORD),
+            "DELETE FROM media_keypoints WHERE key IN (?, ?, ?)",
+            (KEY_ESCENA, KEY_KEYWORD, KEY_DESCRIPCION),
         )
         conn.commit()
-        log.info("  [%s] Limpiados keypoints %s/%s de la DB.",
-                 args.mode, KEY_ESCENA, KEY_KEYWORD)
+        log.info("  [%s] Limpiados keypoints %s/%s/%s de la DB.",
+                 args.mode, KEY_ESCENA, KEY_KEYWORD, KEY_DESCRIPCION)
     if args.mode == "replace":
         conn.execute("DELETE FROM media_metadata WHERE key = ?", (KEY_ESTADO,))
         conn.commit()
@@ -269,7 +292,7 @@ def main(argv: list[str] | None = None) -> int:
             n_kp = len(batch)
             total_escenas += n_escenas
             total_keypoints += n_kp
-            print(f"  media {r['id']} — {n_escenas} escenas con keywords, "
+            print(f"  media {r['id']} — {n_escenas} escenas con keywords/descripción, "
                   f"{n_kp} keypoints a escribir")
         for r in rows[10:]:
             batch = _generar_batch(r["id"], r["timestamp_utc"], r["analysis_json"])

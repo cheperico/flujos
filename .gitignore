@@ -11,6 +11,7 @@ tracks/
 opencode.json
 db/exports/
 db/backups/
+db/cache/
 temp/
 _check_kw.py
 _keywords.py
