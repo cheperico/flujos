@@ -29,7 +29,8 @@ if (!file_exists($path)) {
     $rel = $path;
     $raices = [
         getenv('FLUJOS_ROOT') ? rtrim(getenv('FLUJOS_ROOT'), '/\\') : null,
-        __DIR__ . '/../..',   // raíz de web3 (htdocs/web3)
+        __DIR__ . '/..',      // raíz del sitio web (media/ del deploy junto al resto)
+        __DIR__ . '/../..',   // raíz del proyecto Flujos (DBs viejas con n\telegram\...)
     ];
     foreach ($raices as $raiz) {
         if (!$raiz) continue;

@@ -5,6 +5,8 @@ logs/
 tmp/
 web/
 web2/
+web3/media/
+web3/db/
 mapas/
 tracks/
 .opencode/

@@ -367,7 +367,7 @@ def _copiar_y_transcodificar_medios(flujos_db: str, deploy_dir: str, transcode: 
                  stats['videos_360'] + stats['videos_regulares'],
                  stats['videos_360'], stats['videos_regulares'])
         if not transcode:
-            log.info("  Transcode desactivado (--no-transcode): los videos se copian sin transcodificar.")
+            log.info("  Transcode no activado (--transcode): los videos se copian tal cual.")
         if stats['faltantes']:
             log.warning("  Fuentes faltantes (no se copiarían): %d", stats['faltantes'])
         log.info("DRY-RUN: no se copió ni escribió nada.")
@@ -394,9 +394,9 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument('--snapshot-local', action='store_true',
                         help="Modo local (dev web3): escribe web3/db/visualizacion.db con rutas "
                              "absolutas, sin copiar medios.")
-    parser.add_argument('--no-transcode', action='store_true',
-                        help="No transcodificar videos (solo copiar). Por defecto el transcode está "
-                             "activo cuando hay --deploy-dir.")
+    parser.add_argument('--transcode', action='store_true',
+                        help="Transcodificar videos grandes a MP4/H.264 web (opcional; por defecto "
+                             "solo se copian tal cual).")
     parser.add_argument('--transcode-box', default='1280x720',
                         help="Caja destino para videos regulares sobredimensionados (WxH). Default: 1280x720.")
     parser.add_argument('--transcode-360-largo', type=int, default=1920,
@@ -416,7 +416,7 @@ def main(argv: list[str] | None = None) -> None:
         caja = _parsear_dimension(args.transcode_box)
         if args.transcode_360_largo <= 0:
             raise SystemExit("--transcode-360-largo debe ser mayor a 0")
-        transcode_activo = not args.no_transcode
+        transcode_activo = args.transcode
         mapa_tamanos = _copiar_y_transcodificar_medios(
             FLUJOS_DB, deploy_dir, transcode_activo, caja, args.transcode_360_largo, args.dry_run
         )
