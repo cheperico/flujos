@@ -1843,12 +1843,95 @@ def tui():
         "3": ("Mejorar base de datos", lambda db: opcion_improve_db(db)),
         "4": ("Consultar base de datos", lambda db: opcion_consultar(db)),
         "5": ("Mantenimiento DB", lambda db: opcion_mantenimiento(db)),
-        "6": ("Mapa de ruta (Folium)", lambda db: opcion_mapa()),
+        "6": ("Visualizaciones", lambda db: opcion_visualizaciones(db)),
         "9": ("Ayuda", lambda db: opcion_ayuda()),
     }, db_path=leer_db(), pre_titulo=_cabecera, etiqueta_salir="Salir", on_salir=_chau)
 
 
 # ── Mapa de ruta (Folium) ─────────────────────────────────────────────────────
+
+def opcion_visualizaciones(db_path: str | None = None):
+    """Menu: visualizaciones de la ruta y los datos (mapas, deploy web...)."""
+    _menu("VISUALIZACIONES", {
+        "1": ("Mapa de ruta (Folium)", lambda db: opcion_mapa()),
+        "2": ("Exportar visualización web (deploy web3)", opcion_exportar_visualizacion),
+    }, db_path)
+
+
+def opcion_exportar_visualizacion(db_path: str | None = None):
+    """Menu: exportar el snapshot web (visualizacion.db) y el spec del loop.
+
+    Paso 1: exportar_visualizacion.py (snapshot SQLite de flujos.db; deploy
+    genérico por defecto a deploy/, con copia de medios y transcode opcional).
+    Paso 2: loop_db.py --salida web3/spec.json (spec del motor de loop portable).
+    """
+    base = os.path.dirname(__file__)
+    exportador = os.path.join(base, "scripts", "exportar_visualizacion.py")
+    loop_db = os.path.join(base, "scripts", "ai_media", "loop_db.py")
+
+    def _deploy_dir_custom() -> str | None:
+        ruta = input("  Carpeta de deploy (Enter = deploy/ por defecto): ").strip()
+        if not ruta:
+            return os.path.join(base, "deploy")
+        if not os.path.isdir(ruta):
+            print(f"  Error: la carpeta '{ruta}' no existe.")
+            pausa()
+            return None
+        return ruta
+
+    def _preguntar_transcode() -> bool:
+        """Pregunta si transcodificar videos grandes/360° (default: sí)."""
+        return _preguntar_sn("Transcodificar videos grandes/360° a MP4 web", default=True)
+
+    def _deploy_default(db):
+        cmd = [sys.executable, exportador]
+        if not _preguntar_transcode():
+            cmd.append("--no-transcode")
+        subprocess.run(cmd)
+        pausa()
+
+    def _deploy_custom(db):
+        ruta = _deploy_dir_custom()
+        if not ruta:
+            return
+        cmd = [sys.executable, exportador, "--deploy-dir", ruta]
+        if not _preguntar_transcode():
+            cmd.append("--no-transcode")
+        subprocess.run(cmd)
+        pausa()
+
+    def _snapshot(db):
+        subprocess.run([sys.executable, exportador, "--snapshot-local"])
+        pausa()
+
+    def _spec_loop(db):
+        # Forzar UTF-8 en Windows por los caracteres de caja del log.
+        env = dict(os.environ)
+        env["PYTHONIOENCODING"] = "utf-8"
+        subprocess.run([sys.executable, loop_db,
+                        "--horas", "7", "16", "13", "18",
+                        "--salida", os.path.join(base, "web3", "spec.json")],
+                       env=env)
+        pausa()
+
+    def _deploy_dry(db):
+        subprocess.run([sys.executable, exportador, "--dry-run"])
+        pausa()
+
+    _menu("EXPORTAR VISUALIZACION WEB (deploy)", {
+        "1": ("Deploy a deploy/ (pregunta si transcodificar)", _deploy_default),
+        "2": ("Deploy a otra carpeta (pregunta si transcodificar)", _deploy_custom),
+        "3": ("Re-exportar snapshot local (web3/db, sin copiar medios)", _snapshot),
+        "4": ("Regenerar spec del loop (web3/spec.json)", _spec_loop),
+        "5": ("Previsualizar deploy (dry-run)", _deploy_dry),
+    }, db_path, intro=(
+        "Exporta un snapshot de flujos.db para una visualizacion web\n"
+        "  (ver docs/web3.md). El deploy (default: deploy/ en la raiz del\n"
+        "  proyecto) copia los medios y pregunta si transcodificar videos\n"
+        "  grandes/360° a MP4/H.264 web (default: sí). --snapshot-local es\n"
+        "  el modo dev del prototipo web3 (sin copiar medios)."
+    ))
+
 
 def opcion_mapa():
     """Menu para generar mapa HTML interactivo con Folium."""

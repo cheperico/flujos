@@ -53,7 +53,7 @@ referenciados en **Dónde está la información** (al final) — consultar bajo 
 │   │   puente_td.py, exportar_csv.py, mover_media.py, elecciones.py,
 │   │   mapa_ruta.py, consolidar_medios.py, fix_gps_sign.py, mover_descartadas.py,
 │   │   ingest_textos.py, keypoints_contexto.py, detectar_contenedores.py,
-│   │   repetir_contenido.py, audio_frame_crossref.py
+│   │   repetir_contenido.py, audio_frame_crossref.py, exportar_visualizacion.py
 │   ├── check_db.py, check_gps.py, check_db_data.py, test_gradiente.py
 │   └── ai_media/
 │       ├── ollama_client.py, image_analysis.py, transcribe.py, transcribe_media.py,
@@ -177,6 +177,7 @@ Detalle de args CLI de cada script en su **docstring** (o `python script.py --he
 | `import_telegram.py` | Importa exports de Telegram (chats, mensajes, multimedia) | TUI Ingesta→4; CLI `flujos.py import-telegram` / `tg` |
 | `ingest_textos.py` | Ingiere textos `.md` de `textos/` como medios type='text' (frontmatter + subtítulos `##` = textos individuales) | TUI Ingesta→5; CLI `flujos.py ingest-textos` / `textos` |
 | `exportar_csv.py` | Exporta tablas a CSV en `db/exports/<timestamp>/` | TUI Mantenimiento→7; CLI `flujos.py export-csv` |
+| `exportar_visualizacion.py` | Exporta snapshot de la DB → visualizacion.db; deploy genérico a deploy/ (por defecto) con copia de medios y transcode web | TUI Visualizaciones→2; CLI no (solo TUI) |
 | `puente_td.py` | Puente BD → TouchDesigner vía OSC (9000→TD, 9001←TD) | Standalone: `python scripts/puente_td.py enviar` |
 | `osc_probe.py` | Eco OSC: escucha lo que llega a un puerto y lo imprime. Test rápido TD→Python sin puente completo | Standalone: `python scripts/osc_probe.py 9001 [segundos]` |
 | `mover_media.py` | Mueve/copia medios y actualiza rutas en DB | TUI Mantenimiento→8; CLI `flujos.py mover` |

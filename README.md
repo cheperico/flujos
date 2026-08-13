@@ -210,7 +210,15 @@ Al ejecutar `python flujos.py` sin argumentos se ingresa al menú TUI:
   │  ├─ p. << Anterior → Hoja 1
   │  └─ 0. Volver
 
-6. Mapa de ruta (Folium)
+6. Visualizaciones
+  ├─ 1. Mapa de ruta (Folium)
+  └─ 2. Exportar visualización web (deploy web3)
+      ├─ 1. Deploy a deploy/ (pregunta si transcodificar)
+      ├─ 2. Deploy a otra carpeta (pregunta si transcodificar)
+      ├─ 3. Re-exportar snapshot local (web3/db, sin copiar medios)
+      ├─ 4. Regenerar spec del loop (web3/spec.json)
+      ├─ 5. Previsualizar deploy (dry-run)
+      └─ 0. Volver
 
 9. Ayuda
 ```

@@ -1,17 +1,20 @@
 """
-Exporta datos de flujos.db → visualizacion.db para la visualización web3.
-Lee la tabla media + media_metadata y reconstruye medios.
+Exporta datos de flujos.db → visualizacion.db para una visualización web.
+Script genérico de deploy: sirve a cualquier implementación web (web3 es solo
+una de ellas). Lee la tabla media + media_metadata y reconstruye medios.
 También exporta telegram_messages (chat) con sus fotos vinculadas.
 
-Modo deploy (--deploy-dir):
+Modo deploy (por defecto, --deploy-dir):
   Copia los medios a <dir>/media/<carpeta>/<archivo>, transcodifica videos
   grandes o 360° a MP4/H.264 web (si ffmpeg está disponible) y escribe la DB
   en <dir>/db/visualizacion.db con ruta_absoluta web-relativa ('media/...'
   con slash '/' siempre), de modo que servir_medio.php la resuelva contra la
   raíz de deploy (fallback __DIR__.'/../..').
+  El destino por defecto es deploy/ en la raíz del proyecto.
 
-  Sin --deploy-dir mantiene el comportamiento original: DB local con rutas
-  absolutas de Windows.
+Modo snapshot local (--snapshot-local):
+  Comportamiento original del prototipo web3: DB local web3/db/visualizacion.db
+  con rutas absolutas de Windows, sin copiar medios ni transcodificar.
 """
 import argparse
 import json
@@ -23,9 +26,10 @@ import subprocess
 import time
 from datetime import datetime
 
-BASE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FLUJOS_DB = os.path.join(BASE, 'db', 'flujos.db')
 VIZ_DB = os.path.join(BASE, 'web3', 'db', 'visualizacion.db')
+DEPLOY_DEFAULT = os.path.join(BASE, 'deploy')
 
 log = logging.getLogger(__name__)
 
@@ -381,11 +385,15 @@ def _copiar_y_transcodificar_medios(flujos_db: str, deploy_dir: str, transcode: 
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
-        description="Exporta flujos.db → visualizacion.db (modo normal o deploy con medios web)."
+        description="Exporta flujos.db -> visualizacion.db (deploy genérico o snapshot local web3)."
     )
-    parser.add_argument('--deploy-dir', default=None,
+    parser.add_argument('--deploy-dir', default=DEPLOY_DEFAULT,
                         help="Carpeta de deploy: copia los medios a <dir>/media/... y escribe la DB "
-                             "en <dir>/db/visualizacion.db con rutas web-relativas (media/...).")
+                             "en <dir>/db/visualizacion.db con rutas web-relativas (media/...). "
+                             "Default: deploy/ en la raíz del proyecto.")
+    parser.add_argument('--snapshot-local', action='store_true',
+                        help="Modo local (dev web3): escribe web3/db/visualizacion.db con rutas "
+                             "absolutas, sin copiar medios.")
     parser.add_argument('--no-transcode', action='store_true',
                         help="No transcodificar videos (solo copiar). Por defecto el transcode está "
                              "activo cuando hay --deploy-dir.")
@@ -399,25 +407,22 @@ def main(argv: list[str] | None = None) -> None:
 
     logging.basicConfig(level=logging.INFO, format='%(message)s')
 
-    deploy_dir = os.path.abspath(args.deploy_dir) if args.deploy_dir else None
-    if args.dry_run and not deploy_dir:
-        log.warning("--dry-run solo tiene sentido con --deploy-dir; no hay nada que previsualizar.")
-        return
-    transcode_activo = bool(deploy_dir) and not args.no_transcode
-
     mapa_tamanos: dict[int, int] = {}
-    if deploy_dir:
+    if args.snapshot_local:
+        viz_db = VIZ_DB
+        # No copia medios ni transcodifica: snapshot local con rutas absolutas.
+    else:
+        deploy_dir = os.path.abspath(args.deploy_dir)
         caja = _parsear_dimension(args.transcode_box)
         if args.transcode_360_largo <= 0:
             raise SystemExit("--transcode-360-largo debe ser mayor a 0")
+        transcode_activo = not args.no_transcode
         mapa_tamanos = _copiar_y_transcodificar_medios(
             FLUJOS_DB, deploy_dir, transcode_activo, caja, args.transcode_360_largo, args.dry_run
         )
         viz_db = os.path.join(deploy_dir, 'db', 'visualizacion.db')
         if args.dry_run:
             return
-    else:
-        viz_db = VIZ_DB
 
     print(f"Leyendo {FLUJOS_DB}...")
     src = sqlite3.connect(FLUJOS_DB)
@@ -583,7 +588,7 @@ def main(argv: list[str] | None = None) -> None:
         desc = m.get('ia_description')
         keywords = m.get('ia_keywords')
 
-        if deploy_dir:
+        if not args.snapshot_local:
             # Ruta web-relativa (slash '/') + tamaño del archivo web si se transcodificó.
             ruta_abs = _ruta_web_relativa(r['carpeta'], r['filename_original'])
             tamano = mapa_tamanos.get(r['id'], r['size_bytes'])

@@ -45,9 +45,12 @@ web3/
 ├── css/estilos.css
 ├── js/app.js                   # Lógica del lienzo (bloques, paletas, FLOW)
 ├── db/visualizacion.db         # SNAPSHOT exportado (generado, no versionar)
-└── scripts/
-    └── exportar_visualizacion.py  # Exportador flujos.db → visualizacion.db
 ```
+> El exportador es **genérico** (sirve a cualquier implementación web, no solo
+> web3) y vive en `scripts/exportar_visualizacion.py` (fuera de `web3/`). El
+> deploy por defecto escribe en `deploy/` en la raíz del proyecto; el modo
+> `--snapshot-local` escribe `web3/db/visualizacion.db` (dev web3 sin copiar
+> medios).
 
 ---
 
@@ -57,10 +60,18 @@ El snapshot se genera desde `db/flujos.db` (FUENTE de verdad). Pasos:
 
 1. **Re-exportar el snapshot SQLite**
    ```bash
-   python web3/scripts/exportar_visualizacion.py
+   python scripts/exportar_visualizacion.py
    ```
-   Lee `db/flujos.db` y **recrea** `web3/db/visualizacion.db` por completo
-   (medios, categorias, telegram_messages). Es un script plano (sin `argparse`).
+   Lee `db/flujos.db` y **recrea** `visualizacion.db` por completo (medios,
+   categorias, telegram_messages).
+   - **Deploy genérico (default)**: escribe en `deploy/` (raíz del proyecto)
+     copiando los medios a `deploy/media/...` y transcodificando videos
+     grandes/360° a MP4/H.264 web (por defecto activo; `--no-transcode` solo
+     copia). `--deploy-dir <carpeta>` cambia el destino; `--dry-run`
+     previsualiza sin escribir.
+   - **Snapshot local (dev web3)**: `--snapshot-local` escribe
+     `web3/db/visualizacion.db` con rutas absolutas de Windows, **sin** copiar
+     medios ni transcodificar (comportamiento original del prototipo).
 
 2. **Regenerar el spec del motor de loop** (en PowerShell forzar UTF-8 por
    caracteres de caja `─`):
