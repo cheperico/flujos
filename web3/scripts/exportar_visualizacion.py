@@ -2,16 +2,32 @@
 Exporta datos de flujos.db → visualizacion.db para la visualización web3.
 Lee la tabla media + media_metadata y reconstruye medios.
 También exporta telegram_messages (chat) con sus fotos vinculadas.
+
+Modo deploy (--deploy-dir):
+  Copia los medios a <dir>/media/<carpeta>/<archivo>, transcodifica videos
+  grandes o 360° a MP4/H.264 web (si ffmpeg está disponible) y escribe la DB
+  en <dir>/db/visualizacion.db con ruta_absoluta web-relativa ('media/...'
+  con slash '/' siempre), de modo que servir_medio.php la resuelva contra la
+  raíz de deploy (fallback __DIR__.'/../..').
+
+  Sin --deploy-dir mantiene el comportamiento original: DB local con rutas
+  absolutas de Windows.
 """
-import sqlite3
-import os
-import sys
+import argparse
 import json
+import logging
+import os
+import shutil
+import sqlite3
+import subprocess
+import time
 from datetime import datetime
 
 BASE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 FLUJOS_DB = os.path.join(BASE, 'db', 'flujos.db')
 VIZ_DB = os.path.join(BASE, 'web3', 'db', 'visualizacion.db')
+
+log = logging.getLogger(__name__)
 
 
 def resolver_ruta_absoluta(ruta: str) -> str:
@@ -31,7 +47,378 @@ def resolver_ruta_absoluta(ruta: str) -> str:
     # Relativa a la raíz del proyecto → unir con BASE y normalizar slashes.
     return os.path.normpath(os.path.join(BASE, ruta))
 
-def main():
+
+def _parsear_dimension(texto: str) -> tuple[int, int]:
+    """Parsea una dimensión 'WxH' a (ancho, alto). Sale con error si es inválida."""
+    partes = texto.lower().split('x')
+    if len(partes) != 2:
+        raise SystemExit(f"Dimensiones inválidas para --transcode-box: '{texto}' (se esperaba WxH, ej: 1280x720)")
+    try:
+        ancho, alto = int(partes[0]), int(partes[1])
+    except ValueError:
+        raise SystemExit(f"Dimensiones inválidas para --transcode-box: '{texto}' (se esperaba WxH, ej: 1280x720)")
+    if ancho <= 0 or alto <= 0:
+        raise SystemExit(f"Dimensiones inválidas para --transcode-box: '{texto}' (deben ser mayores a 0)")
+    return ancho, alto
+
+
+def _ruta_web_relativa(carpeta: str, archivo: str) -> str:
+    """
+    Construye la ruta web-relativa 'media/<carpeta>/<archivo>' con slash '/'
+    SIEMPRE (aunque Windows use backslash), para resolver contra la raíz de
+    deploy en servir_medio.php.
+    """
+    partes = [(p or '').replace('\\', '/').strip('/') for p in (carpeta, archivo)]
+    return 'media/' + '/'.join(partes)
+
+
+def _valor_verdadero(v) -> bool:
+    """Interpreta un marcador de DB (xmp_spherical) como booleano."""
+    if v is None:
+        return False
+    if isinstance(v, bool):
+        return v
+    return str(v).strip().lower() in ('1', 'true', 'yes', 'si', 's')
+
+
+def _resolver_comando(nombre: str) -> str | None:
+    """Resuelve la ruta de ffmpeg/ffprobe (variable de entorno o shutil.which)."""
+    var = os.environ.get(nombre.upper())
+    if var:
+        return var
+    return shutil.which(nombre)
+
+
+def _es_360_equirectangular(stream: dict, formato: dict, ancho: int, alto: int) -> bool:
+    """
+    Detecta video 360° equirectangular:
+    1) Metadata esférica: side_data del stream o tags del stream/formato
+       (spherical / projection_type == 'equirectangular').
+    2) Heurística de respaldo: aspecto exactamente 2:1 y ancho >= 3840.
+    """
+    for sd in stream.get('side_data_list') or []:
+        proyeccion = str(sd.get('projection') or sd.get('projection_type') or '').lower()
+        if proyeccion in ('equirectangular', 'equirect'):
+            return True
+        if 'spherical' in str(sd.get('side_data_type') or '').lower():
+            return True
+    for tags in (stream.get('tags') or {}, formato.get('tags') or {}):
+        for clave, valor in tags.items():
+            k = str(clave).lower()
+            v = str(valor).lower()
+            if 'spherical' in k or '360' in k:
+                return True
+            if 'projection' in k and 'equirect' in v:
+                return True
+    if ancho > 0 and ancho == alto * 2 and ancho >= 3840:
+        return True
+    return False
+
+
+def _probar_video(ruta: str, ffprobe: str) -> dict:
+    """
+    Corre ffprobe sobre un video y devuelve ancho, alto, códec, si tiene audio
+    y si es 360° equirectangular. Devuelve {} si no se pudo inspeccionar.
+    """
+    try:
+        resultado = subprocess.run(
+            [ffprobe, '-v', 'error', '-show_streams', '-show_format', '-of', 'json', ruta],
+            capture_output=True, text=True, timeout=60,
+        )
+    except (subprocess.SubprocessError, OSError) as e:
+        log.warning("ffprobe falló para %s: %s", ruta, e)
+        return {}
+    if resultado.returncode != 0:
+        log.warning("ffprobe con error para %s: %s", ruta, (resultado.stderr or '').strip()[-300:])
+        return {}
+    try:
+        datos = json.loads(resultado.stdout or '{}')
+    except json.JSONDecodeError:
+        return {}
+    stream_video = next((s for s in datos.get('streams') or [] if s.get('codec_type') == 'video'), None)
+    if not stream_video:
+        return {}
+    ancho = int(stream_video.get('width') or 0)
+    alto = int(stream_video.get('height') or 0)
+    if ancho <= 0 or alto <= 0:
+        return {}
+    return {
+        'ancho': ancho,
+        'alto': alto,
+        'codec_video': stream_video.get('codec_name'),
+        'tiene_audio': any(s.get('codec_type') == 'audio' for s in datos.get('streams') or []),
+        'es_360': _es_360_equirectangular(stream_video, datos.get('format') or {}, ancho, alto),
+    }
+
+
+def _calcular_escala_regular(ancho: int, alto: int, caja: tuple[int, int]) -> tuple[int, int] | None:
+    """
+    Calcula el destino de un video regular dentro de la caja manteniendo
+    proporción (dimensiones pares para libx264/yuv420p). Devuelve None si no
+    corresponde transcodificar (ya entra en la caja).
+    """
+    if not (ancho > 1920 or alto > 1080):
+        return None
+    ancho_caja, alto_caja = caja
+    escala = min(ancho_caja / ancho, alto_caja / alto)
+    if escala >= 1.0:
+        return None
+    w = int(round(ancho * escala))
+    h = int(round(alto * escala))
+    w -= w % 2
+    h -= h % 2
+    return max(2, w), max(2, h)
+
+
+def _calcular_escala_360(ancho: int, alto: int, largo: int) -> tuple[int, int] | None:
+    """
+    Calcula el destino de un video 360° con lado mayor = `largo` manteniendo
+    proporción (dimensiones pares). Devuelve None si no excede el target.
+    """
+    if max(ancho, alto) <= largo:
+        return None
+    escala = largo / max(ancho, alto)
+    if ancho >= alto:
+        w = int(round(ancho * escala))
+        h = int(round(alto * escala))
+    else:
+        h = int(round(alto * escala))
+        w = int(round(ancho * escala))
+    w -= w % 2
+    h -= h % 2
+    return max(2, w), max(2, h)
+
+
+def _transcodificar_video(fuente: str, destino: str, ancho: int, alto: int,
+                         tiene_audio: bool, ffmpeg: str) -> float | None:
+    """
+    Transcodifica un video a MP4/H.264 web en el destino. Devuelve los
+    segundos que tardó, o None si falló (borra el destino parcial).
+    """
+    cmd = [ffmpeg, '-y', '-i', fuente,
+           '-vf', f'scale={ancho}:{alto}', '-r', '30',
+           '-c:v', 'libx264', '-preset', 'medium', '-crf', '23',
+           '-profile:v', 'main', '-level', '4.1']
+    if tiene_audio:
+        cmd += ['-c:a', 'aac', '-b:a', '128k']
+    else:
+        cmd += ['-an']
+    cmd += ['-movflags', '+faststart', destino]
+    inicio = time.time()
+    try:
+        resultado = subprocess.run(cmd, capture_output=True, text=True)
+    except OSError as e:
+        log.warning("No se pudo ejecutar ffmpeg: %s", e)
+        return None
+    duracion = time.time() - inicio
+    if resultado.returncode != 0:
+        log.warning("Transcode falló (%s -> %s): %s",
+                    os.path.basename(fuente), os.path.basename(destino),
+                    (resultado.stderr or '').strip()[-300:])
+        if os.path.exists(destino):
+            try:
+                os.remove(destino)
+            except OSError:
+                pass
+        return None
+    return duracion
+
+
+def _copiar_medio(origen: str, destino: str) -> None:
+    """Copia el archivo origen al destino creando el directorio si falta."""
+    try:
+        os.makedirs(os.path.dirname(destino), exist_ok=True)
+        shutil.copy2(origen, destino)
+    except OSError as e:
+        log.warning("No se pudo copiar %s -> %s: %s", origen, destino, e)
+
+
+def _copiar_y_transcodificar_medios(flujos_db: str, deploy_dir: str, transcode: bool,
+                                    caja: tuple[int, int], largo_360: int,
+                                    dry_run: bool) -> dict[int, int]:
+    """
+    Copia los medios a <deploy_dir>/media/<carpeta>/<archivo> y transcodifica
+    los videos que correspondan (directo al destino final, sin copia previa).
+    En dry_run solo lista qué se haría, sin copiar ni transcodificar.
+    Devuelve {id_media: tamaño_web} para los videos transcodificados.
+    """
+    mapa_tamanos: dict[int, int] = {}
+
+    conn = sqlite3.connect(flujos_db)
+    conn.row_factory = sqlite3.Row
+    filas = conn.execute(
+        "SELECT id, filename_original, carpeta, type, filepath_absoluto, size_bytes "
+        "FROM media ORDER BY id"
+    ).fetchall()
+
+    # Marcador 360° desde la ingesta (media_metadata → key xmp_spherical,
+    # escrito por improve_db --step video_metadata). Si la DB lo marca,
+    # prevalece sobre la detección por ffprobe.
+    marcadores_360: dict[int, bool] = {}
+    try:
+        cur360 = conn.execute(
+            "SELECT media_id, value FROM media_metadata WHERE key = 'xmp_spherical'"
+        )
+        for r360 in cur360:
+            marcadores_360[r360['media_id']] = _valor_verdadero(r360['value'])
+    except sqlite3.Error as e:
+        log.warning("No se pudo leer xmp_spherical de media_metadata: %s", e)
+
+    conn.close()
+
+    ffprobe = _resolver_comando('ffprobe')
+    ffmpeg = _resolver_comando('ffmpeg') if transcode else None
+    if transcode and not ffmpeg:
+        log.warning("ffmpeg no encontrado: los videos se copiarán sin transcodificar.")
+    if transcode and not ffprobe:
+        log.warning("ffprobe no encontrado: no se podrá detectar resolución ni 360°; videos se copian tal cual.")
+
+    stats = {
+        'copiar': 0,
+        'faltantes': 0,
+        'omitidos_texto': 0,
+        'videos_360': 0,
+        'videos_regulares': 0,
+        'videos_transcodificados': 0,
+    }
+
+    if dry_run:
+        log.info("Plan de deploy (DRY-RUN, no escribe nada):")
+        log.info("  destino: %s", os.path.join(deploy_dir, 'media'))
+
+    inicio = time.time()
+    for r in filas:
+        tipo = r['type']
+        carpeta = r['carpeta'] or ''
+        archivo = r['filename_original'] or ''
+        if tipo == 'text':
+            stats['omitidos_texto'] += 1
+            continue
+
+        origen = resolver_ruta_absoluta(r['filepath_absoluto'])
+        destino = os.path.join(deploy_dir, 'media', carpeta, archivo)
+
+        if not os.path.exists(origen):
+            stats['faltantes'] += 1
+            log.warning("Fuente no existe (id %s): %s", r['id'], origen)
+            continue
+
+        # Garantizar el directorio destino antes de copiar o transcodificar.
+        if not dry_run:
+            os.makedirs(os.path.dirname(destino), exist_ok=True)
+
+        # Video con transcode activo: inspeccionar y decidir.
+        if tipo == 'video' and transcode and ffprobe:
+            info = _probar_video(origen, ffprobe)
+            if info:
+                # Marcador 360° desde la DB (lo escribe la ingesta vía
+                # --step video_metadata → key xmp_spherical); ffprobe queda
+                # como respaldo para videos no marcados.
+                es_360_db = marcadores_360.get(r['id'], False)
+                if es_360_db:
+                    info['es_360'] = True
+                if info['es_360']:
+                    dims = _calcular_escala_360(info['ancho'], info['alto'], largo_360)
+                    motivo = '360°'
+                else:
+                    dims = _calcular_escala_regular(info['ancho'], info['alto'], caja)
+                    motivo = 'grande'
+                if dims:
+                    if dry_run:
+                        stats['videos_360' if info['es_360'] else 'videos_regulares'] += 1
+                        log.info("  [%s] id=%s  %s  %dx%d -> %dx%d",
+                                 motivo, r['id'], archivo,
+                                 info['ancho'], info['alto'], dims[0], dims[1])
+                        continue
+                    if ffmpeg:
+                        duracion = _transcodificar_video(origen, destino, dims[0], dims[1],
+                                                         info['tiene_audio'], ffmpeg)
+                        if duracion is not None:
+                            stats['videos_transcodificados'] += 1
+                            stats['videos_360' if info['es_360'] else 'videos_regulares'] += 1
+                            log.info("  Transcode id=%s  %s  %dx%d -> %dx%d  (%.1fs)",
+                                     r['id'], archivo, info['ancho'], info['alto'],
+                                     dims[0], dims[1], duracion)
+                            try:
+                                mapa_tamanos[r['id']] = os.path.getsize(destino)
+                            except OSError:
+                                log.warning("No se pudo leer el tamaño de %s", destino)
+                            continue
+                    # Sin ffmpeg o transcode falló → copia simple del original.
+                    _copiar_medio(origen, destino)
+                    stats['copiar'] += 1
+                    continue
+            # Sin datos de ffprobe o ya entra en la caja → copia simple.
+
+        # Copia simple (imagen, audio, o video sin transcode).
+        if not dry_run:
+            _copiar_medio(origen, destino)
+        stats['copiar'] += 1
+
+    duracion_total = time.time() - inicio
+
+    if dry_run:
+        log.info("  Se copiarían: %d archivos", stats['copiar'])
+        log.info("  Se transcodificarían: %d videos (360°: %d, regulares: %d)",
+                 stats['videos_360'] + stats['videos_regulares'],
+                 stats['videos_360'], stats['videos_regulares'])
+        if not transcode:
+            log.info("  Transcode desactivado (--no-transcode): los videos se copian sin transcodificar.")
+        if stats['faltantes']:
+            log.warning("  Fuentes faltantes (no se copiarían): %d", stats['faltantes'])
+        log.info("DRY-RUN: no se copió ni escribió nada.")
+        return {}
+
+    log.info("Copia/transcode de medios completado en %.1fs:", duracion_total)
+    log.info("  Copiados: %d", stats['copiar'])
+    log.info("  Videos transcodificados: %d (360°: %d, regulares: %d)",
+             stats['videos_transcodificados'], stats['videos_360'], stats['videos_regulares'])
+    log.info("  Omitidos (type='text'): %d", stats['omitidos_texto'])
+    if stats['faltantes']:
+        log.warning("  Fuentes faltantes (no copiados): %d", stats['faltantes'])
+    return mapa_tamanos
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(
+        description="Exporta flujos.db → visualizacion.db (modo normal o deploy con medios web)."
+    )
+    parser.add_argument('--deploy-dir', default=None,
+                        help="Carpeta de deploy: copia los medios a <dir>/media/... y escribe la DB "
+                             "en <dir>/db/visualizacion.db con rutas web-relativas (media/...).")
+    parser.add_argument('--no-transcode', action='store_true',
+                        help="No transcodificar videos (solo copiar). Por defecto el transcode está "
+                             "activo cuando hay --deploy-dir.")
+    parser.add_argument('--transcode-box', default='1280x720',
+                        help="Caja destino para videos regulares sobredimensionados (WxH). Default: 1280x720.")
+    parser.add_argument('--transcode-360-largo', type=int, default=1920,
+                        help="Lado mayor para videos 360° equirectangulares. Default: 1920.")
+    parser.add_argument('--dry-run', action='store_true',
+                        help="Previsualizar (deploy) sin copiar ni escribir.")
+    args = parser.parse_args(argv)
+
+    logging.basicConfig(level=logging.INFO, format='%(message)s')
+
+    deploy_dir = os.path.abspath(args.deploy_dir) if args.deploy_dir else None
+    if args.dry_run and not deploy_dir:
+        log.warning("--dry-run solo tiene sentido con --deploy-dir; no hay nada que previsualizar.")
+        return
+    transcode_activo = bool(deploy_dir) and not args.no_transcode
+
+    mapa_tamanos: dict[int, int] = {}
+    if deploy_dir:
+        caja = _parsear_dimension(args.transcode_box)
+        if args.transcode_360_largo <= 0:
+            raise SystemExit("--transcode-360-largo debe ser mayor a 0")
+        mapa_tamanos = _copiar_y_transcodificar_medios(
+            FLUJOS_DB, deploy_dir, transcode_activo, caja, args.transcode_360_largo, args.dry_run
+        )
+        viz_db = os.path.join(deploy_dir, 'db', 'visualizacion.db')
+        if args.dry_run:
+            return
+    else:
+        viz_db = VIZ_DB
+
     print(f"Leyendo {FLUJOS_DB}...")
     src = sqlite3.connect(FLUJOS_DB)
     src.row_factory = sqlite3.Row
@@ -88,9 +475,10 @@ def main():
     print(f"  {len(filas)} registros leídos")
 
     # Construir visualizacion.db
-    if os.path.exists(VIZ_DB):
-        os.remove(VIZ_DB)
-    dst = sqlite3.connect(VIZ_DB)
+    if os.path.exists(viz_db):
+        os.remove(viz_db)
+    os.makedirs(os.path.dirname(viz_db), exist_ok=True)
+    dst = sqlite3.connect(viz_db)
     dst.execute("PRAGMA journal_mode=WAL")
     dst.execute("PRAGMA foreign_keys=ON")
 
@@ -195,15 +583,23 @@ def main():
         desc = m.get('ia_description')
         keywords = m.get('ia_keywords')
 
+        if deploy_dir:
+            # Ruta web-relativa (slash '/') + tamaño del archivo web si se transcodificó.
+            ruta_abs = _ruta_web_relativa(r['carpeta'], r['filename_original'])
+            tamano = mapa_tamanos.get(r['id'], r['size_bytes'])
+        else:
+            ruta_abs = resolver_ruta_absoluta(r['filepath_absoluto'])
+            tamano = r['size_bytes']
+
         vals = (
             r['id'],
             r['filename_original'],
             r['carpeta'],
             r['type'],
             r['subtype'],
-            resolver_ruta_absoluta(r['filepath_absoluto']),
+            ruta_abs,
             r['filepath_relativo'],
-            r['size_bytes'],
+            tamano,
             fecha, hora, mes, anio,
             r['duration_secs'],
             r['latitude'], r['longitude'],
@@ -280,7 +676,8 @@ def main():
 
     src.close()
     dst.close()
-    print(f"\nOK {VIZ_DB} actualizada ({count} registros, {tg_count} mensajes telegram)")
+    print(f"\nOK {viz_db} actualizada ({count} registros, {tg_count} mensajes telegram)")
+
 
 if __name__ == '__main__':
     main()
