@@ -1341,6 +1341,12 @@ REGISTRY = {
 DEP_ORDER = ["colors", "keywords", "descriptions", "combinado", "transcribe", "keypoints",
              "timestamps", "gps", "video_metadata"]
 
+PASOS_IA = {"keywords", "descriptions", "combinado"}
+"""Pasos que requieren Ollama (vision) y usan --workers para concurrencia.
+Los pasos locales (colors, keypoints, timestamps, gps, video_metadata) y
+transcribe (faster-whisper local) NO usan Ollama ni workers.
+"""
+
 # Contexto global compartido con las funciones run_* (evita cambiar la firma de todas)
 CONTEXTO: dict = {
     "mostrar": True,
@@ -1465,7 +1471,10 @@ Ejemplos:
         log.error("--workers debe ser >= 1")
         sys.exit(1)
     CONTEXTO["workers"] = args.workers
-    log.info("Workers: %d (requests concurrentes a Ollama)", args.workers)
+    pasos_con_ia = [p for p in pasos if p in PASOS_IA]
+    if pasos_con_ia:
+        log.info("Workers: %d (requests concurrentes a Ollama — pasos: %s)",
+                 args.workers, ", ".join(pasos_con_ia))
 
     conn = abrir(db_path)
 
