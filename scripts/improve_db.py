@@ -314,7 +314,7 @@ def _procesar_vision(conn, mode, stats, nombre, fn_vision, clave_en, clave_es,
         log.info("  No hay imágenes pendientes (visión).")
         return
 
-    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
     def _process_one(mid, fpath):
         if not os.path.isfile(fpath):
@@ -361,36 +361,50 @@ def _procesar_vision(conn, mode, stats, nombre, fn_vision, clave_en, clave_es,
     futures = {pool.submit(_process_one, mid, fpath): (mid, fpath)
                for mid, fpath in rows}
     try:
-        # timeout en as_completed() para evitar que un worker colgado congele
-        # el pool para siempre (riesgo documentado en AGENTS.md).
-        for f in tqdm(as_completed(futures, timeout=timeout_future),
-                      total=len(futures), desc=f"  {mostrar_label} (EN)",
-                      unit="img", ncols=80):
-            result, data = f.result()
-            if result == "warning":
-                log.warning("  Archivo no encontrado: %s", data)
-                warnings += 1
-            elif result == "ok":
-                mid, dato = data
-                valor = (", ".join(dato) if es_lista and isinstance(dato, list)
-                         else (str(dato) if dato else ""))
-                if CONTEXTO["mostrar"] and valor:
-                    tqdm.write(f"    [media {mid}] {valor}")
-                if valor:
-                    lote.append((mid, valor))
-                ok += 1
-            else:
-                fpath, exc = data
-                log.warning("  ⚠ Error en imagen %s: %s", fpath, exc)
-                errors += 1
-            cp.contar()
-            if len(lote) >= cp.cada:
-                _guardar_lote()
-    except TimeoutError:
-        log.warning("  Timeout esperando resultados (%.ds). Guardo lo procesado "
-                    "y cancelo el resto.", timeout_future)
-        pool.shutdown(wait=False, cancel_futures=True)
-        _guardar_lote()
+        # El timeout NO es un presupuesto total del lote: wait() retorna al
+        # primer futuro completado, así un lote legítimo de cualquier duración
+        # corre hasta el final. Solo si NINGÚN futuro avanza dentro de
+        # `timeout_future` segundos se considera el pool colgado de verdad y
+        # se cancela guardando el progreso. La capa real anti-cuelgue es el
+        # timeout por request en ollama_client.py (180s por llamada HTTP);
+        # este wait() solo detecta un pool muerto sin cortar lotes largos.
+        with tqdm(total=len(futures), desc=f"  {mostrar_label} (EN)",
+                  unit="img", ncols=80) as pbar:
+            pendientes = set(futures)
+            while pendientes:
+                done, pendientes = wait(pendientes, timeout=timeout_future,
+                                        return_when=FIRST_COMPLETED)
+                if not done:
+                    # Ningún futuro avanzó en `timeout_future` s → colgado real.
+                    log.warning(
+                        "  Sin progreso durante %d s: cancelo el resto y "
+                        "guardo lo procesado.", timeout_future)
+                    for f in pendientes:
+                        f.cancel()
+                    _guardar_lote()
+                    break
+                for f in done:
+                    result, data = f.result()
+                    if result == "warning":
+                        log.warning("  Archivo no encontrado: %s", data)
+                        warnings += 1
+                    elif result == "ok":
+                        mid, dato = data
+                        valor = (", ".join(dato) if es_lista and isinstance(dato, list)
+                                 else (str(dato) if dato else ""))
+                        if CONTEXTO["mostrar"] and valor:
+                            tqdm.write(f"    [media {mid}] {valor}")
+                        if valor:
+                            lote.append((mid, valor))
+                        ok += 1
+                    else:
+                        fpath, exc = data
+                        log.warning("  ⚠ Error en imagen %s: %s", fpath, exc)
+                        errors += 1
+                    cp.contar()
+                    if len(lote) >= cp.cada:
+                        _guardar_lote()
+                    pbar.update(1)
     except KeyboardInterrupt:
         log.warning("  ⚠ Interrupción detectada en el pool. Cancelando futuros...")
         pool.shutdown(wait=False, cancel_futures=True)
@@ -623,7 +637,7 @@ def run_combinado(conn, db_path, mode, stats):
         return
 
     from scripts.ai_media.image_analysis import MODELO_VISION_DEFAULT
-    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
     def _process_one(mid, fpath):
         if not os.path.isfile(fpath):
@@ -673,36 +687,49 @@ def run_combinado(conn, db_path, mode, stats):
     futures = {pool.submit(_process_one, mid, fpath): (mid, fpath)
                for mid, fpath in rows}
     try:
-        for f in tqdm(as_completed(futures, timeout=timeout_future),
-                      total=len(futures), desc="  Combinado (EN)",
-                      unit="img", ncols=80):
-            result, data = f.result()
-            if result == "warning":
-                log.warning("  Archivo no encontrado: %s", data)
-                warnings += 1
-            elif result == "ok":
-                mid, res = data
-                kw = res.get("keywords", [])
-                desc = res.get("description", "")
-                if CONTEXTO["mostrar"]:
-                    tqdm.write(f"    [media {mid}] kw={kw} | desc={desc[:80]}...")
-                if kw:
-                    lote_kw.append((mid, ", ".join(kw)))
-                if desc:
-                    lote_desc.append((mid, desc))
-                ok += 1
-            else:
-                fpath, exc = data
-                log.warning("  ⚠ Error en imagen %s: %s", fpath, exc)
-                errors += 1
-            cp.contar()
-            if len(lote_kw) + len(lote_desc) >= cp.cada:
-                _guardar_lote()
-    except TimeoutError:
-        log.warning("  Timeout esperando resultados (%ds). Guardo lo procesado "
-                    "y cancelo el resto.", timeout_future)
-        pool.shutdown(wait=False, cancel_futures=True)
-        _guardar_lote()
+        # Mismo patrón anti-cuelgue que _procesar_vision: wait() retorna al
+        # primer futuro completado (sin presupuesto total); solo cancela si
+        # ningún futuro avanza en `timeout_future` s. La capa real anti-hang
+        # es el timeout por request de ollama_client.py (180s por HTTP).
+        with tqdm(total=len(futures), desc="  Combinado (EN)",
+                  unit="img", ncols=80) as pbar:
+            pendientes = set(futures)
+            while pendientes:
+                done, pendientes = wait(pendientes, timeout=timeout_future,
+                                        return_when=FIRST_COMPLETED)
+                if not done:
+                    # Ningún futuro avanzó en `timeout_future` s → colgado real.
+                    log.warning(
+                        "  Sin progreso durante %d s: cancelo el resto y "
+                        "guardo lo procesado.", timeout_future)
+                    for f in pendientes:
+                        f.cancel()
+                    _guardar_lote()
+                    break
+                for f in done:
+                    result, data = f.result()
+                    if result == "warning":
+                        log.warning("  Archivo no encontrado: %s", data)
+                        warnings += 1
+                    elif result == "ok":
+                        mid, res = data
+                        kw = res.get("keywords", [])
+                        desc = res.get("description", "")
+                        if CONTEXTO["mostrar"]:
+                            tqdm.write(f"    [media {mid}] kw={kw} | desc={desc[:80]}...")
+                        if kw:
+                            lote_kw.append((mid, ", ".join(kw)))
+                        if desc:
+                            lote_desc.append((mid, desc))
+                        ok += 1
+                    else:
+                        fpath, exc = data
+                        log.warning("  ⚠ Error en imagen %s: %s", fpath, exc)
+                        errors += 1
+                    cp.contar()
+                    if len(lote_kw) + len(lote_desc) >= cp.cada:
+                        _guardar_lote()
+                    pbar.update(1)
     except KeyboardInterrupt:
         log.warning("  ⚠ Interrupción detectada en el pool combinado. "
                     "Cancelando futuros...")
@@ -1318,8 +1345,10 @@ DEP_ORDER = ["colors", "keywords", "descriptions", "combinado", "transcribe", "k
 CONTEXTO: dict = {
     "mostrar": True,
     "workers": 1,
-    # Timeout (segundos) para as_completed() en los pools de visión: evita que
-    # un worker colgado congele el pool para siempre (riesgo documentado).
+    # Timeout (segundos) de ventana SIN progreso en los pools de visión: si
+    # ningún futuro se completa en ese lapso se cancela el pool y se guarda lo
+    # procesado (patrón wait/FIRST_COMPLETED en _procesar_vision/run_combinado).
+    # El timeout real por request vive en ollama_client.py (180s por HTTP).
     "timeout_future": 300,
 }
 

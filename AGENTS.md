@@ -343,7 +343,7 @@ Si la PC entra en suspensión (S3 Sleep o Modern Standby S0) durante un proceso 
 | Open-Meteo / Georef API | Medio — socket muerto, puede colgar 60-120s hasta que Python detecta el error |
 | faster-whisper / ExifTool / ffprobe (local) | Muy bajo — la computación se congela y reanuda limpio |
 | SQLite WAL | Muy bajo — transacciones atómicas, checkpoint recupera al reanudar |
-| ThreadPoolExecutor (`keywords`, `descriptions`) | **Resuelto** — checkpoint + `as_completed(timeout)` + `pool.shutdown(cancel_futures=True)` evitan el pool congelado |
+| ThreadPoolExecutor (`keywords`, `descriptions`) | **Resuelto** — checkpoint + patrón `wait(FIRST_COMPLETED)` con ventana de "sin progreso" + `pool.shutdown(cancel_futures=True)` evitan el pool congelado. ⚠️ NO usar `as_completed(timeout=X)`: su timeout es un presupuesto TOTAL del loop y cancela lotes legítimos largos a los X segundos (bug real: 1019 imgs → se cortaba a las ~19 por el default 300s). El timeout anti-cuelgue real es el de `ollama_client.py` (180s por request) |
 
 **Qué se pierde**: solo tiempo de procesamiento; los datos commiteados sobreviven. `--mode skip` retoma pendientes.
 
