@@ -53,7 +53,8 @@
     // La batería de audios se distribuye pareja a lo largo del fluir:
     // 10s de silencio al inicio y al final, y silencio entre audios.
     var SONIDO = {
-        habilitado: false,    // interruptor general (botón lateral) — arranca apagado
+        habilitado: true,     // interruptor general (botón lateral) — arranca encendido
+        muted: true,          // arranca silenciado
         items: [],            // audios seleccionados (con duracion_seg)
         plan: [],             // plan de reproducción [{audio, inicioMs, duracionMs}]
         reproduciendo: false,
@@ -69,7 +70,7 @@
         index: 0,
         cont: null,
         ultimoAvance: 0,
-        intervaloMs: 4000  // 4 segundos entre imágenes
+        intervaloMs: 8000  // 8 segundos entre imágenes
     };
 
     var VENTANA_CHAT = {
@@ -351,7 +352,7 @@
             if (!el) {
                 el = document.createElement('div');
                 el.id = 'bloque-' + b.id;
-                el.className = 'bloque' + (b.tipo === 'media' ? ' bloque-media' : '');
+                el.className = 'bloque' + (b.tipo === 'media' ? ' bloque-media' : '') + (b.tipo === 'selector' ? ' bloque-selector' : '');
                 el.innerHTML = '<div class="bloque-titulo">' + b.titulo + '</div>'
                             + '<div class="bloque-contenido"></div>';
                 mundo.appendChild(el);
@@ -723,8 +724,11 @@
         setTimeout(function() {
             SLIDESHOW.index = prox;
             var item = SLIDESHOW.items[prox];
+            img.onload = function() {
+                img.style.opacity = '1';
+                img.onload = null;
+            };
             img.src = 'api/servir_medio.php?id=' + item.id;
-            img.style.opacity = '1';
         }, 300);
 
         // Actualizar contador
@@ -751,10 +755,10 @@
 
     // ═══════════════════════════════════════════════════════
     //  CHIPS: COLORES
-    // ═══════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════
 
     function renderChipsColores(cont) {
-        var html = '<div style="display:flex;flex-wrap:wrap;gap:.3rem;justify-content:space-between;align-content:space-between;align-items:center;flex:1;min-height:0;width:100%">';
+        var html = '<div style="display:flex;flex-wrap:wrap;gap:.3rem;justify-content:stretch;align-content:stretch;align-items:stretch;flex:1;min-height:0;width:100%">';
         COLORES.forEach(function(c) {
             var activo = coloresSeleccionados.indexOf(c.nombre) !== -1 ? ' activo' : '';
             html += '<button class="chip' + activo + '" data-accion="toggle-color" data-valor="' + c.nombre + '">'
@@ -762,8 +766,8 @@
                   + c.nombre
                   + '</button>';
         });
-        html += '<span class="info-filtro" id="info-colores">Todos</span>';
         html += '</div>';
+        html += '<span class="info-filtro" id="info-colores">Todos</span>';
         cont.innerHTML = html;
         // Bind events
         cont.querySelectorAll('[data-accion="toggle-color"]').forEach(function(btn) {
@@ -798,7 +802,7 @@
     // ═══════════════════════════════════════════════════════
 
     function renderChipsHoras(cont) {
-        var html = '<div style="display:flex;flex-wrap:wrap;gap:.25rem;justify-content:space-between;align-content:space-between;align-items:center;flex:1;min-height:0;width:100%">';
+        var html = '<div style="display:grid;grid-template-columns:repeat(6, 1fr);grid-template-rows:repeat(4, 1fr);gap:.25rem;flex:1;min-height:0;width:100%">';
         HORAS.forEach(function(h) {
             var p = PALETTAS[h];
             var hh = (h < 10 ? '0' : '') + h;
@@ -808,8 +812,8 @@
                   + hh + ':00'
                   + '</button>';
         });
-        html += '<span class="info-filtro" id="info-horas">Ninguna</span>';
         html += '</div>';
+        html += '<span class="info-filtro" id="info-horas">Ninguna</span>';
         cont.innerHTML = html;
         cont.querySelectorAll('[data-accion="toggle-hora"]').forEach(function(btn) {
             btn.addEventListener('click', function() {
@@ -856,15 +860,15 @@
     // ═══════════════════════════════════════════════════════
 
     function renderChipsProvincias(cont) {
-        var html = '<div style="display:flex;flex-wrap:wrap;gap:.3rem;justify-content:space-between;align-content:space-between;align-items:center;flex:1;min-height:0;width:100%">';
+        var html = '<div style="display:flex;flex-wrap:wrap;gap:.3rem;justify-content:stretch;align-content:stretch;align-items:stretch;flex:1;min-height:0;width:100%">';
         PROVINCIAS.forEach(function(p) {
             var activo = provinciasSeleccionadas.indexOf(p.nombre) !== -1 ? ' activo' : '';
             html += '<button class="chip' + activo + '" data-accion="toggle-provincia" data-valor="' + p.nombre + '">'
                   + p.nombre
                   + '</button>';
         });
-        html += '<span class="info-filtro" id="info-provincias">Todas</span>';
         html += '</div>';
+        html += '<span class="info-filtro" id="info-provincias">Todas</span>';
         cont.innerHTML = html;
         cont.querySelectorAll('[data-accion="toggle-provincia"]').forEach(function(btn) {
             btn.addEventListener('click', function() {
@@ -897,15 +901,15 @@
     // ═══════════════════════════════════════════════════════
 
     function renderChipsMunicipios(cont) {
-        var html = '<div style="display:flex;flex-wrap:wrap;gap:.2rem .35rem;justify-content:space-between;align-content:space-between;align-items:center;flex:1;min-height:0;width:100%">';
+        var html = '<div style="display:flex;flex-wrap:wrap;gap:.2rem .35rem;justify-content:stretch;align-content:stretch;align-items:stretch;flex:1;min-height:0;width:100%">';
         MUNICIPIOS.forEach(function(m) {
             var activo = municipiosSeleccionados.indexOf(m) !== -1 ? ' activo' : '';
             html += '<button class="chip' + activo + '" data-accion="toggle-municipio" data-valor="' + m + '">'
                   + m
                   + '</button>';
         });
-        html += '<span class="info-filtro" id="info-municipios" style="flex-basis:100%">Todos</span>';
         html += '</div>';
+        html += '<span class="info-filtro" id="info-municipios">Todos</span>';
         cont.innerHTML = html;
         cont.querySelectorAll('[data-accion="toggle-municipio"]').forEach(function(btn) {
             btn.addEventListener('click', function() {
@@ -950,7 +954,7 @@
             cont.innerHTML = '<div style="font-size:.5rem;opacity:.4;padding:.3rem">Sin datos</div>';
             return;
         }
-        var html = '<div class="tag-cloud" style="display:flex;flex-wrap:wrap;gap:.2rem .25rem;justify-content:space-between;align-content:space-between;align-items:center;flex:1;min-height:0;padding:.2rem">';
+        var html = '<div class="tag-cloud" style="display:flex;flex-wrap:wrap;gap:.2rem .25rem;justify-content:stretch;align-content:stretch;align-items:stretch;flex:1;min-height:0;padding:.2rem">';
         tags.forEach(function(t) {
             var activo = tagsSeleccionados.indexOf(t.tag) !== -1 ? ' activo' : '';
             // Todas las etiquetas con el MISMO tamaño (sin tamaño por peso/cantidad);
@@ -961,8 +965,8 @@
                   + t.tag
                   + '</button>';
         });
-        html += '<span class="info-filtro" id="info-tags" style="flex-basis:100%">Ninguno</span>';
         html += '</div>';
+        html += '<span class="info-filtro" id="info-tags">Ninguno</span>';
         cont.innerHTML = html;
         cont.querySelectorAll('[data-accion="toggle-tag"]').forEach(function(btn) {
             btn.addEventListener('click', function() {
@@ -1008,7 +1012,7 @@
             return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
         }).join('&');
         if (qs) qs += '&';
-        qs += 'limite=20&tipo=image,audio,text';  // imágenes slideshow, audios y textos
+        qs += 'limite=30&tipo=image,audio,text';  // imágenes slideshow, audios y textos
 
         return fetch('api/medios_filtrados.php?' + qs)
             .then(function(r) { return r.json(); })
@@ -1064,27 +1068,29 @@
     // Reproduce el audio objetivo; se reanuda si es el mismo que ya sonaba
     // (sin reiniciar), o lo carga con el offset correcto si cambia de audio.
     function reproducirAudioObjetivo(objetivo) {
-        if (!SONIDO.habilitado || !objetivo) { detenerAudios(); return; }
+        if (!SONIDO.habilitado || SONIDO.muted || !objetivo) { detenerAudios(); return; }
+
+        if (SONIDO.actualPlan === objetivo) {
+            return; // ya estamos intentando (o logrando) reproducir este tramo → no reiniciar
+        }
         var url = 'api/servir_medio.php?id=' + objetivo.audio.id;
 
-        if (SONIDO.actualPlan === objetivo && SONIDO.reproduciendo) {
-            return; // ya estamos sonando justo este tramo → no reiniciar
-        }
         var el = obtenerElementoAudio();
         el.src = url;
         el.currentTime = 0;
+        SONIDO.actualPlan = objetivo;
         el.play().then(function() {
             SONIDO.reproduciendo = true;
-            SONIDO.actualPlan = objetivo;
         }).catch(function() {
             // autoplay bloqueado por el navegador → simplemente silencioso
+            SONIDO.reproduciendo = false;
         });
     }
 
     // En cada frame del fluire, decide qué audio debe sonar según elapsedMs,
     // respetando los silencios de inicio/fin y el plan distribuido.
     function actualizarAudio(elapsedMs) {
-        if (!SONIDO.habilitado) { detenerAudios(); return; }
+        if (!SONIDO.habilitado || SONIDO.muted) { detenerAudios(); return; }
 
         var tEn = elapsedMs - SONIDO_SILENCIO_INICIO;   // tiempo dentro de la ventana útil
         var fin = FLOW.duracionMs - SONIDO_SILENCIO_FINAL;
@@ -1574,23 +1580,26 @@
         }
     });
 
-    // Botón sonido: activa/desactiva el autoplay de audios
+    // Botón sonido: activa/desactiva el mute del motor de audio
     function actualizarBotonSonido() {
         var btn = document.getElementById('btn-sonido');
         if (!btn) return;
-        if (SONIDO.habilitado) {
-            btn.textContent = '🔊 Sonido';
-            btn.classList.remove('activo');
-        } else {
+        if (SONIDO.muted) {
             btn.textContent = '🔇 Silencio';
             btn.classList.add('activo');
+        } else {
+            btn.textContent = '🔊 Sonido';
+            btn.classList.remove('activo');
         }
     }
     var btnSonido = document.getElementById('btn-sonido');
     if (btnSonido) {
         btnSonido.addEventListener('click', function() {
-            SONIDO.habilitado = !SONIDO.habilitado;
-            if (!SONIDO.habilitado) detenerAudios();
+            SONIDO.muted = !SONIDO.muted;
+            // Update audio element mute state without stopping playback
+            if (SONIDO.elem) {
+                SONIDO.elem.muted = SONIDO.muted;
+            }
             actualizarBotonSonido();
         });
         actualizarBotonSonido();
@@ -1641,12 +1650,11 @@
         return overlay;
     }
 
-    // Al presionar Fluir: fade a una nueva configuración aleatoria y arranca.
+    // Al presionar Fluir: arranca con la configuración actual del usuario
     function iniciarFlowConFade() {
         var overlay = obtenerOverlay();
         overlay.style.opacity = '1'; // fade out
         setTimeout(function() {
-            aplicarSeleccionAleatoria();
             iniciarFlow();
             // fade in hacia la nueva configuración
             requestAnimationFrame(function() {
@@ -1657,6 +1665,6 @@
 
     // Arrancar: cargar datos de la API, inicializar y preseleccionar una
     // visualización aleatoria (algunas horas y municipios).
-    cargarDatos().then(inicializar).then(function() { aplicarSeleccionAleatoria(); });
+    cargarDatos().then(inicializar).then(function() { aplicarSeleccionAleatoria(); iniciarFlow(); });
 
 })();
