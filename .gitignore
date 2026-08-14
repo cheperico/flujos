@@ -1,6 +1,8 @@
 __pycache__/
 *.pyc
 *.db
+*.db-wal
+*.db-shm
 logs/
 tmp/
 web/
@@ -20,3 +22,8 @@ _keywords.py
 _keywords2.py
 models/
 deploy/
+web3/spec.json
+td/spec_fluir.json
+td/Backup/
+td/flujos.15.toe
+Directory_PH

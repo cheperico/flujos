@@ -84,6 +84,9 @@ PRECIP_LLUVIA = 0.0             # weather_precip_mm > 0 → "Está lloviendo"
 ELEVACION_ALBA_BAJA = 0.0       # sun_elevation cruza 0° al alba
 ELEVACION_ALBA_ALTA = 3.0
 
+# Hora de día por defecto para textos sin timestamp (puntos curados).
+HORA_DEFECTO_TEXTO = 12.0
+
 # Períodos de twilight considerados "noche"
 NOCHE_PERIODOS = {
     "noche", "crepuculo_civil", "crepuculo_nautico", "crepuculo_astronomico",
@@ -95,6 +98,9 @@ ALBA_PERIODOS = {"golden_hour", "blue_hour"}
 CLAVES_METADATA = [
     "ia_keywords",
     "ia_description",
+    "ia_keywords_texto",
+    "texto_completo",
+    "titulo_seccion",
     "weather_temp_c",
     "weather_wind_speed_kmh",
     "weather_precip_mm",
@@ -309,12 +315,19 @@ def _filtrar_media(conn: sqlite3.Connection,
 
     # Rango horario flexible (hora LOCAL) — no se puede hacer en SQL limpio
     # por la conversión UTC->Argentina, así que se filtra con _extraer_hora.
+    # Los textos sin timestamp (puntos curados) no se descartan aquí: usan la
+    # hora por defecto (HORA_DEFECTO_TEXTO) para pasar por el mismo filtro.
     if rango_horas is not None:
         hmin, hmax = rango_horas
         dentro: list[sqlite3.Row] = []
         for fila in filas:
             hora = _extraer_hora(fila["timestamp_utc"])
-            if hora is not None and hmin <= hora <= hmax:
+            if hora is None:
+                if fila["tipo"] == "text":
+                    hora = HORA_DEFECTO_TEXTO
+                else:
+                    continue
+            if hmin <= hora <= hmax:
                 dentro.append(fila)
         filas = dentro
 
@@ -413,7 +426,10 @@ def _seleccionar(conn: sqlite3.Connection,
     for fila in filas:
         hora = _extraer_hora(fila["timestamp_utc"])
         if hora is None:
-            continue
+            if fila["tipo"] == "text":
+                hora = HORA_DEFECTO_TEXTO
+            else:
+                continue
         mid = fila["media_id"]
         meta = metadata.get(mid, {})
         score = _calcular_score(fila, meta, colores, tags)
@@ -565,6 +581,7 @@ def generar_loop(
             meta = it["meta"]
             mid = fila["media_id"]
 
+            tags_text = meta.get("ia_keywords_texto") if fila["tipo"] == "text" else None
             medio = {
                 "media_id": mid,
                 "tipo": fila["tipo"],
@@ -573,8 +590,9 @@ def generar_loop(
                 "duracion": fila["duration_secs"] or 0.0,
                 "municipio": fila["municipio"],
                 "color": fila["color"],
-                "tags": _parse_tags(meta.get("ia_keywords")),
-                "desc": meta.get("ia_description", ""),
+                "tags": _parse_tags(tags_text or meta.get("ia_keywords")),
+                "desc": (meta.get("texto_completo") or meta.get("ia_description", "")) if fila["tipo"] == "text" else meta.get("ia_description", ""),
+                "titulo": meta.get("titulo_seccion", ""),
                 "ubicacion": (
                     {"lat": fila["lat"], "lon": fila["lon"]}
                     if fila["lat"] is not None else None),

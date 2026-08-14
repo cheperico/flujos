@@ -391,25 +391,32 @@
         // Limpiar el rotador anterior
         if (TEXTO_ROTADOR.timer) { clearTimeout(TEXTO_ROTADOR.timer); TEXTO_ROTADOR.timer = null; }
 
-        // Leer del MISMO pool filtrado que usan los demás medios (municipio,
-        // color, provincia) — viene de api/medios_filtrados.php tipo=text.
-        var base = (MEDIOS_FILTRADOS && MEDIOS_FILTRADOS.resultados && MEDIOS_FILTRADOS.resultados.text)
-                    ? MEDIOS_FILTRADOS.resultados.text : [];
+        var res = (MEDIOS_FILTRADOS && MEDIOS_FILTRADOS.resultados) ? MEDIOS_FILTRADOS.resultados : {};
 
-        // Excluir los audios que ya está mostrando el contenedor de sonidos,
-        // para que el texto "de voz" no repita un audio ya disponible.
-        var idsSonidos = [];
-        if (MEDIOS_FILTRADOS && MEDIOS_FILTRADOS.resultados && MEDIOS_FILTRADOS.resultados.audio) {
-            idsSonidos = MEDIOS_FILTRADOS.resultados.audio.map(function(i) { return i.id; });
-        }
+        // PRIORIDAD 1: los textos del viaje (type='text').
+        var textos = Array.isArray(res.text) ? res.text.slice() : [];
+
+        // PRIORIDAD 2: transcripciones de audios/videos, sin repetir los
+        // audios que ya muestra el contenedor de sonidos.
+        var idsSonidos = (Array.isArray(res.audio) ? res.audio : []).map(function(i) { return i.id; });
         var excl = {};
         idsSonidos.forEach(function(i) { excl[i] = true; });
-        var items = base.filter(function(i) { return !excl[i.id]; });
+        var transcripciones = [];
+        ['audio', 'video'].forEach(function(t) {
+            (Array.isArray(res[t]) ? res[t] : []).forEach(function(i) {
+                if (excl[i.id]) return;
+                if (!i.transcripcion) return;
+                transcripciones.push(i);
+            });
+        });
 
-        // Priorizar no-Telegram (igual que en imágenes)
-        var sinTg = items.filter(function(i) { return i.carpeta !== 'telegram'; });
-        var deTg = items.filter(function(i) { return i.carpeta === 'telegram'; });
-        items = sinTg.concat(deTg);
+        // Priorizar no-Telegram dentro de cada grupo (igual que en imágenes).
+        function noTgPrimero(lista) {
+            var sinTg = lista.filter(function(i) { return i.carpeta !== 'telegram'; });
+            var deTg = lista.filter(function(i) { return i.carpeta === 'telegram'; });
+            return sinTg.concat(deTg);
+        }
+        var items = noTgPrimero(textos).concat(noTgPrimero(transcripciones));
 
         if (!items.length) {
             cont.innerHTML = '<div style="opacity:.2;font-size:.6rem;text-align:center;padding:.5rem">—</div>';

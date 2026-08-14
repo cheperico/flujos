@@ -6,7 +6,7 @@
  *   color     (string, opcional)
  *   provincia (string, opcional)
  *   tipo      (string, opcional: image,video,audio,text — separado por coma;
- *              'text' devuelve medios con transcripción)
+ *              'text' devuelve los medios type='text' (textos del viaje))
  *   limite    (int, opcional, default 20)
  */
 header('Content-Type: application/json; charset=utf-8');
@@ -42,7 +42,7 @@ if (count($condiciones)) {
     $where = 'WHERE ' . implode(' AND ', $condiciones);
 }
 
-// Tipos solicitados (incluye 'text' = medios con transcripción)
+// Tipos solicitados (incluye 'text' = medios tipo texto del viaje)
 $tipos = ['image', 'video', 'audio', 'text'];
 if ($tipoStr !== '') {
     $t = explode(',', $tipoStr);
@@ -56,11 +56,6 @@ $resultados = [];
 foreach ($tipos as $tipo) {
     // WHERE dinámico: si hay filtros previos, concatenar con AND
     $whereTipo = ($where ? ' AND' : ' WHERE') . ' m.tipo = :tipo';
-    // 'text': en vez de filtrar por tipo, exigir transcripción no vacía.
-    // Así los textos usan los MISMOS filtros de municipio/color/provincia.
-    if ($tipo === 'text') {
-        $whereTipo = ($where ? ' AND' : ' WHERE') . " m.transcripcion IS NOT NULL AND m.transcripcion != ''";
-    }
     $sql = "SELECT m.id, m.archivo, m.tipo, m.subtipo, m.carpeta,
                    m.ruta_relativa, m.tamano_bytes, m.duracion_seg,
                    m.fecha, m.hora,
@@ -76,9 +71,7 @@ foreach ($tipos as $tipo) {
     foreach ($params as $k => $v) {
         $stmt->bindValue($k, $v);
     }
-    if ($tipo !== 'text') {
-        $stmt->bindValue(':tipo', $tipo);
-    }
+    $stmt->bindValue(':tipo', $tipo);
     $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
     $stmt->execute();
     $filas = $stmt->fetchAll(PDO::FETCH_ASSOC);

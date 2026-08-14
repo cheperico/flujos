@@ -430,7 +430,7 @@ def main(argv: list[str] | None = None) -> None:
 
     # Obtener metadata tags de media_metadata
     meta = {}
-    cur = src.execute("SELECT media_id, key, value FROM media_metadata WHERE key IN ('dia_semana','weather_label','ia_description','whisper_segments','ia_keywords')")
+    cur = src.execute("SELECT media_id, key, value FROM media_metadata WHERE key IN ('dia_semana','weather_label','ia_description','whisper_segments','ia_keywords','texto_completo','titulo_seccion','ia_keywords_texto')")
     for r in cur:
         meta.setdefault(r['media_id'], {})[r['key']] = r['value']
 
@@ -585,8 +585,13 @@ def main(argv: list[str] | None = None) -> None:
         m = meta.get(r['id'], {})
         dia_sem = m.get('dia_semana')
         clima = m.get('weather_label')
-        desc = m.get('ia_description')
-        keywords = m.get('ia_keywords')
+        es_texto = (r['type'] == 'text')
+        desc = m.get('texto_completo') or m.get('ia_description')
+        keywords = m.get('ia_keywords_texto') or m.get('ia_keywords')
+        if es_texto:
+            titulo = m.get('titulo_seccion')
+            if titulo:
+                desc = (titulo + "\n\n" + (desc or '')) if desc else titulo
 
         if not args.snapshot_local:
             # Ruta web-relativa (slash '/') + tamaño del archivo web si se transcodificó.

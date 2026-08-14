@@ -75,3 +75,140 @@ ubicacion: -34.588997, -59.036256
 
 El general Beresford y los oficiales, que iban bien montados, llegaron a Luján a las 4 pm, otros a las 7, con el aspecto más lamentable a causa del polvo y la fatiga, y en lo tocante a mi fueron las 11 de la noche antes de que llegase, aunque la torre de la villa se veía y parecía cercana cinco horas antes. Todos teníamos alojamiento con los habitantes y fuimos bien tratados por todas las criaturas del pueblo exceptuando las pulgas, que demostraron gran parcialidad por la sangre inglesa y total falta de sentimiento por nuestros cuerpos cansados. La mañana siguiente examinamos este lugar que contiene más de doscientas casas, de las que no más de tres son de altos, y las calles, si merecen ese nombre, corren en ángulos rectos y son muy angostas. Las construcciones son de barro, pero la iglesia es hermosa, con una especia de cúpula y por fuera semejante a las capillas de nuestro país (...). Hay, además, un Cabildo que se convirtió en alojamiento del general Beresford y los oficiales que permanecieron con él.
 Alexander Gillespie, Buenos Aires y el interior (1818)
+
+## Luján
+autor: Enrique Ciro Bianchi
+fecha:
+tags:
+ubicacion: -34.56341632322557, -59.11963146461235
+
+La primera peregrinación masiva a Luján tuvo lugar el 3 de diciembre de 1871. Fue convocada como desagravio por la injusta cautividad que el Papa Pío IX sufría en Roma y como agradecimiento por el cese del flagelo de la fiebre amarilla en Buenos Aires. Uno de los entusiastas peregrinos fue el joven padre Salvaire, quien apenas un par de meses antes había llegado a Argentina desde su Francia natal. En su libro Historia de Nuestra Señora de Luján nos cuenta la honda emoción que le provocó ver la cantidad de exvotos que había en el camarín y cómo supo leer en esas ofrendas la historia de amor entre la Virgen de Luján y el pueblo al que le dedicaría su vida. También nos transcribe una detallada crónica de ese día escrita por un “testigo ocular” (probablemente él mismo). Leamos unos breves fragmentos para hacernos una idea de lo que fueron esas primeras peregrinaciones: “Por la mañana de ese día memorable, un sol resplandeciente y un ambiente templado nos auguraron un día hermoso (...) El Directorio del ferrocarril del Oeste, con un tino y una discreción superior a todo encomio, había tenido a bien poner a disposición de los peregrinos de la Capital, un tren especial”.
+Enrique Ciro Bianchi, Las peregrinaciones a Luján en la historia (2022)
+
+## Cruzando el río Luján
+autor: William Mac Cann
+fecha:
+tags:
+ubicacion: -34.567513, -59.124394
+
+(EN LA BASÍLICA DE LUJÁN) se guarda la venerada imagen, sobre la que se cuenta la siguiente tradición: llevaban de Buenos Aires a Chile, por el camino a través del país, dos imágenes en talla de la Virgen cuando, de pronto, el carro donde viajaba una de ellas empezó a encontrar obstáculos en el camino y al fin se rompió en las proximidades del río Luján. Este accidente fue considerado milagroso, creyéndose que la Virgen se rehusaba a cruzar la corriente. Entonces resolvieron erigir una iglesia en los márgenes del arroyo.  
+William Mac Cann, Viaje a caballo por las provincias argentinas (1853)
+
+## Salto
+autor: Alexander Gillespie
+fecha:
+tags:
+ubicacion: -34.292272292517175, -60.247430734901606
+
+En lados opuestos (...) se hallan la iglesia y el fuerte; la primera sencilla y el último (...) con dos de sus frentes levantados con tierra endurecida sacada del lecho del río y los otros protegidos por un foso y palizadas. Once cañones de hierro y pedreros estaban emplazados en estado ruinoso y había cuarteles anexos en condición análoga. La fuerza militar destinada a su defensa, si efectiva, consistía en un capitán primero y otro segundo, con cincuenta hombres que siempre eran criollos. Pero este puesto de frontera no hubiera resistido a cincuenta hombres decididos ni veinte minutos, mucho menos a esas incursiones repentinas de huestes indianas, contra que era barrera (...). Los objetos principales de esas guardias eran traficar y contrabandear donde podían, sea con sus paisanos errantes o con los indios vecinos, que tres veces entraron en el pueblito de Salto mientras estábamos allí para trocar sus mercaderías.
+Alexander Gillespie, Buenos Aires y el interior (1818)
+
+## Saliendo de Salto y llegando a Rojas
+autor: Alexander Gillespie
+fecha:
+tags:
+ubicacion: -34.257240390762725, -60.53400636297624
+
+Temprano estaban listas las carretas en el llano abajo del pueblo, pero no nos movimos hasta después del mediodía y no habíamos marchado más de cinco millas cuando hicimos alto para pasar la noche en la orilla de un río. Sesenta oficiales con sus asistentes, además de los prisioneros mercantiles que recientemente se nos habían unido, formaban en total un cuerpo de más de doscientos que, con una escolta de cien soldados y cuarenta y nueve carretas, alargaba nuestra línea de marcha más de dos millas y retardaba nuestro avance por aquellas barrancas que con tanta frecuencia cortan el campo (...). Al aclarar el 31 de marzo (DE 1807) cruzamos el río y llegamos a dos leguas del pueblo de Rojas, que está a once de Salto, a las siete de la tarde, llegando al primero al mediodía del 1° de abril. En esos días el campo se hizo más desigual y el pasto, de naturaleza más juncosa (...). El pueblo de Salto es más chico que el de Salto, pero las casas están en mejor condición y más lindas huertas las rodean. Ladrillos de barro endurecidos al sol componen sus habitaciones y su manera de techarlas con paja era al mismo tiempo sencilla e ingeniosa (...). El pueblo está sobre un río que es la frontera estipulada entre españoles e indios, cuya letra estricta hubiera autorizado actos hostiles contra cualquiera que intentase cruzarlo, pero los primeros no se refrenaban de tal transgresión. El pueblo está en el camino que lleva a Córdoba por el país de las Pampas, y aunque tan inmediatamente expuesto a invasiones el fuerte estaba en el mismo estado ruinoso que el de Salto. 
+Alexander Gillespie, Buenos Aires y el interior (1818)
+
+## Saliendo de Rojas hacia Melincué
+autor: Alexander Gillespie
+fecha:
+tags:
+ubicacion: -33.81842094268788, -61.24595845188934
+
+Permanecimos en Rojas hasta el 7 de abril (...) y por la tarde del 8 de abril llegamos al fortín Mercedes, a doce leguas de Rojas, donde había montados dos cañones de hierro y era notable solamente por un mirador, de unos cincuenta pies de alto, de donde los ojos podían llegar al máximo sin ver otra señal que de pasto o yuyos. Era para guardar de los ataques súbitos de los indios, y un cabo con cuatro hombres eran sus únicos defensores. Marchando hasta medianoche desuncimos en un ancho matorral, después de haber pasado una gran laguna y corrido hasta cansarlos a varias gamas y armadillos durante el día. En esta estación los fuegos distantes de los indios producían un efecto sorprendente, pues eran interminables a la vista debido a la sequedad del pasto.  Salimos el 9 temprano y al ponerse el sol descansábamos a una legua del fortín Melincué, que alcanzamos la mañana siguiente. 
+Alexander Gillespie, Buenos Aires y el interior (1818)
+
+## Melincué
+autor: Alexander Gillespie
+fecha:
+tags:
+ubicacion: -33.658929667224754, -61.4559174010827
+
+(EL FORTÍN DE MELINCUÉ) solamente tenía un cañón y siete ranchos de barro. Un edificio, con pretensiones de iglesia pero destechado, también está cerca y se celebraba un el culto de un de los ranchitos. La situación es, sin embargo, muy pintoresca, ubicado sobre una laguna de diez millas de ancho y veinte de circunferencia, con agua que se acerca a salada y fondo endurecido. Gran número de cisnes con cabeza y pescuezo negros y cuerpo blanco se veían, cuyo plumón y alas son objeto de comercio, al lado de variedad de pájaros con el más lindo plumaje. El fortín podría haberse aislado del lago a satisfacción, y en él estaban apostados un cabo con cinco milicos.
+Alexander Gillespie, Buenos Aires y el interior (1818)
+
+## De Saladillo a Bell Ville
+autor: Alexander Gillespie
+fecha:
+tags:
+ubicacion: -32.93288520348429, -62.33012494336919
+
+Salimos el 18 al venir el día y en tres horas llegamos a Saladillo, donde había cuatro ranchos, una capilla y un fortín en ruinas. Aquí un riacho entra en el Tercero, y después de una marcha sin interés descansamos en los campos por la noche. Al venir el día 19 vimos Los Cóndores a treinta leguas, una sierra de cerros altos que se extiende noventa millas en rumbo sur de Córdoba. Nada era notable, excepto el terreno interpuesto en nuestro camino a Fraile Muerto (BELL VILLE), adonde llegamos a las 8 de la noche. Se llamó así a ese pueblo por haber sido asesinado un fraile en el paraje por los indios que se ocupaba de convertir. Aquí se interpone un lindo monte que, sin interrupción, llega hasta Córdoba, a cuya vera se levanta el pueblo, de unas veinte casas, con un cuartel fortificado, con troneras para mosquetería y una iglesia muy hermosa. El río Tercero aquí es muy correntoso, debido a los declives cerca del lugar, y su cauce se compone de guijarros y granito en descomposición.
+Alexander Gillespie, Buenos Aires y el interior (1818)
+
+## De Saladillo hacia Córdoba
+autor: Joseph Andrews
+fecha:
+tags:
+ubicacion: -32.63087788562394, -62.69222045280985
+
+Cuando llegamos al primer río, llamado Saladillo, noté la acción del fuego sobre sus orillas en época remota. La sólida marga del cauce está mezclada con conchas calcinadas. Pasando Barrancas el viajero, seis leguas más adelante, llega a Fraile Muerto (BELL VILLE), donde comienza la subida. Las postas son regulares y la mirada se alivia de la penosa y negra uniformidad de las pampas. El follaje del monte alegra los ojos. La naturaleza aumenta en belleza a medida que continúa la ascención y se presenta un variado y rico espectáculo. Pronto cambia esta variada perspectiva en denso matorral que se mantiene casi todo el camino hasta Córdoba, salvo en la vecindad del río Tercero y de otros arroyos que lo interceptan. En el paso de Ferreira, cuando bajamos la cuesta, se nos previno de alguna dificultad y peligro con un grito en no ordinario tono de voz. Los muchachos gauchos sujetaron el momento y cuando bajamos la ventanilla para inquirir de dónde procedía el grito se introdujo en el carruaje la cabeza de un negro de dimensiones gigantescas y repugnante fealdad (...) El africano montaba una mula, completamente desnudo (...) Al principio fue difícil comprender lo que quería, tan furioso y ensordecedor era ruido que hacía, pero por fin comprendimos que, como el río que teníamos por delante era correntoso y estaba crecido, había venido a ofrecernos su ayuda para vadearlo. No obstante esto, sus gestos y vociferaciones parecían de maniático, y cuando arrimó el hombro a las ruedas su simple esfuerzo parecía más eficaz para hacerlas mover que el rebenque y el espolear de todos nuestros peones (...) Su fuerza y fama pueden juzgarse por su fama en la plaza de toros de Córdoba donde, según oímos después, frecuentemente cansaba a los toros más bravos saltándoles al lomo y quedando tan firmemente sentado que, siendo en vano todos los esfuerzos del animal furiosos para deshacerse de la carga, por in se desplomaba cansado debajo del hercúleo jinete.
+Joseph Andrews, Viaje de Buenos Aires a Potosí y Arica (1825)
+
+## Saliendo de Oncativo
+autor: Carlos Christiernsson
+fecha:
+tags:
+ubicacion: -31.917384527228908, -63.67462485035137
+
+(Llegamos a) Oncativo, la estación terminal, y desde ese punto nos trasladamos en mensajería a la docta ciudad de Córdoba (...) Viajar en mensajería era para mí una locomoción tan novedosa como divertida y llena de emociones. En un mail-coach o galera del tiempo colonial, de altas ruedas y un ancho adaptado a la huella, a lo que se reducían en esa época los caminos que cruzaban las vastas llanuras, se sentaban de seis a ocho pasajeros que, oprimidos, seguían el vaivén del pesado vehículo, siempre expuestos a chocar unos con otros. El conductor, con la corneta en la mano, ocupaba el pescante con algún pasajero que prefería respirar el aire libre al comprimido y a veces sofocante del interior de la galera. Tiraba el coche dos caballos de tronco, cada uno con su jinete o postillón, de cuya destreza dependía con frecuencia la vida de los pasajeros (...) Procedían dos o tres yuntas de cuarteadores tirando de un grueso torzal atado al eje y montados por otros tantos postillones que, cuando el camino y los caballos o las mulas, a veces chúcaras, lo permitían, imprimían al coche una velocidad capaz de asustar al más sereno, por los barquinazos continuos a que estaban expuestos los pasajeros enjaulados. Esto, sin embargo, no era lo peor de la jornada, que con frecuencia terminaba en una mísera posta donde los pasajeros tenían que reñir con las vinchucas y a veces, por toda cena, conformarse con las provisiones que una esposa previsora pusiera en el coche al partir.
+Carlos Christiernsson, Recuerdos de 42 años en la República Argentina (El libro fue publicado en 1910, el fragmento refiere a un viaje de Buenos Aires a Tucumán que Christiernsson, ingeniero sueco de Ferrocarriles, realizó entre 1868 y 1870)
+
+## Toledo (unos kilómetros antes de entrar a la ciudad de Córdoba)
+autor: Concolorcorvo
+fecha:
+tags:
+ubicacion: -31.555528606278603, -64.00556836244012
+
+Tres leguas antes de entrar a Córdoba da principio el espeso monte hasta concluir su jurisdicción. De sus cercanías se provee la ciudad de leña seca en carretillas, que vale cada una cuatro reales, que es suficiente para el gasto de un mes en una casa de regular economía. También se sacan del interior del monte palos para techar las casas y fábrica de varios muebles.
+Concolorcorvo, El lazarillo de ciegos caminantes (1771)
+
+## Llegando a la ciudad de Córdoba I
+autor: Domingo Faustino Sarmiento
+fecha:
+tags:
+ubicacion: -31.460133150303953, -64.1080214285152
+
+El viajero que se acerca a Córdoba busca y no encuentra en el horizonte la ciudad santa, la ciudad mística, la ciudad con capelo y borlas de doctor. Al fin, el arriero le dice: “Vea ahí abajo, entre los pastos...” Y en efecto: fijando la vista en el suelo, y a a corta distancia, vense asomar una, dos, tres, diez cruces seguidas de cúpulas y torres de los muchos templos que decoran esta Pompeya de la España de la media edad.
+Domingo Faustino Sarmiento, Facundo (1845)
+
+## Llegando a la ciudad de Córdoba II
+autor: Padre Carlos Gervasoni
+fecha:
+tags:
+ubicacion: -31.443662987664293, -64.12487422544993
+
+Los viajes ordinarios se hacen en carretas, como lo hicimos nosotros. La carreta es una especia de carro que en parte conviene con nuestro biroccio, en parte con los carretones romanos y en parte ni con unos ni con otros. Encima hay un tablado bien hecho con tablas gruesas, ancho y largo que pueden servir cómodamente de cama para una persona y tenga espacio para el asiento de tres por cada lado. Bajo el techo se ponen las provisiones, los cofres, los líos y los paquetes se ponen afuera y sirven para sentarse encima (...) La carreta tiene la puerta o entrada detrás y se entra con una escalera que se alza cuando camina. Toda esta máquina está puesta y equilibrada sobre dos grandes ruedas mayores que los carretones romanos y es tirada siempre por cuatro bueyes. 
+Cuarenta y cinco fuera las carretas que nos condujeron a Córdoba, llevando cincuenta y ocho jesuitas, pues en una pueden dormir cómodamente dos personas si sobre el lugar en que se colocan los baúles se pone otro colchón (...). Dividíanse las cuarenta y cinco carretas en tres escuadras. Cada una de estas venía separada de la otra una media milla (...). Detrás de cada escuadra venía una gran tropa de bueyes y caballos, los primeros para dar muda a las carretas y la mantención durante el camino, los otros para la gente de servicio que nos acompañaba y que a caballo cuidaba los bueyes sueltos que no se apartasen de las carretas.
+(...) Llegados en la tarde del 27 (DE JULIO DE 1729) a media milla de Córdoba dormimos en nuestras carretas como las noches anteriores. La mañana del 28, después que dijo la misa el Padre Provincial que venía con nosotros, nos encaminamos a pie, poco a poco, hacia la ciudad (...) Entramos a la ciudad al son de las campanas, seguidos de todo el pueblo, y nos dirigimos directamente a nuestra iglesia, donde encontramos esperándonos al señor Obispo (...). Empleamos en el camino un mes, ni más ni menos, pues partimos de Buenos Aires el 25 de junio, a pie, a una posesión que tiene aquel colegio, distante cinco millas de la ciudad. Nos detuvimos allí hasta el 28 para ordenar las carretas y proveernos de la leña que bastase hasta que encontráramos más. El mismo día después de comer, se empezó el viaje, y el 28 entramos a Córdoba, haciéndose por lo general quince millas diarias de camino.
+Padre Carlos Gervasoni, Carta del Padre Gervasoni al señor Angelino Gervasoni, su hermano (1729)
+
+## Córdoba
+autor: Concolorcorvo
+fecha:
+tags:
+ubicacion: -31.41993157968235, -64.18579170188737
+
+A mi tránsito se estaban vendiendo en Córdoba dos mil negros (...) todos negros puros y criollos hasta la cuarta generación, porque los regulares vendían todas aquellas criaturas que salían con mezcla de español, mulato o indio. Entre la multitud de negros hubo muchos músicos y de todos los oficios, y se procedió a la venta por familias. Me aseguraron que sólo las religiosas de Santa Teresa tenían una ranchería de trescientos esclavos de ambos sexos a quienes dan sus raciones de carne y vestidos de las burdas telas que trabajan (...) Mucho menor es el número que hay en las demás religiones, pero hay casa particular que tiene treinta y cuarenta, de la que la mayor parte se ejercitan en varias granjerías de que resulta una multitud de lavanderas excelentes.
+Concolorcorvo, El lazarillo de ciegos caminantes (1771)
+
+## Saliendo de la ciudad de Córdoba I
+autor: Carlos Christiernsson
+fecha:
+tags:
+ubicacion: -31.30812589166553, -64.17564054184399
+
+En la ancha faja de más de cien kilómetros de travesía que existe entre Córdoba y Santiago del Estero no hay agua potable, y en consecuencia hubo que traerse agua para la expedición, en barriles, a lomo de mula... El que cruza las salinas y la travesía a razón de veinte kilómetros por hora no puede formarse una idea de lo que cuesta atravesar esa zona desheredada de la naturaleza, a pie, con algunos centímetros de barro bajo la capa blanca de salitre que le imprime el aspecto de un gran lago de invierno en el norte de Europa con su capa de nieve. 
+Carlos Christiernsson, Recuerdos de 42 años en la República Argentina (El libro fue publicado en 1910, el fragmento refiere a un viaje de Buenos Aires a Tucumán que Christiernsson, ingeniero sueco de Ferrocarriles, realizó entre 1868 y 1870)
+
+## Saliendo de la ciudad de Córdoba II
+autor: Eduardo y Gabriel Carrasco
+fecha:
+tags:
+ubicacion: -31.134717004115664, -64.14005467054041
+
+Las postas consistían ordinariamente en uno o más ranchos con corral, pozo (donde había agua subterránea) y otras dependencias, todo generalmente cercado por un gran foso con puente levadizo para estar a cubierto de las invasiones de los indios cuando se trataba de parajes despoblados (...) El tiempo mínimo que se empleaba en estos viajes era (...) seis días de Córdoba a Santiago, uno y medio de Santiago a Tucumán.
+Eduardo y Gabriel Carrasco, Las primeras mensajerías (1854)
