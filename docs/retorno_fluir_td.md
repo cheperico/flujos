@@ -5,7 +5,7 @@
 > No edita archivos TD: el `.toe` se arma a mano siguiendo esta guía.
 >
 > **Fecha**: 2026-08-09 · **TD**: 2025.32820 (ver `docs/lecciones_elecciones_td.md`)
-> · **Pipeline**: `scripts/puente_td.py` modo `fluir` (ya implementado) ·
+> · **Pipeline**: `scripts/td/puente_td.py` modo `fluir` (ya implementado) ·
 > **Spec**: `docs/motor_loop.md` + `td/spec_fluir.json` (ejemplo real en disco) ·
 > **Callbacks**: `td/fluir_callbacks.dat` (contrato NUEVO por tipos).
 
@@ -64,7 +64,7 @@ esta guía lo respeta al pie.
 ## 1. Contrato del canal 9002 (lo que llega exactamente)
 
 Antes de armar ningún operador hay que fijar el wire — esto lo escribe
-`scripts/puente_td.py` (`_procesar_rafaga`, ya implementado) y viene de
+`scripts/td/puente_td.py` (`_procesar_rafaga`, ya implementado) y viene de
 `spec["resumen"]` / `spec["por_tipo"]` / `spec["chiches"]`:
 
 | Orden | Address | Args | Significado |
@@ -118,7 +118,7 @@ Puntos que conviene notar antes de programar:
 2. En los parámetros del OSC In DAT (página de red / `OSC In`): **Port = 9002**.
    Dejar `Active` = ON.
 3. Verificar con un probe externo en otra terminal:
-   `python scripts/osc_probe.py 9002 5` → los mensajes `/flujos/fluir/...`
+   `python scripts/td/osc_probe.py 9002 5` → los mensajes `/flujos/fluir/...`
    deben aparecer en la tabla del `osc_in2`.
 4. (Opcional, layout) Ubicar `osc_in2` a la derecha de `osc_out1`.
 
@@ -180,7 +180,7 @@ mismo (docstring + handlers). Ver §4 y §8 para crear las tablas que consume.
 """
 fluir_callbacks.dat — Callbacks del receptor de retorno del "Fluir" (OSC 9002).
 
-El cerebro Python (scripts/puente_td.py modo 'fluir') envía por el puerto
+El cerebro Python (scripts/td/puente_td.py modo 'fluir') envía por el puerto
 9002 un contrato POR TIPO, en este orden exacto:
 
     /flujos/fluir/resumen <total> <loop_secs> <image> <video> <audio> <text>
@@ -546,8 +546,8 @@ de pipeline visual, pero los nombres y tablas quedan disponibles.
 - [ ] (Opcional, etapa visual) **`fluir_loop`** Timeline CHOP; **`fluir_movie`**
       Movie File In TOP; **`fluir_engine`** Script DAT con el planificador (scheduler).
 - [ ] Verificación de punta a punta (3 terminales):
-      `python scripts/puente_td.py fluir --una-vez`, un terminal con
-      `python scripts/osc_probe.py 9002 5`, y en TD chequear que
+      `python scripts/td/puente_td.py fluir --una-vez`, un terminal con
+      `python scripts/td/osc_probe.py 9002 5`, y en TD chequear que
       `fluir_fotos/fluir_videos/fluir_sonidos/fluir_textos` se llenan y
       `fluir_estado.fin = 1` al terminar (y `recibidos` == `esperados`).
 
@@ -576,7 +576,7 @@ de pipeline visual, pero los nombres y tablas quedan disponibles.
 - `docs/motor_loop.md` — §3 (segmentos/posicionamiento), §5 (chiches),
   §6 (salida JSON del spec).
 - `docs/arquitectura_motor.md` — Enfoque B (híbrido: TD = músculo audiovisual).
-- `scripts/puente_td.py` — `_procesar_rafaga`: orden por tipo + `OSC_ADDR_FLUIR`.
+- `scripts/td/puente_td.py` — `_procesar_rafaga`: orden por tipo + `OSC_ADDR_FLUIR`.
 - `td/osc_callbacks.dat` — modelo de routing (`_ROOT`, `onReceiveOSC`,
   `_enrutar`, prefijo de logs).
 - `td/opfind1.tsv` — mapa real de ops del toe: no existen (aún) `osc_in2` ni

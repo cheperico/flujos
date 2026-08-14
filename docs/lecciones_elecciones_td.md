@@ -25,7 +25,7 @@ Python (elecciones.py) ──9000──► osc_in1 (OSC In DAT) → osc_callback
 
 ## El problema original
 
-Al correr `python scripts/elecciones.py`:
+Al correr `python scripts/td/elecciones.py`:
 1. El `osc_in` se poblaba (recibía los mensajes crudos) ✅
 2. Las tablas `elec_*` **no recibían nada** ❌
 3. Y más tarde: la UI se generaba pero **no se veían los botones** en el container ❌
@@ -297,7 +297,7 @@ tocarse (`/flujos/seleccion/<grupo> <valor>` — grupo en la dirección, un solo
 valor por mensaje).
 
 **El concepto clave — "Fluir" (decidido 2026-08-08)**: al igual que en la
-visualización web (`web3/`, botón `#btn-fluir`), al visitante se le pide que
+visualización web (`deploy/`, botón `#btn-fluir`), al visitante se le pide que
 **seleccione** (acumule) y luego presione el botón **"Fluir"**. Ese disparo
 envía **todas las elecciones juntas** — la salida OSC es la **descarga de la
 tabla de selección acumulada** (las filas se llenaron durante la interacción,

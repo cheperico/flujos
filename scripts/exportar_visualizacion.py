@@ -1,7 +1,7 @@
 """
 Exporta datos de flujos.db → visualizacion.db para una visualización web.
-Script genérico de deploy: sirve a cualquier implementación web (web3 es solo
-una de ellas). Lee la tabla media + media_metadata y reconstruye medios.
+Script genérico de deploy: sirve a cualquier implementación web (la web actual
+vive en deploy/). Lee la tabla media + media_metadata y reconstruye medios.
 También exporta telegram_messages (chat) con sus fotos vinculadas.
 
 Modo deploy (por defecto, --deploy-dir):
@@ -13,7 +13,7 @@ Modo deploy (por defecto, --deploy-dir):
   El destino por defecto es deploy/ en la raíz del proyecto.
 
 Modo snapshot local (--snapshot-local):
-  Comportamiento original del prototipo web3: DB local web3/db/visualizacion.db
+  Comportamiento dev local: DB local deploy/db/visualizacion.db
   con rutas absolutas de Windows, sin copiar medios ni transcodificar.
 """
 import argparse
@@ -28,7 +28,7 @@ from datetime import datetime
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FLUJOS_DB = os.path.join(BASE, 'db', 'flujos.db')
-VIZ_DB = os.path.join(BASE, 'web3', 'db', 'visualizacion.db')
+VIZ_DB = os.path.join(BASE, 'deploy', 'db', 'visualizacion.db')
 DEPLOY_DEFAULT = os.path.join(BASE, 'deploy')
 
 log = logging.getLogger(__name__)
@@ -385,14 +385,14 @@ def _copiar_y_transcodificar_medios(flujos_db: str, deploy_dir: str, transcode: 
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
-        description="Exporta flujos.db -> visualizacion.db (deploy genérico o snapshot local web3)."
+        description="Exporta flujos.db -> visualizacion.db (deploy genérico o snapshot local)."
     )
     parser.add_argument('--deploy-dir', default=DEPLOY_DEFAULT,
                         help="Carpeta de deploy: copia los medios a <dir>/media/... y escribe la DB "
                              "en <dir>/db/visualizacion.db con rutas web-relativas (media/...). "
                              "Default: deploy/ en la raíz del proyecto.")
     parser.add_argument('--snapshot-local', action='store_true',
-                        help="Modo local (dev web3): escribe web3/db/visualizacion.db con rutas "
+                        help="Modo local (dev): escribe deploy/db/visualizacion.db con rutas "
                              "absolutas, sin copiar medios.")
     parser.add_argument('--transcode', action='store_true',
                         help="Transcodificar videos grandes a MP4/H.264 web (opcional; por defecto "

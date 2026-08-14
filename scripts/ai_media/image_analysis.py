@@ -84,6 +84,92 @@ PROMPT_CLASIFICAR = (
 "Respondé solo con el nombre de la categoría."
 )
 
+# ── Prefijos de meta-intro regurgitados por el modelo (EN) ────────────────
+# minicpm a veces abre la descripción con una meta-introducción del prompt
+# ("To describe the image, ...", "Here's a long description of the image: ...")
+# en vez de describir directamente. Se recortan al inicio del texto.
+PREFIJOS_META_EN: tuple[str, ...] = (
+    # Familia A — narración del proceso
+    "to describe the image in detail, we analyze its key components:",
+    "to describe the image in detail, we first observe the main visual elements:",
+    "to describe the image in detail, we observe the main visual elements:",
+    "to describe the image, we first observe the main visual elements:",
+    "to describe the image, we observe the main visual elements:",
+    "to describe the image, we first observe",
+    "to describe the image, we observe",
+    "to describe the image, we",
+    "to describe the image in detail, we",
+    "to describe the image,",
+    "to describe the image in detail,",
+    # Familia B — "Here's a ... description of the image:"
+    "here's a long description of the image:",
+    "here is a long description of the image:",
+    "here's a detailed description of the image:",
+    "here is a detailed description of the image:",
+    "here's a description of the image:",
+    "here is a description of the image:",
+    "here's my description of the image:",
+    "here is my description of the image:",
+    # Familia C — "This is / My / The following is ..."
+    "this is a description of the image:",
+    "this is my description of the image:",
+    "my description of the image:",
+    "the following is a description of the image:",
+    "the description of the image:",
+    # Familia D — primera persona meta
+    "i will describe the image:",
+    "i will describe this image:",
+    "let me describe the image:",
+    "let me describe this image:",
+    # Familia F — headers de formato
+    "description of the image:",
+    "description:",
+)
+
+# Continuaciones meta que siguen a un prefijo (solo se recortan si hubo match
+# primario; nunca standalone para no tocar "We observe a cyclist..." legítimo).
+_CONTINUACIONES_META_EN: tuple[str, ...] = (
+    "we first observe", "we observe", "we analyze", "we notice", "we see",
+    "i first observe", "i observe", "i analyze", "first, we observe", "first, i observe",
+)
+_ACK_EN: tuple[str, ...] = ("sure,", "of course,", "certainly,", "here you go:", "here you are:")
+MAX_PASADAS_META = 3
+
+
+def limpiar_meta_intro(texto: str) -> str:
+    """Recorta meta-intros regurgitados al inicio de una descripción EN.
+
+    Si no hay nada que recortar, o si recortar dejaría vacío, devuelve el
+    texto original sin cambios (nunca se pierde contenido).
+    """
+    t = texto.strip().strip('"').strip()
+    if not t:
+        return texto
+    bajo = t.lower().replace("’", "'")
+    # Paso 0: acknowledgments ("Sure, here is...")
+    for ack in _ACK_EN:
+        if bajo.startswith(ack):
+            t = t[len(ack):].lstrip(" \t\n\r:;,.-–—\"'’").strip()
+            bajo = t.lower().replace("’", "'")
+            break
+    cambiado = False
+    for _ in range(MAX_PASADAS_META):
+        match = next((p for p in PREFIJOS_META_EN if bajo.startswith(p)), None)
+        if not match:
+            break
+        t = t[len(match):].lstrip(" \t\n\r:;,.-–—\"'’").strip()
+        bajo = t.lower().replace("’", "'")
+        # Paso secundario: continuación meta ("we observe", "we analyze", ...)
+        for cont in _CONTINUACIONES_META_EN:
+            if bajo.startswith(cont):
+                t = t[len(cont):].lstrip(" \t\n\r:;,.-–—\"'’").strip()
+                bajo = t.lower().replace("’", "'")
+                break
+        cambiado = True
+    if not cambiado:
+        return texto
+    return t if t else texto
+
 
 def extraer_keywords(
     ruta_imagen: str,
@@ -206,7 +292,9 @@ def describir_imagen(
     """
     ruta_proxy = obtener_proxy(ruta_imagen, usar_proxy=usar_proxy)
     cliente = OllamaVision(modelo=modelo)
-    return cliente.analizar_imagen(ruta_proxy, PROMPT_DESCRIBIR, temperatura)
+    return limpiar_meta_intro(
+        cliente.analizar_imagen(ruta_proxy, PROMPT_DESCRIBIR, temperatura)
+    )
 
 
 def analizar_imagen_completo(
@@ -354,7 +442,7 @@ def _descripcion_utilizable(respuesta: str) -> str:
         # Intentar sacar SOLO el campo description si es JSON parseable
         datos = _reparar_json(texto)
         if datos and isinstance(datos.get("description"), str):
-            desc = datos["description"].strip()
+            desc = limpiar_meta_intro(datos["description"])
             if len(desc) >= 5:
                 return desc
         return ""
@@ -379,10 +467,10 @@ def _descripcion_utilizable(respuesta: str) -> str:
         idx = bajo.find(marca)
         resto = texto[idx + len(marca):].strip(" ,.:;'\"").strip()
         if len(resto) >= 5:
-            return resto
+            return limpiar_meta_intro(resto)
         return ""
 
-    return texto
+    return limpiar_meta_intro(texto)
 
 
 def _reparar_json(texto: str) -> Optional[dict]:
@@ -489,6 +577,7 @@ def _parsear_combinado(respuesta: str) -> Optional[dict]:
             keywords = [str(keywords)]
         if not isinstance(description, str):
             description = str(description)
+        description = limpiar_meta_intro(description)
         return {"keywords": keywords, "description": description}
 
     # Si no se pudo parsear, buscar keywords con _parsear_keywords y descripción en el resto

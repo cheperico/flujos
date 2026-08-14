@@ -1,7 +1,7 @@
 """
 fluir_callbacks.dat - Callbacks del receptor de retorno del "Fluir" (OSC 9002).
 
-El cerebro Python (`scripts/puente_td.py` modo 'fluir') envía por el puerto
+El cerebro Python (`scripts/td/puente_td.py` modo 'fluir') envía por el puerto
 9002 un contrato POR TIPO, en este orden exacto:
 
     /flujos/fluir/resumen <total> <loop_secs> <image> <video> <audio> <text>

@@ -51,13 +51,13 @@ log = logging.getLogger("import_telegram")
 
 JSON_FILENAME = "result.json"
 
-# Mapeo de media_type de Telegram a type de media table
+# Mapeo de media_type de Telegram a type de media table.
+# Los stickers NO entran: son decoración del chat y nunca se ingieren como media.
 MEDIA_TYPE_MAP = {
     "photo": "image",
     "video_file": "video",
     "animation": "video",
     "voice_message": "audio",
-    "sticker": "image",
     "document": "other",
 }
 
@@ -187,8 +187,11 @@ def detectar_type_media(media_type: str, mime_type: str) -> str:
         return "video"
     if media_type in ("voice_message", "audio_file", "audio"):
         return "audio"
+    # Sticker: solo chat, nunca se ingiere como media. La ruta de ingesta lo
+    # salta antes de llamar a esta función, pero el mapeo no debe declararlo
+    # imagen (el mime image/webp lo inferiría como "image" incorrectamente).
     if media_type == "sticker":
-        return "image"
+        return "other"
     # Por mime_type
     if mime_type:
         if mime_type.startswith("video/"):
@@ -551,6 +554,10 @@ def procesar_export(
         for midx, mitem in enumerate(media_items):
             stats["media_registrada"] += 1
 
+            # Los stickers quedan SOLO en telegram_media (registro del chat);
+            # nunca se ingieren en media (no pasan por el pipeline).
+            es_sticker = mitem["media_type"] == "sticker"
+
             # Insertar en telegram_media
             conn.execute(
                 """
@@ -573,8 +580,11 @@ def procesar_export(
             )
             tg_media_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
 
-            # Ingerir en media table
-            if ingest_media:
+            # Ingerir en media table (los stickers se omiten: solo chat)
+            if es_sticker:
+                log.debug("  Sticker (solo chat, no se ingiere en media): %s",
+                          mitem.get("file_relative_path"))
+            elif ingest_media:
                 media_id = ingerir_media_telegram(
                     conn, export_path, mitem["file_relative_path"],
                     msg, mitem["media_type"], mitem.get("mime_type", ""),
@@ -605,12 +615,17 @@ def procesar_export(
             FROM telegram_media tgm
             JOIN telegram_messages tm ON tgm.message_id = tm.id
             WHERE tgm.media_id IS NULL AND tgm.file_relative_path != ''
+              AND tgm.media_type != 'sticker'   -- los stickers nunca se recuperan como media
         """).fetchall()
         if pendientes:
             log.info("Recuperando %d medios pendientes (archivos que no estaban disponibles antes)...",
                      len(pendientes))
             for row in pendientes:
                 tg_media_id, file_rel, media_type_tg, mime_t, msg_db_id = row
+                # Defensa extra: si por alguna razón llegara un sticker, se salta
+                # (solo chat, nunca ingerido como media).
+                if media_type_tg == "sticker":
+                    continue
                 if not os.path.isfile(os.path.normpath(os.path.join(export_path, file_rel))):
                     continue
                 # Obtener datos del mensaje original para el ingest

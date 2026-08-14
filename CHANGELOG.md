@@ -7,6 +7,23 @@ Las versiones corresponden a entregas funcionales, no a releases semánticas.
 
 ---
 
+## [Entrega 28] — 2026-08-13
+
+### Cambiado
+- **Stickers de Telegram ya no se ingieren como media**: quedan solo en las tablas del chat (`telegram_messages`/`telegram_media`, documentan la conversación) y nunca entran a la tabla `media` (pipeline de enriquecimiento). `import_telegram.py` ajusta el mapeo (`detectar_type_media` → `other`), salta la ingesta de stickers en el loop principal y excluye stickers de la recuperación de medios pendientes. Nuevo script `scripts/limpiar_stickers.py` para limpiar los 10 stickers ya ingeridos (dry-run + backup automático en `db/backups/`).
+
+---
+
+## [Entrega 27] — 2026-08-13
+
+### Añadido
+- **TUI Visualizaciones → opción 3 "TouchDesigner (puente OSC)"**: expone los modos de `scripts/td/puente_td.py` y `scripts/td/osc_probe.py` en el TUI para operar TouchDesigner sin consola — enviar colores a TD, nube de tags (keywords, `--max-tags`), elecciones (horas, municipios, colores, tags, días, clima; `--grupo`), imágenes de un color (`--cant`), loop completo (`enviar`), modo "Fluir" (submenú con escuchar una ráfaga `--una-vez` / escucha continua, ambos con `--loop-secs`) y probar OSC (eco) con puerto y ventana configurables. Todos los modos del puente pasan `--db` con la ruta resuelta y la salida se fuerza a UTF-8 (`PYTHONIOENCODING`).
+
+### Cambiado
+- **Scripts TD movidos a `scripts/td/`**: `puente_td.py`, `elecciones.py` y `osc_probe.py` pasan a `scripts/td/` (antes en `scripts/`); se corrigió la resolución de rutas (bootstrap standalone, `_importar_loop_db` y spec default `td/spec_fluir.json`). `loop_db.py`/`loop_engine.py` NO se mueven (agnósticos del renderizador). Documentación actualizada.
+
+---
+
 ## [Entrega 26] — 2026-08-11
 
 ### Añadido
@@ -16,8 +33,8 @@ Las versiones corresponden a entregas funcionales, no a releases semánticas.
 - **Fase 3 — Keypoints semánticos de video** (`scripts/ai_media/keypoints_video.py`): desde `video_analysis` escribe en `media_keypoints` key=`escena` (keywords de la escena) y key=`keyword` (keyword individual), source='ollama', con `timestamp_offset_secs` = inicio de la escena. Sentinel `media_metadata.keypoints_video_estado` (`ok` | `sin_datos`). NO toca los keypoints de transcripción (`key='transcription'`).
 - **Fase 4 — Keypoints de contexto (devenir geográfico)** (`scripts/keypoints_contexto.py`): F1 interpola la posición del medio contra los tracks GPX (multi-track con prioridad contiene → solapa → cercano → sin_rango; muestreo cada `--intervalo` 30 s), F2 transiciones baratas (elevación ±50 m, día/crepúsculo/noche, movimiento ≤5 km/h), F3 enriquece con Georef + clima en frecuencia gruesa (300 s) con cache en memoria y JSON, F4 escribe `media_keypoints` key=`contexto_*` (`contexto_elevacion`, `contexto_astronomia`, `contexto_ubicacion`, `contexto_clima`, `contexto_movimiento`) con source `track_interpolado` | `estimado` | `gps_propio`. Sentinel `media_metadata.keypoints_contexto_estado` (`ok` | `sin_datos`). TUI Mejorar DB Hoja 3 → 2; CLI `flujos.py keypoints-contexto` / `keypoints`.
 - **TUI Mejorar DB → Hoja 3 "Analisis de video"**: opción 1) Analizar video (escenas + IA), 2) Keypoints de contexto. La Hoja 2 pasa a tener navegación bidireccional (p Anterior / n Siguiente).
-- **TUI Visualizaciones → opción 2 "Exportar visualización web (deploy)"**: submenú con deploy a `deploy/` (default) o a otra carpeta — en ambos casos **pregunta si transcodificar** videos grandes/360° a MP4 web (S/n) —, re-exportar snapshot local (`--snapshot-local`, `web3/db/visualizacion.db` sin copiar medios), regenerar spec del loop (`loop_db.py --salida web3/spec.json`) y previsualizar deploy (`--dry-run`).
-- **Exportador genérico de deploy** (`scripts/exportar_visualizacion.py`, movido desde `web3/scripts/`): el script ya no pertenece a web3 sino al pipeline — sirve a **cualquier implementación web** (web3 es solo un destino posible). Deploy por defecto a `deploy/` (raíz del proyecto) con copia de medios a `<dir>/media/...` y transcode opcional (`--no-transcode`, `--transcode-box`, `--transcode-360-largo`, `--dry-run`); `--snapshot-local` conserva el comportamiento dev del prototipo web3 (rutas absolutas, sin copiar). Documentado en `docs/web3.md`.
+- **TUI Visualizaciones → opción 2 "Exportar visualización web (deploy)"**: submenú con deploy a `deploy/` (default) o a otra carpeta — en ambos casos **pregunta si transcodificar** videos grandes/360° a MP4 web (S/n) —, re-exportar snapshot local (`--snapshot-local`, `deploy/db/visualizacion.db` sin copiar medios), regenerar spec del loop (`loop_db.py --salida deploy/spec.json`) y previsualizar deploy (`--dry-run`).
+- **Exportador genérico de deploy** (`scripts/exportar_visualizacion.py`, movido desde la web prototipo): el script ya no pertenece a la web prototipo sino al pipeline — sirve a **cualquier implementación web** (deploy es solo un destino posible). Deploy por defecto a `deploy/` (raíz del proyecto) con copia de medios a `<dir>/media/...` y transcode opcional (`--no-transcode`, `--transcode-box`, `--transcode-360-largo`, `--dry-run`); `--snapshot-local` conserva el comportamiento dev local (rutas absolutas, sin copiar). Documentado en `docs/deploy.md`.
 
 ### Cambiado
 - **Fase 0 — `content_hash_video` eliminado de la ingesta** (`scripts/ingest.py`): el hash de contenido para videos (frame a 0.5 s, débil) desaparece — `content_hash` = `file_hash` para videos; se quitó la opción `--compute-video-hash` y la notificación de duplicados por content_hash en video (imágenes mantienen phash). ROADMAP Etapa 2 actualizado a Hecho.
@@ -90,7 +107,7 @@ Las versiones corresponden a entregas funcionales, no a releases semánticas.
 - **`docs/lecciones_elecciones_td.md` — "Decisión clave" de canal de retorno**: documentado que el "Fluir" es un evento único (descarga de la tabla acumulada; no hay toggles individuales en el wire) y que la respuesta NO debe tocar `osc_in1`/9000 — el retorno va por **9002 separado + `osc_in2`** (tabla de los 3 canales OSC definitiva). ROADMAP Etapa 5 "Fluir" actualizado a "en implementación".
 
 ### Cambiado
-- **`scripts/puente_td.py` — docstring/epilog**: nuevo modo `fluir` documentado con ejemplo de prueba sin TD (3 terminales: `fluir` + enviador + `osc_probe.py` 9002).
+- **`scripts/td/puente_td.py` — docstring/epilog**: nuevo modo `fluir` documentado con ejemplo de prueba sin TD (3 terminales: `fluir` + enviador + `osc_probe.py` 9002).
 
 ---
 
@@ -156,7 +173,7 @@ Las versiones corresponden a entregas funcionales, no a releases semánticas.
 - **Limpieza de la DB**: se confirmó que "otras" fue insertada COMO EXTRA (no reemplazó ningún keyword válido: 0 casos con ES vacío teniendo EN). Se borró el token "otras" de los 544 registros `ia_keywords` **sin re-traducir** (no se perdió información). Backup previo en `db/backups/`.
 - **Docs**: README.md (image_analysis "17 géneros" → "keywords libres"; `ia_keywords` sin género), ROADMAP.md ("17 géneros" → "libres"; refinar sin embeddings), notas de código en image_analysis/refinar/traducir.
 - **`refinar_keywords.py`** gana `--clave` para procesar `ia_keywords_transcripcion` (keywords de audios/videos salidas de `keywords_transcripciones.py`), y en `SINONIMOS` se dieron grupos propios a `camino` y `gente` (dejaron de colapsar a `ruta`/`personas`) y a `autopista` (unifica `autovía`/`highway`/`freeway`/`motorway`, ya no colapsa a `ruta` — en el dominio es "ruta más ancha, más tráfico", significado distinto). Pasada real sobre `ia_keywords_transcripcion` (140 registros, 109 actualizados) + restauración del único caso que la pasada previa había unificado (`autopista→ruta` en media 780). El diccionario quedó idempotente: re-correr no re-convierte `autopista`.
-- **Nube de tags web3 corregida** (`web3/api/tags.php`): ya NO tokeniza las descripciones (`ia_description`) en bruto — eso inyectaba ruido de redacción de la IA (`sugiere` ×1191, `indica` ×675, `entorno`, `general`) y recortaba frases compuestas ("entorno rural" → "entorno") al contar palabras sueltas. Ahora cuenta las **keywords completas** (`ia_keywords`), respetando "entorno rural"/"general mendoza" y filtrando con `KEYWORDS_A_IGNORAR` (mismo criterio que `puente_td.py`/`elecciones.py`). Requiere columna `keywords` en `visualizacion.db` → agregada a `web3/scripts/exportar_visualizacion.py` (lee `ia_keywords`). Snapshot re-exportado (1522 medios, 702 con keywords); verificado con PHP: nube = `bicicleta` (290), `ciclismo` (259), `ruta` (128), sin el ruido.
+- **Nube de tags web corregida** (`deploy/api/tags.php`): ya NO tokeniza las descripciones (`ia_description`) en bruto — eso inyectaba ruido de redacción de la IA (`sugiere` ×1191, `indica` ×675, `entorno`, `general`) y recortaba frases compuestas ("entorno rural" → "entorno") al contar palabras sueltas. Ahora cuenta las **keywords completas** (`ia_keywords`), respetando "entorno rural"/"general mendoza" y filtrando con `KEYWORDS_A_IGNORAR` (mismo criterio que `puente_td.py`/`elecciones.py`). Requiere columna `keywords` en `visualizacion.db` → agregada a `scripts/exportar_visualizacion.py` (lee `ia_keywords`). Snapshot re-exportado (1522 medios, 702 con keywords); verificado con PHP: nube = `bicicleta` (290), `ciclismo` (259), `ruta` (128), sin el ruido.
 
 ---
 
@@ -350,7 +367,7 @@ Las versiones corresponden a entregas funcionales, no a releases semánticas.
 ## [Entrega 7] — 2026-07-22
 
 ### Añadido
-- **Puente TouchDesigner** (`scripts/puente_td.py`): cerebro Python que consulta la DB y envía datos a TD vía OSC. Modos: `enviar` (loop colores→selección→imágenes), `colores`, `enviar_imgs`, `nube` (genera nube de tags desde keywords).
+- **Puente TouchDesigner** (`scripts/td/puente_td.py`): cerebro Python que consulta la DB y envía datos a TD vía OSC. Modos: `enviar` (loop colores→selección→imágenes), `colores`, `enviar_imgs`, `nube` (genera nube de tags desde keywords).
 - **Scripts TD externalizados** en `td/`: `osc_callbacks.dat` (callbacks OSC In DAT) y `nube_generar.dat` (generación de nube de etiquetas en TD). Se vinculan desde DATs internos con `File` + `Sync to File = ON`.
 - **`.opencode/` y `opencode.json`** ignorados por git (config local del agente).
 

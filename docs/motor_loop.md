@@ -3,7 +3,7 @@
 > Diseño del motor de presentación en loop. Complementa `diseno_instalacion.md`
 > (concepto) y `linea_de_tiempo.md` (línea temporal). Aquí se define la
 > **matemática y la arquitectura** concretas para implementar el cerebro
-> agnóstico del renderizador (web3 / TouchDesigner).
+> agnóstico del renderizador (deploy / TouchDesigner).
 > Sesión de diseño: Ago 2026.
 
 ---
@@ -21,7 +21,7 @@ Un módulo Python puro (sin dependencias de renderizador) que:
    - **Chiches** (eventos ambientales) disparados en el instante del loop
      donde su condición está activa.
 4. Devuelve una **especificación en JSON**, agnóstica del renderizador,
-   que web (`web3/js/app.js`) y TD (`scripts/puente_td.py`/OSC) consumen
+   que web (`deploy/js/app.js`) y TD (`scripts/td/puente_td.py`/OSC) consumen
    igual.
 
 > El motor NO reproduce nada. Solo produce el "guión" (timeline compilado).
@@ -197,7 +197,7 @@ docs/motor_loop.md                   # ← este documento
 Reglas:
 - `loop_engine` **NO importa sqlite ni web** — funciones puras (testeable).
 - `loop_db` importa `loop_engine` + `db.util`.
-- Si exporta hacia web: `loop_motor` también puede emitir JSON y el web3
+- Si exporta hacia web: `loop_motor` también puede emitir JSON y el web
   `app.js` lo consume; si es TD, `puente_td.py` lo envía vía OSC o JSON.
 
 ---

@@ -2,16 +2,29 @@
 """
 traducir_metadata.py — Traduce keywords y descripciones IA de EN → ES sobre la DB.
 
-El pipeline nuevo genera keywords/descripciones con minicpm en INGLÉS y las
-guarda en claves temporales (`ia_keywords_en`, `ia_description_en`). Este
-script lee esas claves, traduce con un modelo de texto (translategemma) y escribe
-los resultados definitivos en español (`ia_keywords`, `ia_description`).
+El pipeline genera keywords/descripciones con minicpm en INGLÉS y las guarda en
+claves temporales (`ia_keywords_en`, `ia_description_en`). Este script lee esas
+claves, traduce y escribe los resultados definitivos en español
+(`ia_keywords`, `ia_description`).
+
+Motor de traducción (--motor):
+  - google (default): glosario + deep_translator.GoogleTranslator (gratis, sin
+    API key). Las keywords se resuelven con el glosario (glosario_keywords.json)
+    y solo las palabras desconocidas van al motor; las descripciones van al
+    motor + reemplazos rioplatenses. NO usa Ollama.
+  - argos: igual pero con Argos Translate (offline, descarga el paquete en→es
+    en el primer uso).
+  - glosario: solo léxico (keywords con glosario; descripciones con motor
+    Google por defecto de glosario). NO usa Ollama.
+  - ollama: pipeline legacy con translategemma (requiere el servidor Ollama).
+
+El glosario se amplía con palabras desconocidas traducidas por el motor
+(origen=auto) salvo que se pase --no-agregar-glosario.
 
 Por qué sobre la DB:
-  - La traducción es texto puro (~2-9s por imagen) contra ~15-20s de visión.
+  - La traducción es texto puro contra ~15-20s de visión.
   - No re-procesa imágenes: se puede re-ejecutar con --mode skip cuantas veces
     haga falta sin costo.
-  - 1 sola llamada por imagen (keywords + descripción juntas en JSON).
 
 Flujo completo:
   1. Visión:  improve_db --steps keywords,descriptions  → escribe *_en
@@ -19,12 +32,13 @@ Flujo completo:
   3. Refinamiento: refinar_keywords.py --mode update
 
 Uso:
-    python scripts/ai_media/traducir_metadata.py                  # ambos pasos
-    python scripts/ai_media/traducir_metadata.py --paso keywords  # solo keywords
+    python scripts/ai_media/traducir_metadata.py                          # ambos pasos (google)
+    python scripts/ai_media/traducir_metadata.py --paso keywords          # solo keywords
     python scripts/ai_media/traducir_metadata.py --paso descriptions
-    python scripts/ai_media/traducir_metadata.py --dry-run        # previsualizar
-    python scripts/ai_media/traducir_metadata.py --mode update    # re-traduce todo
-    python scripts/ai_media/traducir_metadata.py --modelo translategemma
+    python scripts/ai_media/traducir_metadata.py --dry-run                # previsualizar
+    python scripts/ai_media/traducir_metadata.py --mode update            # re-traduce todo
+    python scripts/ai_media/traducir_metadata.py --motor argos            # offline
+    python scripts/ai_media/traducir_metadata.py --motor ollama --modelo translategemma
 
 Modos:
     skip    → solo registros que tienen EN y aún NO tienen ES (default)
@@ -226,7 +240,15 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--paso", default="ambos", choices=["keywords", "descriptions", "ambos"],
                         help="Qué traducir (default: ambos)")
     parser.add_argument("--modelo", default=MODELO_TRADUCCION_DEFAULT,
-                        help=f"Modelo de texto para traducción (default: {MODELO_TRADUCCION_DEFAULT})")
+                        help=f"Modelo de texto para traducción ollama (default: {MODELO_TRADUCCION_DEFAULT})")
+    parser.add_argument("--motor", default="google",
+                        choices=["glosario", "google", "argos", "ollama"],
+                        help="Motor de traducción: google (default, sin Ollama) | "
+                             "argos (offline) | glosario (solo léxico) | ollama (legacy con translategemma)")
+    parser.add_argument("--glosario", default=None,
+                        help="Ruta al glosario JSON (default: glosario_keywords.json en la raíz del proyecto)")
+    parser.add_argument("--no-agregar-glosario", action="store_true",
+                        help="NO ampliar el glosario con palabras nuevas (default: se amplía con origen=auto)")
     parser.add_argument("--mode", default="skip", choices=["skip", "update", "replace"],
                         help="skip: solo EN sin ES (default) | update: re-traduce todos | replace: limpia y traduce")
     parser.add_argument("--limit", type=int, default=None,
@@ -322,9 +344,22 @@ def _ejecutar(conn, args, rows) -> None:
     """
     Traduce los registros EN → ES sobre la DB (paso real del script).
 
-    Separado de main() para poder envolverlo en manejar_interrupcion sin
-    re-indentar el cuerpo (mismo nivel de indentación de función). El guardado
-    por ítem (cada 25 registros) ya existía y no se modifica.
+    Separa el trabajo real de main() para poder envolverlo en
+    manejar_interrupcion sin re-indentar el cuerpo. El guardado por ítem
+    (cada 25 registros) ya existía y no se modifica.
+    """
+    if args.motor == "ollama":
+        _ejecutar_ollama(conn, args, rows)
+    else:
+        _ejecutar_glosario(conn, args, rows)
+
+
+def _ejecutar_ollama(conn, args, rows) -> None:
+    """
+    Pipeline legacy: traduce con Ollama (translategemma) vía traducir_llamada.
+
+    Es EXACTAMENTE el comportamiento histórico del script. Solo se usa con
+    --motor ollama.
     """
     # Importar ollama y asegurar que el servidor esté corriendo
     try:
@@ -382,6 +417,99 @@ def _ejecutar(conn, args, rows) -> None:
             errors += 1
 
     conn.commit()
+    total = time.perf_counter() - t_inicio
+    log.info("  ✅ Traducción completa: %d ok | %d errores | %.1fs (%.2fs/img)",
+             ok, errors, total, total / max(1, ok + errors))
+    conn.close()
+
+
+def _ejecutar_glosario(conn, args, rows) -> None:
+    """
+    Pipeline NO-AI: traduce con glosario + motor clásico (sin Ollama).
+
+    - keywords: glosario.traducir_keywords(); las palabras desconocidas se
+      traducen con el motor (cache por corrida: una vez por palabra) y, salvo
+      --no-agregar-glosario, se agregan al glosario con origen=auto (guardado
+      periódico y al final).
+    - descriptions: glosario.traducir_descripcion() (motor + reemplazos
+      rioplatenses).
+    """
+    from scripts.ai_media.glosario import Glosario, crear_motor, traducir_con_motor
+
+    glosario = Glosario(args.glosario)
+    glosario.cargar()
+    motor = crear_motor(args.motor)  # None para 'glosario'
+    if motor is not None:
+        glosario.motor = motor
+    agregar_glosario = not args.no_agregar_glosario
+
+    cache_desconocidas: dict[str, str] = {}
+    agregadas = 0
+    ok = 0
+    errors = 0
+    t_inicio = time.perf_counter()
+    for i, r in enumerate(rows, 1):
+        mid = r["id"]
+        kw_en = leer_valor_db(r["kw_en"])
+        desc_en = r["desc_en"] or ""
+
+        cambios = []
+        try:
+            if args.paso in ("keywords", "ambos") and kw_en:
+                traducidas, desconocidas = glosario.traducir_keywords(kw_en)
+                if motor is not None and desconocidas:
+                    # Traducir cada palabra desconocida UNA vez por corrida
+                    for palabra in desconocidas:
+                        if palabra not in cache_desconocidas:
+                            cache_desconocidas[palabra] = traducir_con_motor(motor, palabra)
+                            if cache_desconocidas[palabra] and agregar_glosario:
+                                glosario.agregar_entradas(
+                                    {palabra: cache_desconocidas[palabra]}, origen="auto")
+                                agregadas += 1
+                    # Reemplazar las desconocidas ya traducidas dentro de cada keyword
+                    for palabra, trad in cache_desconocidas.items():
+                        if not trad:
+                            continue
+                        traducidas = [
+                            re.sub(rf"\b{re.escape(palabra)}\b", trad, t,
+                                   flags=re.IGNORECASE)
+                            for t in traducidas
+                        ]
+                if traducidas:
+                    conn.execute(
+                        "INSERT OR REPLACE INTO media_metadata (media_id, key, value) VALUES (?, ?, ?)",
+                        (mid, CLAVE_KW_ES, ", ".join(traducidas)))
+                    cambios.append(f"kw={traducidas}")
+
+            if args.paso in ("descriptions", "ambos") and desc_en:
+                desc_es = glosario.traducir_descripcion(desc_en)
+                if desc_es:
+                    conn.execute(
+                        "INSERT OR REPLACE INTO media_metadata (media_id, key, value) VALUES (?, ?, ?)",
+                        (mid, CLAVE_DESC_ES, desc_es))
+                    cambios.append(f"desc={desc_es[:80]}...")
+        except Exception as e:
+            log.warning("  ⚠ Error traduciendo media %s: %s", mid, e)
+            errors += 1
+            continue
+
+        if cambios:
+            ok += 1
+            if args.verbose:
+                log.info("  [media %s] %s", mid, " | ".join(cambios))
+        else:
+            log.warning("  ⚠ Sin resultado para media %s (paso=%s)", mid, args.paso)
+            errors += 1
+
+        if i % 25 == 0:
+            conn.commit()
+            if agregadas > 0:
+                glosario.guardar()
+            log.info("  Progreso: %d/%d (%d ok, %d err)", i, len(rows), ok, errors)
+
+    conn.commit()
+    if agregadas > 0:
+        glosario.guardar()
     total = time.perf_counter() - t_inicio
     log.info("  ✅ Traducción completa: %d ok | %d errores | %.1fs (%.2fs/img)",
              ok, errors, total, total / max(1, ok + errors))

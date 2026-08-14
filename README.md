@@ -212,12 +212,23 @@ Al ejecutar `python flujos.py` sin argumentos se ingresa al menú TUI:
 
 6. Visualizaciones
   ├─ 1. Mapa de ruta (Folium)
-  └─ 2. Exportar visualización web (deploy web3)
+  ├─ 2. Exportar visualización web (deploy)
       ├─ 1. Deploy a deploy/ (pregunta si transcodificar)
       ├─ 2. Deploy a otra carpeta (pregunta si transcodificar)
-      ├─ 3. Re-exportar snapshot local (web3/db, sin copiar medios)
-      ├─ 4. Regenerar spec del loop (web3/spec.json)
+      ├─ 3. Re-exportar snapshot local (deploy/db, sin copiar medios)
+      ├─ 4. Regenerar spec del loop (deploy/spec.json)
       ├─ 5. Previsualizar deploy (dry-run)
+      └─ 0. Volver
+  └─ 3. TouchDesigner (puente OSC)
+      ├─ 1. Enviar colores a TD
+      ├─ 2. Enviar nube de tags (keywords)
+      ├─ 3. Enviar elecciones (horas, municipios, colores, tags, días, clima)
+      ├─ 4. Enviar imágenes de un color
+      ├─ 5. Enviar loop completo (colores → selección → imágenes)
+      ├─ 6. Modo "Fluir" (recibir ráfaga de TD y generar loop)
+      │   ├─ 1. Escuchar una ráfaga y salir
+      │   └─ 2. Escucha continua (Ctrl+C para salir)
+      ├─ 7. Probar OSC (eco)
       └─ 0. Volver
 
 9. Ayuda
@@ -250,7 +261,7 @@ Todas las operaciones que modifican la DB preguntan el modo
 | `scripts/astronomia.py` | Posición del sol (NOAA), clasificación twilight | Enriquecimiento |
 | `scripts/limpiar_tandas.py` | Selección de mejor imagen por tanda | Curación |
 | `scripts/mover_descartadas.py` | Mueve imágenes descartadas a carpeta excluir/ | Curación |
-| `scripts/puente_td.py` | Puente BD → TouchDesigner vía OSC | Instalación |
+| `scripts/td/puente_td.py` | Puente BD → TouchDesigner vía OSC | Instalación |
 | `scripts/mapa_ruta.py` | Mapa interactivo con Folium | Consulta |
 | `scripts/check_db.py` | Inspección de la DB | Consulta |
 | `scripts/check_gps.py` | Verifica GPS en archivos via ExifTool | Consulta |
@@ -624,7 +635,7 @@ python -c "import PIL, webcolors, tqdm, pythonosc, ollama, faster_whisper, numpy
 ```
 
 Usado como motor de reproducción audiovisual de la instalación.
-Recibe datos vía OSC desde `scripts/puente_td.py`.
+Recibe datos vía OSC desde `scripts/td/puente_td.py`.
 
 ### Notas sobre CUDA (opcional)
 
@@ -661,7 +672,7 @@ pip install torch --index-url https://download.pytorch.org/whl/cu121
 | `docs/limpieza_tandas_resultados.md` | Comparativa de estrategias de limpieza |
 | `docs/semantica_color.md` | Capa semántica del color: significados, Kuleshov effect, cross-modal retrieval |
 | `docs/calculo_astronomico.md` | Cálculo astronómico de posición de sol y luna |
-| `docs/visualizaciones.md` | Decisiones de diseño de la visualización web3 |
+| `docs/visualizaciones.md` | Decisiones de diseño de la visualización web (deploy) |
 | `docs/diseno_instalacion.md` | Diseño de la instalación: flujo DB → elecciones → loop |
 | `docs/ideas_externas.md` | Ideas de terceros para la instalación |
 
@@ -716,7 +727,7 @@ pip install torch --index-url https://download.pytorch.org/whl/cu121
 │   ├── audio_frame_crossref.py  # Correlación audio ↔ frames
 │   ├── fix_gps_sign.py        # Corrección de signo GPS
 │   ├── test_gradiente.py      # Tests de gradiente
-│   └── ai_media/              # Scripts de IA
+│   ├── ai_media/              # Scripts de IA
 │       ├── __init__.py
 │       ├── ollama_client.py
 │       ├── image_analysis.py
@@ -735,8 +746,12 @@ pip install torch --index-url https://download.pytorch.org/whl/cu121
 │       ├── loop_engine.py          # Motor de loop: núcleo puro
 │       ├── loop_db.py              # Motor de loop: integración con DB
 │       └── proxy.py
+│   └── td/                    # Scripts TouchDesigner (Python)
+│       ├── puente_td.py       # Puente BD → TouchDesigner (OSC)
+│       ├── elecciones.py      # Nubes de elecciones (DB → TD)
+│       └── osc_probe.py       # Eco OSC de diagnóstico
 │
-├── td/                        # Scripts TouchDesigner
+├── td/                        # Archivos TouchDesigner (.dat/.toe)
 │   ├── osc_callbacks.dat      # Callbacks OSC In DAT
 │   └── elecciones_ui.dat      # Generación de UI de elecciones (botones)
 │

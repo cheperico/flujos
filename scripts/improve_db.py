@@ -37,11 +37,13 @@ FLUJO IA (keywords/descriptions/combinado):
     Los modelos de visión (minicpm) responden mejor en inglés, así que el
     pipeline interno genera EN y lo guarda en claves temporales:
         ia_keywords_en / ia_description_en
-    Luego traduce a español con un modelo de texto (translategemma) y guarda en:
+    Luego traduce a español con el pipeline NO-AI (glosario + motor clásico,
+    google por defecto) y guarda en:
         ia_keywords    / ia_description
     La INTERFAZ (lo que el usuario consume) es SIEMPRE español. El EN queda
     en DB para poder re-traducir sin re-correr visión (--mode update).
     Traducción reutilizable: scripts/ai_media/traducir_metadata.py
+    (--motor ollama conserva el pipeline legacy con translategemma).
 """
 
 import argparse
@@ -429,12 +431,13 @@ def _procesar_vision(conn, mode, stats, nombre, fn_vision, clave_en, clave_es,
 
 
 def _traducir_metadata(conn, mode, stats, nombre, clave_en, clave_es, paso,
-                       modelo_traduccion="translategemma"):
+                       modelo_traduccion="translategemma", motor="google"):
     """
     Fase B de keywords/descriptions: traduce EN → ES sobre la DB.
 
-    Lee registros con clave_en y traduce con un modelo de texto, guardando
-    el resultado en clave_es.
+    Lee registros con clave_en y traduce con el pipeline NO-AI (glosario +
+    motor clásico, google por defecto) o, si motor == "ollama", con el
+    pipeline legacy (translategemma). Escribe el resultado en clave_es.
 
     Args:
         conn: conexión a la DB.
@@ -443,12 +446,12 @@ def _traducir_metadata(conn, mode, stats, nombre, clave_en, clave_es, paso,
         nombre: nombre del paso ("keywords" | "descriptions").
         clave_en: clave con el texto EN.
         clave_es: clave donde se escribe el ES.
-        paso: "keywords" | "descriptions" | "ambos" para traducir_llamada.
-        modelo_traduccion: modelo de texto (default translategemma).
+        paso: "keywords" | "descriptions" | "ambos".
+        modelo_traduccion: modelo de texto legacy (solo motor ollama).
+        motor: motor de traducción: "google" (default) | "argos" |
+               "glosario" (solo léxico) | "ollama" (legacy con IA).
     """
-    log.info("  [Fase B] Traducción (%s → %s)", clave_en, clave_es)
-
-    from scripts.ai_media.traducir_metadata import traducir_llamada, leer_valor_db
+    log.info("  [Fase B] Traducción (%s → %s) [motor=%s]", clave_en, clave_es, motor)
 
     if mode == "skip":
         query = f"""
@@ -475,6 +478,19 @@ def _traducir_metadata(conn, mode, stats, nombre, clave_en, clave_es, paso,
     if not rows:
         log.info("  No hay registros para traducir.")
         return
+
+    if motor == "ollama":
+        _traducir_metadata_ollama(conn, rows, nombre, clave_es, paso,
+                                  modelo_traduccion, stats)
+    else:
+        _traducir_metadata_glosario(conn, rows, nombre, clave_es, paso,
+                                    motor, stats)
+
+
+def _traducir_metadata_ollama(conn, rows, nombre, clave_es, paso,
+                              modelo_traduccion, stats):
+    """Traduce EN → ES con el pipeline legacy de Ollama (translategemma)."""
+    from scripts.ai_media.traducir_metadata import traducir_llamada, leer_valor_db
 
     cliente = _crear_cliente_texto()
     ok = 0
@@ -547,14 +563,96 @@ def _traducir_metadata(conn, mode, stats, nombre, clave_en, clave_es, paso,
     stats[f"traduccion_{nombre}_err"] = errors
 
 
+def _traducir_metadata_glosario(conn, rows, nombre, clave_es, paso,
+                                motor, stats):
+    """Traduce EN → ES con glosario + motor clásico (sin Ollama)."""
+    from scripts.ai_media.glosario import Glosario, crear_motor
+    from scripts.ai_media.traducir_metadata import leer_valor_db
+
+    glosario = Glosario()
+    glosario.cargar()
+    motor_instancia = crear_motor(motor)  # None para 'glosario'
+    if motor_instancia is not None:
+        glosario.motor = motor_instancia
+
+    ok = 0
+    errors = 0
+
+    # Checkpoint por lote: commit cada `cada` traducciones (antes un solo
+    # commit al final que perdía todo el progreso si se cortaba la corrida).
+    from scripts.ai_media.checkpoint import Checkpoint
+    cp = Checkpoint(conn, cada=20, etiqueta=f"traduccion_{nombre}")
+
+    for mid, v_en in tqdm(rows, desc=f"  Traduciendo {mostrar_label_nombre(paso)}",
+                          unit="img", ncols=80):
+        try:
+            if paso == "keywords":
+                kw_en = leer_valor_db(v_en)
+                traducidas, _ = glosario.traducir_keywords(kw_en)
+                if traducidas:
+                    conn.execute(
+                        "INSERT OR REPLACE INTO media_metadata (media_id, key, value) VALUES (?, ?, ?)",
+                        (mid, clave_es, ", ".join(traducidas)))
+                    ok += 1
+                else:
+                    log.warning("  ⚠ Sin traducción para media %s", mid)
+                    errors += 1
+            elif paso == "descriptions":
+                desc_es = glosario.traducir_descripcion(v_en or "")
+                if desc_es:
+                    conn.execute(
+                        "INSERT OR REPLACE INTO media_metadata (media_id, key, value) VALUES (?, ?, ?)",
+                        (mid, clave_es, desc_es))
+                    ok += 1
+                else:
+                    log.warning("  ⚠ Sin traducción para media %s", mid)
+                    errors += 1
+            else:  # ambos: lee las dos claves EN y escribe las dos ES
+                fila_kw = conn.execute(
+                    "SELECT value FROM media_metadata WHERE media_id=? AND key=?",
+                    (mid, CLAVE_KW_EN)).fetchone()
+                fila_desc = conn.execute(
+                    "SELECT value FROM media_metadata WHERE media_id=? AND key=?",
+                    (mid, CLAVE_DESC_EN)).fetchone()
+                kw_en = leer_valor_db(fila_kw[0] if fila_kw else None)
+                desc_en = (fila_desc[0] if fila_desc else "") or ""
+                cambios = 0
+                traducidas, _ = glosario.traducir_keywords(kw_en)
+                if traducidas:
+                    conn.execute(
+                        "INSERT OR REPLACE INTO media_metadata (media_id, key, value) VALUES (?, ?, ?)",
+                        (mid, CLAVE_KW_ES, ", ".join(traducidas)))
+                    cambios += 1
+                desc_es = glosario.traducir_descripcion(desc_en)
+                if desc_es:
+                    conn.execute(
+                        "INSERT OR REPLACE INTO media_metadata (media_id, key, value) VALUES (?, ?, ?)",
+                        (mid, CLAVE_DESC_ES, desc_es))
+                    cambios += 1
+                if cambios:
+                    ok += 1
+                else:
+                    log.warning("  ⚠ Sin traducción para media %s", mid)
+                    errors += 1
+        except Exception as e:
+            log.warning("  ⚠ Error traduciendo media %s: %s", mid, e)
+            errors += 1
+        cp.contar()
+
+    cp.finalizar()
+    log.info("  ✅ Traducción %s: %d  |  Errores: %d", nombre, ok, errors)
+    stats[f"traduccion_{nombre}_ok"] = ok
+    stats[f"traduccion_{nombre}_err"] = errors
+
+
 def mostrar_label_nombre(paso):
     """Etiqueta corta para la barra de progreso de traducción."""
     return {"keywords": "Keywords", "descriptions": "Descripciones",
             "ambos": "Keywords+Desc"}.get(paso, paso)
 
 
-def run_keywords(conn, db_path, mode, stats):
-    """Etiqueta imágenes con IA: visión (EN) + traducción (ES)."""
+def run_keywords(conn, db_path, mode, stats, motor="google"):
+    """Etiqueta imágenes con IA: visión (EN) + traducción (ES, motor clásico)."""
     log.info("Paso: keywords — Etiquetando imágenes con IA (EN → ES)")
 
     from scripts.ai_media.image_analysis import extraer_keywords
@@ -576,11 +674,12 @@ def run_keywords(conn, db_path, mode, stats):
         clave_en=CLAVE_KW_EN,
         clave_es=CLAVE_KW_ES,
         paso="keywords",
+        motor=motor,
     )
 
 
-def run_descriptions(conn, db_path, mode, stats):
-    """Describe imágenes con IA: visión (EN) + traducción (ES)."""
+def run_descriptions(conn, db_path, mode, stats, motor="google"):
+    """Describe imágenes con IA: visión (EN) + traducción (ES, motor clásico)."""
     log.info("Paso: descriptions — Describiendo imágenes con IA (EN → ES)")
 
     from scripts.ai_media.image_analysis import describir_imagen
@@ -602,11 +701,12 @@ def run_descriptions(conn, db_path, mode, stats):
         clave_en=CLAVE_DESC_EN,
         clave_es=CLAVE_DESC_ES,
         paso="descriptions",
+        motor=motor,
     )
 
 
-def run_combinado(conn, db_path, mode, stats):
-    """Keywords + descripción en UNA llamada de visión (EN) + 1 de traducción (ES)."""
+def run_combinado(conn, db_path, mode, stats, motor="google"):
+    """Keywords + descripción en UNA llamada de visión (EN) + 1 de traducción (ES, motor clásico)."""
     log.info("Paso: combinado — Keywords + descripción (1 visión + 1 traducción por imagen)")
 
     from scripts.ai_media.image_analysis import analizar_imagen_completo
@@ -760,6 +860,7 @@ def run_combinado(conn, db_path, mode, stats):
         clave_en=CLAVE_KW_EN,
         clave_es=CLAVE_KW_ES,
         paso="ambos",
+        motor=motor,
     )
 
 

@@ -5,10 +5,6 @@ __pycache__/
 *.db-shm
 logs/
 tmp/
-web/
-web2/
-web3/media/
-web3/db/
 mapas/
 tracks/
 .opencode/
@@ -21,8 +17,9 @@ _check_kw.py
 _keywords.py
 _keywords2.py
 models/
-deploy/
-web3/spec.json
+deploy/media/
+deploy/db/
+deploy/spec.json
 td/spec_fluir.json
 td/Backup/
 td/flujos.15.toe

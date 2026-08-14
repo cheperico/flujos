@@ -50,17 +50,19 @@ referenciados en **Dónde está la información** (al final) — consultar bajo 
 │   ├── ingest.py, improve_db.py, query.py, relocate.py, geocode.py,
 │   │   gradiente.py, astronomia.py, limpiar_tandas.py, fetch_weather.py,
 │   │   dia_semana.py, color_utils.py, ingest_gpx.py, import_telegram.py,
-│   │   puente_td.py, exportar_csv.py, mover_media.py, elecciones.py,
-│   │   mapa_ruta.py, consolidar_medios.py, fix_gps_sign.py, mover_descartadas.py,
-│   │   ingest_textos.py, keypoints_contexto.py, detectar_contenedores.py,
+│   │   exportar_csv.py, mover_media.py, mapa_ruta.py, consolidar_medios.py,
+│   │   fix_gps_sign.py, mover_descartadas.py, ingest_textos.py,
+│   │   keypoints_contexto.py, detectar_contenedores.py,
 │   │   repetir_contenido.py, audio_frame_crossref.py, exportar_visualizacion.py
 │   ├── check_db.py, check_gps.py, check_db_data.py, test_gradiente.py
-│   └── ai_media/
-│       ├── ollama_client.py, image_analysis.py, transcribe.py, transcribe_media.py,
-│       │   traducir_metadata.py, analyze_video.py, keypoints_video.py, tag_images.py,
-│       │   batch_selector.py, clustering.py, generate_embeddings.py, refinar_keywords.py,
-│       │   keywords_transcripciones.py, audio_tagging.py, checkpoint.py, proxy.py
-│       └── loop_engine.py, loop_db.py, test_motor_loop.py
+│   ├── ai_media/
+│   │   ├── ollama_client.py, image_analysis.py, transcribe.py, transcribe_media.py,
+│   │   │   traducir_metadata.py, analyze_video.py, keypoints_video.py, tag_images.py,
+│   │   │   batch_selector.py, clustering.py, generate_embeddings.py, refinar_keywords.py,
+│   │   │   keywords_transcripciones.py, audio_tagging.py, checkpoint.py, proxy.py
+│   │   └── loop_engine.py, loop_db.py, test_motor_loop.py
+│   └── td/
+│       └── puente_td.py, elecciones.py, osc_probe.py
 ├── td/
 │   ├── osc_callbacks.dat, elecciones_ui.dat, flujos.toe
 ├── docs/
@@ -178,8 +180,9 @@ Detalle de args CLI de cada script en su **docstring** (o `python script.py --he
 | `ingest_textos.py` | Ingiere textos `.md` de `textos/` como medios type='text' (frontmatter + subtítulos `##` = textos individuales) | TUI Ingesta→5; CLI `flujos.py ingest-textos` / `textos` |
 | `exportar_csv.py` | Exporta tablas a CSV en `db/exports/<timestamp>/` | TUI Mantenimiento→7; CLI `flujos.py export-csv` |
 | `exportar_visualizacion.py` | Exporta snapshot de la DB → visualizacion.db; deploy genérico a deploy/ (por defecto) con copia de medios y transcode web | TUI Visualizaciones→2; CLI no (solo TUI) |
-| `puente_td.py` | Puente BD → TouchDesigner vía OSC (9000→TD, 9001←TD) | Standalone: `python scripts/puente_td.py enviar` |
-| `osc_probe.py` | Eco OSC: escucha lo que llega a un puerto y lo imprime. Test rápido TD→Python sin puente completo | Standalone: `python scripts/osc_probe.py 9001 [segundos]` |
+| `td/puente_td.py` | Puente BD → TouchDesigner vía OSC (9000→TD, 9001←TD) | TUI Visualizaciones→3; CLI `python scripts/td/puente_td.py <modo>` |
+| `td/elecciones.py` | Nubes de elecciones (metadatos seleccionables: horas, municipios, colores, tags, días, clima) → TD vía OSC (9000) | Standalone: `python scripts/td/elecciones.py` |
+| `td/osc_probe.py` | Eco OSC: escucha lo que llega a un puerto y lo imprime. Test rápido TD→Python sin puente completo | TUI Visualizaciones→3; standalone: `python scripts/td/osc_probe.py 9001 [segundos]` |
 | `mover_media.py` | Mueve/copia medios y actualiza rutas en DB | TUI Mantenimiento→8; CLI `flujos.py mover` |
 | `ai_media/ollama_client.py` | Cliente Ollama compartido (visión/texto/embeddings) + auto-inicio `asegurar_ollama()` | Usado por todos los scripts IA |
 | `ai_media/image_analysis.py` | Keywords + descripción de imágenes (visión minicpm, prompts EN) | Usado por `improve_db --step keywords/descriptions` |

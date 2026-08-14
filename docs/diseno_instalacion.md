@@ -182,10 +182,10 @@ La arquitectura es la misma para TD o HTML: un "cerebro" que toma elecciones,
 filtra la DB, y arma una línea de tiempo de 5 min con posición de medios y
 triggers de chiches. Lo único que cambia es el renderizador.
 
-- **HTML (`web3/`)**: ya tiene ~80% del esqueleto visual (bloques, chips,
+- **HTML (`deploy/`)**: ya tiene ~80% del esqueleto visual (bloques, chips,
   botón Fluir de 5 min, carga desde API). Falta: motor de loop real (posición
   de medios, chiches, mapa interactivo, render de fotos/audios).
-- **TouchDesigner**: el cerebro ya existe en Python (`scripts/puente_td.py` +
+- **TouchDesigner**: el cerebro ya existe en Python (`scripts/td/puente_td.py` +
   OSC); TD sería el músculo de reproducción.
 
 **Próximo paso natural**: motor de loop en Python puro (matemática de arcos +

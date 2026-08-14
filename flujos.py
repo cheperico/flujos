@@ -127,6 +127,9 @@ COMANDOS:
                    (streams faltantes, estado por medio).
                    Ej: python flujos.py detectar-contenedores --dry-run
 
+  limpiar-descripciones  Limpiar descripciones con eco del prompt (meta-intros).
+                   Ej: python flujos.py limpiar-descripciones --dry-run
+
   repetir-contenido      Buscar contenido repetido por coincidencias de audio.
                    Ej: python flujos.py repetir-contenido --contra C:/audio.mp3
 
@@ -1492,6 +1495,9 @@ def opcion_mantenimiento(db_path: str | None = None):
             "1": ("Buscar contenido repetido (audio)", opcion_repetir_contenido),
             "2": ("Correlacionar audio con frames", opcion_crossref_audio_frame),
         }),
+        ("  -- Limpieza de datos --\n", {
+            "1": ("Limpiar descripciones (eco del prompt)", opcion_limpiar_descripciones),
+        }),
     ], db_path)
 
 
@@ -1518,6 +1524,24 @@ def opcion_auditar_contenedores(db_path: str | None = None):
 
     _menu("AUDITAR CONTENEDORES", {
         "1": ("Ejecutar auditoría (anotar estado en DB)", _ejecutar),
+        "2": ("Previsualizar (dry-run)", _dry),
+    }, db_path)
+
+
+def opcion_limpiar_descripciones(db_path: str | None = None):
+    """Menu: limpiar descripciones con eco del prompt (meta-intros)."""
+    from scripts import limpiar_descripciones
+
+    def _ejecutar(db):
+        limpiar_descripciones.main(["--db", db or leer_db()])
+        pausa()
+
+    def _dry(db):
+        limpiar_descripciones.main(["--db", db or leer_db(), "--dry-run"])
+        pausa()
+
+    _menu("LIMPIAR DESCRIPCIONES", {
+        "1": ("Ejecutar limpieza (con backup)", _ejecutar),
         "2": ("Previsualizar (dry-run)", _dry),
     }, db_path)
 
@@ -1851,10 +1875,11 @@ def tui():
 # ── Mapa de ruta (Folium) ─────────────────────────────────────────────────────
 
 def opcion_visualizaciones(db_path: str | None = None):
-    """Menu: visualizaciones de la ruta y los datos (mapas, deploy web...)."""
+    """Menu: visualizaciones de la ruta y los datos (mapas, deploy web, TD...)."""
     _menu("VISUALIZACIONES", {
         "1": ("Mapa de ruta (Folium)", lambda db: opcion_mapa()),
-        "2": ("Exportar visualización web (deploy web3)", opcion_exportar_visualizacion),
+        "2": ("Exportar visualización web (deploy)", opcion_exportar_visualizacion),
+        "3": ("TouchDesigner (puente OSC)", opcion_touchdesigner),
     }, db_path)
 
 
@@ -1863,7 +1888,7 @@ def opcion_exportar_visualizacion(db_path: str | None = None):
 
     Paso 1: exportar_visualizacion.py (snapshot SQLite de flujos.db; deploy
     genérico por defecto a deploy/, con copia de medios y transcode opcional).
-    Paso 2: loop_db.py --salida web3/spec.json (spec del motor de loop portable).
+    Paso 2: loop_db.py --salida deploy/spec.json (spec del motor de loop portable).
     """
     base = os.path.dirname(__file__)
     exportador = os.path.join(base, "scripts", "exportar_visualizacion.py")
@@ -1910,7 +1935,7 @@ def opcion_exportar_visualizacion(db_path: str | None = None):
         env["PYTHONIOENCODING"] = "utf-8"
         subprocess.run([sys.executable, loop_db,
                         "--horas", "7", "16", "13", "18",
-                        "--salida", os.path.join(base, "web3", "spec.json")],
+                        "--salida", os.path.join(base, "deploy", "spec.json")],
                        env=env)
         pausa()
 
@@ -1921,15 +1946,127 @@ def opcion_exportar_visualizacion(db_path: str | None = None):
     _menu("EXPORTAR VISUALIZACION WEB (deploy)", {
         "1": ("Deploy a deploy/ (pregunta si transcodificar)", _deploy_default),
         "2": ("Deploy a otra carpeta (pregunta si transcodificar)", _deploy_custom),
-        "3": ("Re-exportar snapshot local (web3/db, sin copiar medios)", _snapshot),
-        "4": ("Regenerar spec del loop (web3/spec.json)", _spec_loop),
+        "3": ("Re-exportar snapshot local (deploy/db, sin copiar medios)", _snapshot),
+        "4": ("Regenerar spec del loop (deploy/spec.json)", _spec_loop),
         "5": ("Previsualizar deploy (dry-run)", _deploy_dry),
     }, db_path, intro=(
         "Exporta un snapshot de flujos.db para una visualizacion web\n"
-        "  (ver docs/web3.md). El deploy (default: deploy/ en la raiz del\n"
+        "  (ver docs/deploy.md). El deploy (default: deploy/ en la raiz del\n"
         "  proyecto) copia los medios y pregunta si transcodificar videos\n"
         "  grandes/360° a MP4/H.264 web (default: sí). --snapshot-local es\n"
-        "  el modo dev del prototipo web3 (sin copiar medios)."
+        "  el modo dev local (sin copiar medios)."
+    ))
+
+
+def opcion_touchdesigner(db_path: str | None = None):
+    """Menu: puente BD → TouchDesigner vía OSC (colores, nube, elecciones, fluir...).
+
+    Expone los modos de puente_td.py y osc_probe.py en el TUI: envían datos a TD
+    por 9000 o escuchan la ráfaga del "Fluir" por 9001 (respuesta por 9002).
+    Requiere TouchDesigner corriendo con osc_in1 (9000) / osc_out1 (9001).
+    """
+    base = os.path.dirname(__file__)
+    puente = os.path.join(base, "scripts", "td", "puente_td.py")
+    probe = os.path.join(base, "scripts", "td", "osc_probe.py")
+
+    def _correr(script: str, *args: str) -> None:
+        """Ejecuta un script con salida UTF-8 y pausa al terminar."""
+        env = dict(os.environ)
+        env["PYTHONIOENCODING"] = "utf-8"
+        subprocess.run([sys.executable, script, *args], env=env)
+        pausa()
+
+    def _preguntar_max_tags() -> list[str]:
+        """Pregunta el máximo de tags de la nube; args extra si es entero."""
+        texto = input("  Máximo de tags [40]: ").strip()
+        try:
+            return ["--max-tags", str(int(texto))]
+        except ValueError:
+            return []
+
+    def _preguntar_cantidad() -> list[str]:
+        """Pregunta cuántas imágenes enviar; args extra si es entero."""
+        texto = input("  Cantidad [10]: ").strip()
+        try:
+            return ["--cant", str(int(texto))]
+        except ValueError:
+            return []
+
+    def _preguntar_loop_secs() -> list[str]:
+        """Pregunta la duración del loop; args extra si es float."""
+        texto = input("  Duración del loop en segundos [300]: ").strip()
+        try:
+            return ["--loop-secs", str(float(texto))]
+        except ValueError:
+            return []
+
+    def _colores(db):
+        _correr(puente, "colores", "--db", db_path)
+
+    def _nube(db):
+        _correr(puente, "nube", "--db", db_path, *_preguntar_max_tags())
+
+    def _elecciones(db):
+        grupos = input("  Grupos (coma, Enter = todos) [ej: horas,tags]: ").strip()
+        args = ["elecciones", "--db", db_path]
+        if grupos:
+            args += ["--grupo", grupos]
+        _correr(puente, *args)
+
+    def _enviar_imgs(db):
+        color = input("  Color (ej: rojo): ").strip()
+        if not color:
+            print("  Cancelado (color vacío).")
+            pausa()
+            return
+        _correr(puente, "enviar_imgs", color, "--db", db_path, *_preguntar_cantidad())
+
+    def _enviar_loop(db):
+        _correr(puente, "enviar", "--db", db_path)
+
+    def _fluir_una_vez(db):
+        _correr(puente, "fluir", "--una-vez", "--db", db_path, *_preguntar_loop_secs())
+
+    def _fluir_continua(db):
+        _correr(puente, "fluir", "--db", db_path, *_preguntar_loop_secs())
+
+    def _probar_osc(db):
+        puerto = input("  Puerto [9001]: ").strip()
+        segundos = input("  Segundos de ventana (0 = hasta Ctrl+C) [0]: ").strip()
+        args = []
+        if puerto:
+            try:
+                args.append(str(int(puerto)))
+            except ValueError:
+                pass
+        if segundos and args:
+            try:
+                args.append(str(float(segundos)))
+            except ValueError:
+                pass
+        _correr(probe, *args)
+
+    def _menu_fluir(db):
+        _menu("FLUIR (OSC 9001 <- TD → 9002)", {
+            "1": ("Escuchar una ráfaga y salir", _fluir_una_vez),
+            "2": ("Escucha continua (Ctrl+C para salir)", _fluir_continua),
+        }, db_path, intro=(
+            "  Recibe la ráfaga del botón 'Fluir' de TouchDesigner por 9001,\n"
+            "  la acumula por grupo, genera el spec del loop y lo envía por 9002."
+        ), cerrar_al_ejecutar=True)
+
+    _menu("TOUCHDESIGNER (puente OSC)", {
+        "1": ("Enviar colores a TD", _colores),
+        "2": ("Enviar nube de tags (keywords)", _nube),
+        "3": ("Enviar elecciones (horas, municipios, colores, tags...)", _elecciones),
+        "4": ("Enviar imágenes de un color", _enviar_imgs),
+        "5": ("Enviar loop completo (colores → selección → imágenes)", _enviar_loop),
+        "6": ("Modo 'Fluir' (recibir ráfaga de TD y generar loop)", _menu_fluir),
+        "7": ("Probar OSC (eco)", _probar_osc),
+    }, db_path, intro=(
+        "  Puente BD → TouchDesigner vía OSC. Requiere TouchDesigner corriendo\n"
+        "  con osc_in1 (9000) / osc_out1 (9001). Los modos envían datos a TD\n"
+        "  o escuchan la ráfaga del 'Fluir' (9001 → loop por 9002)."
     ))
 
 
@@ -2412,6 +2549,10 @@ def main():
     elif comando in ("detectar-contenedores", "contenedores"):
         from scripts import detectar_contenedores
         detectar_contenedores.main(resto)
+
+    elif comando in ("limpiar-descripciones", "descripciones"):
+        from scripts import limpiar_descripciones
+        limpiar_descripciones.main(resto)
 
     elif comando in ("repetir-contenido", "repetidos"):
         from scripts import repetir_contenido

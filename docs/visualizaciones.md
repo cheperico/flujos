@@ -1,7 +1,7 @@
 # Visualizaciones — Sesión 28 Jul 2026
 
 Documentación de las decisiones de diseño tomadas durante la sesión
-de desarrollo de la visualización web3 (lienzo).
+de desarrollo de la visualización web (deploy) (lienzo).
 
 ---
 
@@ -123,7 +123,7 @@ ciclo de 5 minutos de duración.
 - Conectar API de medios a los bloques de imágenes, videos, textos, sonidos
 - Implementar el mapa (Folium? Leaflet? Canvas?)
 - ~~Poblar la nube de tags con datos reales de `ia_keywords` de la DB~~ → ✅ resuelto:
-  `web3/api/tags.php` arma la nube desde la columna `keywords` del snapshot
+  `deploy/api/tags.php` arma la nube desde la columna `keywords` del snapshot
   (exportada por `exportar_visualizacion.py` desde `ia_keywords`).
 - Que la selección de colores/provincias/municipios filtre el contenido
   de los bloques de medios
