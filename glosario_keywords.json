@@ -1,0 +1,4557 @@
+{
+  "fecha": "2026-08-13",
+  "metadatos": {
+    "fuentes": {
+      "auto": 1,
+      "db_seed": 884,
+      "manual": 248
+    },
+    "total_palabras": 1133
+  },
+  "palabras": {
+    "100 años": {
+      "es": "cien año",
+      "origen": "db_seed"
+    },
+    "1916-2016": {
+      "es": "1916-2016",
+      "origen": "db_seed"
+    },
+    "24": {
+      "es": "veinticuatro",
+      "origen": "db_seed"
+    },
+    "27 de abril": {
+      "es": "unido",
+      "origen": "db_seed"
+    },
+    "abandoned": {
+      "es": "abandonado",
+      "origen": "db_seed"
+    },
+    "abandoned structure": {
+      "es": "edificio abandonado",
+      "origen": "db_seed"
+    },
+    "abuelita": {
+      "es": "abuela",
+      "origen": "manual"
+    },
+    "abuelo": {
+      "es": "abuela",
+      "origen": "manual"
+    },
+    "acampar": {
+      "es": "carpas",
+      "origen": "manual"
+    },
+    "access": {
+      "es": "acceso",
+      "origen": "db_seed"
+    },
+    "accident": {
+      "es": "accidente",
+      "origen": "db_seed"
+    },
+    "activity": {
+      "es": "actividad",
+      "origen": "db_seed"
+    },
+    "actuar": {
+      "es": "actuar",
+      "origen": "db_seed"
+    },
+    "adventure": {
+      "es": "viaje",
+      "origen": "manual"
+    },
+    "aged": {
+      "es": "añejo",
+      "origen": "db_seed"
+    },
+    "aged structure": {
+      "es": "estructura envejecida",
+      "origen": "db_seed"
+    },
+    "aged wall": {
+      "es": "muro antiguo",
+      "origen": "db_seed"
+    },
+    "agotamiento": {
+      "es": "cansancio",
+      "origen": "manual"
+    },
+    "agricultural": {
+      "es": "agrícola",
+      "origen": "db_seed"
+    },
+    "agricultural field": {
+      "es": "campo agrícola",
+      "origen": "db_seed"
+    },
+    "agriculture": {
+      "es": "agricultura",
+      "origen": "db_seed"
+    },
+    "air plant": {
+      "es": "planta aérea",
+      "origen": "db_seed"
+    },
+    "alba": {
+      "es": "amanecer",
+      "origen": "manual"
+    },
+    "alcohol": {
+      "es": "alcohol",
+      "origen": "db_seed"
+    },
+    "alegría": {
+      "es": "felicidad",
+      "origen": "manual"
+    },
+    "alforja": {
+      "es": "mochila",
+      "origen": "manual"
+    },
+    "alforjas": {
+      "es": "mochila",
+      "origen": "manual"
+    },
+    "algae": {
+      "es": "alga",
+      "origen": "db_seed"
+    },
+    "alleyway": {
+      "es": "callejón",
+      "origen": "db_seed"
+    },
+    "almuerzo": {
+      "es": "comida",
+      "origen": "manual"
+    },
+    "altar": {
+      "es": "altar",
+      "origen": "db_seed"
+    },
+    "amaneceres": {
+      "es": "amanecer",
+      "origen": "manual"
+    },
+    "amigos": {
+      "es": "amigo",
+      "origen": "manual"
+    },
+    "anchor": {
+      "es": "ancla",
+      "origen": "db_seed"
+    },
+    "anciana": {
+      "es": "abuela",
+      "origen": "manual"
+    },
+    "anciano": {
+      "es": "abuela",
+      "origen": "manual"
+    },
+    "ancient": {
+      "es": "antiguo",
+      "origen": "db_seed"
+    },
+    "andar": {
+      "es": "caminar",
+      "origen": "db_seed"
+    },
+    "angular": {
+      "es": "ángulo",
+      "origen": "db_seed"
+    },
+    "animal": {
+      "es": "animales",
+      "origen": "manual"
+    },
+    "animals": {
+      "es": "animales",
+      "origen": "manual"
+    },
+    "aniversario 150°": {
+      "es": "aniversario",
+      "origen": "db_seed"
+    },
+    "anochecer": {
+      "es": "atardecer",
+      "origen": "manual"
+    },
+    "ant": {
+      "es": "hormiga",
+      "origen": "db_seed"
+    },
+    "anvil": {
+      "es": "martillo",
+      "origen": "db_seed"
+    },
+    "apples": {
+      "es": "manzana",
+      "origen": "db_seed"
+    },
+    "aquatic": {
+      "es": "acuático",
+      "origen": "db_seed"
+    },
+    "arbol": {
+      "es": "árbol",
+      "origen": "manual"
+    },
+    "arboleda": {
+      "es": "bosque",
+      "origen": "manual"
+    },
+    "arboles": {
+      "es": "árbol",
+      "origen": "manual"
+    },
+    "arch": {
+      "es": "arco",
+      "origen": "db_seed"
+    },
+    "archaeological": {
+      "es": "arqueológico",
+      "origen": "db_seed"
+    },
+    "arches": {
+      "es": "arco",
+      "origen": "db_seed"
+    },
+    "architectural": {
+      "es": "arquitectónico",
+      "origen": "db_seed"
+    },
+    "architectural arches": {
+      "es": "arcos arquitectónico",
+      "origen": "db_seed"
+    },
+    "architecture": {
+      "es": "arquitectura",
+      "origen": "manual"
+    },
+    "archway": {
+      "es": "arco",
+      "origen": "db_seed"
+    },
+    "arid": {
+      "es": "árido",
+      "origen": "db_seed"
+    },
+    "arid landscape": {
+      "es": "paisaje árido",
+      "origen": "db_seed"
+    },
+    "armadith": {
+      "es": "armadura",
+      "origen": "db_seed"
+    },
+    "armor": {
+      "es": "protección",
+      "origen": "db_seed"
+    },
+    "arri": {
+      "es": "costo",
+      "origen": "db_seed"
+    },
+    "arriba": {
+      "es": "encima",
+      "origen": "db_seed"
+    },
+    "arrows": {
+      "es": "flecha",
+      "origen": "db_seed"
+    },
+    "art": {
+      "es": "arte",
+      "origen": "manual"
+    },
+    "artistic design": {
+      "es": "diseño artístico",
+      "origen": "db_seed"
+    },
+    "asado": {
+      "es": "comida_argentina",
+      "origen": "manual"
+    },
+    "asphalt": {
+      "es": "asfalto",
+      "origen": "db_seed"
+    },
+    "atardeceres": {
+      "es": "atardecer",
+      "origen": "manual"
+    },
+    "athletic jacket": {
+      "es": "chaqueta deportiva",
+      "origen": "db_seed"
+    },
+    "attentive": {
+      "es": "atento",
+      "origen": "db_seed"
+    },
+    "audio": {
+      "es": "audio",
+      "origen": "db_seed"
+    },
+    "aurora": {
+      "es": "amanecer",
+      "origen": "manual"
+    },
+    "authority": {
+      "es": "autoridad",
+      "origen": "db_seed"
+    },
+    "auto": {
+      "es": "automóvil",
+      "origen": "manual"
+    },
+    "autos": {
+      "es": "automóvil",
+      "origen": "manual"
+    },
+    "autovia": {
+      "es": "autopista",
+      "origen": "manual"
+    },
+    "autovía": {
+      "es": "autopista",
+      "origen": "manual"
+    },
+    "avanzar": {
+      "es": "progresar",
+      "origen": "db_seed"
+    },
+    "aventura": {
+      "es": "viaje",
+      "origen": "manual"
+    },
+    "ayuda": {
+      "es": "asistencia",
+      "origen": "db_seed"
+    },
+    "backpack": {
+      "es": "mochila",
+      "origen": "manual"
+    },
+    "backpacks": {
+      "es": "mochila",
+      "origen": "db_seed"
+    },
+    "bag": {
+      "es": "bolsa",
+      "origen": "db_seed"
+    },
+    "bags": {
+      "es": "mochila",
+      "origen": "db_seed"
+    },
+    "baked": {
+      "es": "horneado",
+      "origen": "db_seed"
+    },
+    "baking": {
+      "es": "horneado",
+      "origen": "db_seed"
+    },
+    "bananas": {
+      "es": "plátano",
+      "origen": "db_seed"
+    },
+    "banda": {
+      "es": "música",
+      "origen": "manual"
+    },
+    "banner": {
+      "es": "pancarta",
+      "origen": "db_seed"
+    },
+    "baqueano": {
+      "es": "personas",
+      "origen": "manual"
+    },
+    "bare branches": {
+      "es": "ramas desnuda",
+      "origen": "db_seed"
+    },
+    "bare trees": {
+      "es": "árboles desnuda",
+      "origen": "db_seed"
+    },
+    "barrels": {
+      "es": "barriles",
+      "origen": "db_seed"
+    },
+    "barren branches": {
+      "es": "ramas seca",
+      "origen": "db_seed"
+    },
+    "barren landscape": {
+      "es": "paisaje árido",
+      "origen": "db_seed"
+    },
+    "barrier": {
+      "es": "barrera",
+      "origen": "db_seed"
+    },
+    "barriers": {
+      "es": "barrera",
+      "origen": "db_seed"
+    },
+    "bars": {
+      "es": "bares",
+      "origen": "db_seed"
+    },
+    "basket": {
+      "es": "canasta",
+      "origen": "db_seed"
+    },
+    "basketed": {
+      "es": "cesta",
+      "origen": "db_seed"
+    },
+    "bed": {
+      "es": "cama",
+      "origen": "db_seed"
+    },
+    "bell tower": {
+      "es": "torre campanario",
+      "origen": "db_seed"
+    },
+    "bell ville": {
+      "es": "villa bell",
+      "origen": "db_seed"
+    },
+    "benches": {
+      "es": "banco",
+      "origen": "db_seed"
+    },
+    "bending": {
+      "es": "flexión",
+      "origen": "db_seed"
+    },
+    "benefits": {
+      "es": "ventaja",
+      "origen": "db_seed"
+    },
+    "berries": {
+      "es": "baya",
+      "origen": "db_seed"
+    },
+    "bici": {
+      "es": "bicicleta",
+      "origen": "manual"
+    },
+    "bici de montaña": {
+      "es": "bicicleta",
+      "origen": "manual"
+    },
+    "bicicletas": {
+      "es": "bicicleta",
+      "origen": "manual"
+    },
+    "bicivilizados": {
+      "es": "civilizado",
+      "origen": "db_seed"
+    },
+    "bicycle": {
+      "es": "bicicleta",
+      "origen": "manual"
+    },
+    "bicycles": {
+      "es": "bicicleta",
+      "origen": "manual"
+    },
+    "bike": {
+      "es": "bicicleta",
+      "origen": "manual"
+    },
+    "bike lane": {
+      "es": "carril bici",
+      "origen": "db_seed"
+    },
+    "bikepacking": {
+      "es": "acampada",
+      "origen": "db_seed"
+    },
+    "bikes": {
+      "es": "ciclismo",
+      "origen": "db_seed"
+    },
+    "biking": {
+      "es": "bicicleta",
+      "origen": "db_seed"
+    },
+    "billboard": {
+      "es": "cartel",
+      "origen": "db_seed"
+    },
+    "bird": {
+      "es": "ave",
+      "origen": "db_seed"
+    },
+    "birds": {
+      "es": "aves",
+      "origen": "db_seed"
+    },
+    "blemishes": {
+      "es": "imperfecciones",
+      "origen": "db_seed"
+    },
+    "blooming tree": {
+      "es": "árbol floreciente",
+      "origen": "db_seed"
+    },
+    "blue": {
+      "es": "azul",
+      "origen": "db_seed"
+    },
+    "blue building": {
+      "es": "edificio azul",
+      "origen": "db_seed"
+    },
+    "blue lighting": {
+      "es": "iluminación azul",
+      "origen": "db_seed"
+    },
+    "blue lights": {
+      "es": "luces azules",
+      "origen": "db_seed"
+    },
+    "blue pipe": {
+      "es": "tubería azul",
+      "origen": "db_seed"
+    },
+    "blue sky": {
+      "es": "cielo",
+      "origen": "db_seed"
+    },
+    "blue wall": {
+      "es": "pared azul",
+      "origen": "db_seed"
+    },
+    "blurred": {
+      "es": "borroso",
+      "origen": "db_seed"
+    },
+    "bokeh": {
+      "es": "desenfoque",
+      "origen": "db_seed"
+    },
+    "bolso": {
+      "es": "mochila",
+      "origen": "manual"
+    },
+    "bolsos": {
+      "es": "mochila",
+      "origen": "manual"
+    },
+    "bomber": {
+      "es": "chaleco",
+      "origen": "db_seed"
+    },
+    "bombers": {
+      "es": "bomba",
+      "origen": "db_seed"
+    },
+    "bosques": {
+      "es": "bosque",
+      "origen": "manual"
+    },
+    "botanical": {
+      "es": "botánico",
+      "origen": "db_seed"
+    },
+    "bottasso": {
+      "es": "botta",
+      "origen": "db_seed"
+    },
+    "bottles": {
+      "es": "botella",
+      "origen": "db_seed"
+    },
+    "box": {
+      "es": "caja",
+      "origen": "db_seed"
+    },
+    "boxes": {
+      "es": "caja",
+      "origen": "db_seed"
+    },
+    "branch": {
+      "es": "árbol",
+      "origen": "manual"
+    },
+    "branches": {
+      "es": "árbol",
+      "origen": "manual"
+    },
+    "branding": {
+      "es": "marca",
+      "origen": "db_seed"
+    },
+    "brasco": {
+      "es": "brasco",
+      "origen": "db_seed"
+    },
+    "brick": {
+      "es": "ladrillo",
+      "origen": "db_seed"
+    },
+    "bridge": {
+      "es": "puente",
+      "origen": "db_seed"
+    },
+    "broken branch": {
+      "es": "rama rota",
+      "origen": "db_seed"
+    },
+    "bubble wrap": {
+      "es": "burbuja protectora",
+      "origen": "db_seed"
+    },
+    "buds": {
+      "es": "brotes",
+      "origen": "db_seed"
+    },
+    "building": {
+      "es": "urbanismo",
+      "origen": "db_seed"
+    },
+    "buildings": {
+      "es": "urbanismo",
+      "origen": "manual"
+    },
+    "burro": {
+      "es": "animales",
+      "origen": "manual"
+    },
+    "burros": {
+      "es": "animales",
+      "origen": "manual"
+    },
+    "bus": {
+      "es": "autobú",
+      "origen": "db_seed"
+    },
+    "buses": {
+      "es": "autobuses",
+      "origen": "db_seed"
+    },
+    "bush": {
+      "es": "arbusto",
+      "origen": "db_seed"
+    },
+    "bushes": {
+      "es": "arbusto",
+      "origen": "db_seed"
+    },
+    "business": {
+      "es": "empresa",
+      "origen": "db_seed"
+    },
+    "bust": {
+      "es": "busto",
+      "origen": "db_seed"
+    },
+    "butcher": {
+      "es": "carnicero",
+      "origen": "db_seed"
+    },
+    "butterflies": {
+      "es": "mariposa",
+      "origen": "db_seed"
+    },
+    "caballo": {
+      "es": "animales",
+      "origen": "manual"
+    },
+    "caballos": {
+      "es": "animales",
+      "origen": "manual"
+    },
+    "cables": {
+      "es": "cables",
+      "origen": "db_seed"
+    },
+    "cacti": {
+      "es": "cactu",
+      "origen": "db_seed"
+    },
+    "cactus": {
+      "es": "cactu",
+      "origen": "db_seed"
+    },
+    "cafeteria": {
+      "es": "cafetería",
+      "origen": "db_seed"
+    },
+    "calm": {
+      "es": "tranquilidad",
+      "origen": "db_seed"
+    },
+    "caluroso": {
+      "es": "calor",
+      "origen": "manual"
+    },
+    "camera": {
+      "es": "cámara",
+      "origen": "db_seed"
+    },
+    "camilo aldao": {
+      "es": "camilo",
+      "origen": "db_seed"
+    },
+    "caminante": {
+      "es": "personas",
+      "origen": "manual"
+    },
+    "caminantes": {
+      "es": "personas",
+      "origen": "manual"
+    },
+    "camino": {
+      "es": "camino",
+      "origen": "db_seed"
+    },
+    "camino real": {
+      "es": "camino",
+      "origen": "db_seed"
+    },
+    "camioneta": {
+      "es": "automóvil",
+      "origen": "manual"
+    },
+    "camionetas": {
+      "es": "automóvil",
+      "origen": "manual"
+    },
+    "camp": {
+      "es": "carpas",
+      "origen": "manual"
+    },
+    "campamento": {
+      "es": "carpas",
+      "origen": "manual"
+    },
+    "campaña": {
+      "es": "carpas",
+      "origen": "manual"
+    },
+    "camping": {
+      "es": "carpas",
+      "origen": "manual"
+    },
+    "campo": {
+      "es": "naturaleza",
+      "origen": "manual"
+    },
+    "cannabis": {
+      "es": "marihuana",
+      "origen": "db_seed"
+    },
+    "cap": {
+      "es": "gorro",
+      "origen": "db_seed"
+    },
+    "capias": {
+      "es": "cárcel",
+      "origen": "db_seed"
+    },
+    "car": {
+      "es": "automóvil",
+      "origen": "manual"
+    },
+    "carcass": {
+      "es": "cadáver",
+      "origen": "db_seed"
+    },
+    "cardboard": {
+      "es": "cartón",
+      "origen": "db_seed"
+    },
+    "cargill": {
+      "es": "cargill",
+      "origen": "db_seed"
+    },
+    "cargo": {
+      "es": "carga",
+      "origen": "db_seed"
+    },
+    "carpa": {
+      "es": "carpas",
+      "origen": "manual"
+    },
+    "carrera": {
+      "es": "deporte",
+      "origen": "manual"
+    },
+    "carreta": {
+      "es": "remolque",
+      "origen": "db_seed"
+    },
+    "carretera": {
+      "es": "ruta",
+      "origen": "manual"
+    },
+    "cars": {
+      "es": "automóvil",
+      "origen": "db_seed"
+    },
+    "casa grande": {
+      "es": "casa grande",
+      "origen": "db_seed"
+    },
+    "cascos": {
+      "es": "casco",
+      "origen": "manual"
+    },
+    "casual": {
+      "es": "informal",
+      "origen": "db_seed"
+    },
+    "casual attire": {
+      "es": "vestimenta informal",
+      "origen": "db_seed"
+    },
+    "casual meeting": {
+      "es": "encuentro informal",
+      "origen": "db_seed"
+    },
+    "cathedral": {
+      "es": "catedral",
+      "origen": "db_seed"
+    },
+    "cattle": {
+      "es": "animales",
+      "origen": "db_seed"
+    },
+    "celebration": {
+      "es": "festejo",
+      "origen": "db_seed"
+    },
+    "cemeterio": {
+      "es": "cementerio",
+      "origen": "db_seed"
+    },
+    "cena": {
+      "es": "comida",
+      "origen": "manual"
+    },
+    "cerro": {
+      "es": "montaña",
+      "origen": "manual"
+    },
+    "cerros": {
+      "es": "montaña",
+      "origen": "manual"
+    },
+    "chacabuco": {
+      "es": "chacabú",
+      "origen": "db_seed"
+    },
+    "chair": {
+      "es": "sillón",
+      "origen": "db_seed"
+    },
+    "chairs": {
+      "es": "silla",
+      "origen": "db_seed"
+    },
+    "chaotic": {
+      "es": "cao",
+      "origen": "db_seed"
+    },
+    "chapel": {
+      "es": "capilla",
+      "origen": "db_seed"
+    },
+    "chef": {
+      "es": "cocinero",
+      "origen": "db_seed"
+    },
+    "chicken": {
+      "es": "pollo",
+      "origen": "db_seed"
+    },
+    "chico": {
+      "es": "niño",
+      "origen": "manual"
+    },
+    "chicos": {
+      "es": "niño",
+      "origen": "manual"
+    },
+    "child": {
+      "es": "niño",
+      "origen": "db_seed"
+    },
+    "children": {
+      "es": "niño",
+      "origen": "db_seed"
+    },
+    "chin": {
+      "es": "mandíbula",
+      "origen": "db_seed"
+    },
+    "chrysalis": {
+      "es": "capullo",
+      "origen": "db_seed"
+    },
+    "church": {
+      "es": "iglesia",
+      "origen": "db_seed"
+    },
+    "church spire": {
+      "es": "campanario",
+      "origen": "db_seed"
+    },
+    "ciclista": {
+      "es": "ciclismo",
+      "origen": "manual"
+    },
+    "ciclistas": {
+      "es": "ciclismo",
+      "origen": "manual"
+    },
+    "cielo azul": {
+      "es": "cielo",
+      "origen": "manual"
+    },
+    "cielos": {
+      "es": "cielo",
+      "origen": "manual"
+    },
+    "city": {
+      "es": "ciudad",
+      "origen": "manual"
+    },
+    "ciudades": {
+      "es": "ciudad",
+      "origen": "manual"
+    },
+    "clear sky": {
+      "es": "cielo despejado",
+      "origen": "db_seed"
+    },
+    "clock": {
+      "es": "reloj",
+      "origen": "db_seed"
+    },
+    "close cycle": {
+      "es": "ciclo cercano",
+      "origen": "db_seed"
+    },
+    "cloth": {
+      "es": "tela",
+      "origen": "manual"
+    },
+    "clothing": {
+      "es": "ropa",
+      "origen": "db_seed"
+    },
+    "cloud": {
+      "es": "cielo",
+      "origen": "manual"
+    },
+    "clouds": {
+      "es": "cielo",
+      "origen": "manual"
+    },
+    "cloudy sky": {
+      "es": "cielo nublado",
+      "origen": "db_seed"
+    },
+    "club": {
+      "es": "cancha",
+      "origen": "db_seed"
+    },
+    "coastal shore": {
+      "es": "costa",
+      "origen": "db_seed"
+    },
+    "coastline": {
+      "es": "costa",
+      "origen": "db_seed"
+    },
+    "cobblestone": {
+      "es": "adoquín",
+      "origen": "db_seed"
+    },
+    "coca-cola": {
+      "es": "coca-cola",
+      "origen": "db_seed"
+    },
+    "coche": {
+      "es": "automóvil",
+      "origen": "manual"
+    },
+    "coches": {
+      "es": "automóvil",
+      "origen": "manual"
+    },
+    "cold": {
+      "es": "frío",
+      "origen": "manual"
+    },
+    "colorful": {
+      "es": "colorido",
+      "origen": "db_seed"
+    },
+    "colorful curb": {
+      "es": "acera colorida",
+      "origen": "db_seed"
+    },
+    "colorful signs": {
+      "es": "carteles colorido",
+      "origen": "db_seed"
+    },
+    "colorful structures": {
+      "es": "estructuras colorida",
+      "origen": "db_seed"
+    },
+    "comidas": {
+      "es": "comida",
+      "origen": "manual"
+    },
+    "commercial": {
+      "es": "comercio",
+      "origen": "db_seed"
+    },
+    "commercial stores": {
+      "es": "tiendas comerciales",
+      "origen": "db_seed"
+    },
+    "community setting": {
+      "es": "comunidad",
+      "origen": "db_seed"
+    },
+    "compact room": {
+      "es": "habitación pequeña",
+      "origen": "db_seed"
+    },
+    "compañera": {
+      "es": "amigo",
+      "origen": "manual"
+    },
+    "compañero": {
+      "es": "amigo",
+      "origen": "manual"
+    },
+    "compañeros": {
+      "es": "amigo",
+      "origen": "manual"
+    },
+    "competición": {
+      "es": "deporte",
+      "origen": "manual"
+    },
+    "complejo": {
+      "es": "complejo",
+      "origen": "db_seed"
+    },
+    "complex": {
+      "es": "complejo",
+      "origen": "db_seed"
+    },
+    "comunicación": {
+      "es": "comunicación",
+      "origen": "db_seed"
+    },
+    "concierto": {
+      "es": "música",
+      "origen": "manual"
+    },
+    "concrete": {
+      "es": "hormigón",
+      "origen": "db_seed"
+    },
+    "concrete pavement": {
+      "es": "asfalto",
+      "origen": "db_seed"
+    },
+    "consigna": {
+      "es": "instrucción",
+      "origen": "db_seed"
+    },
+    "construcción": {
+      "es": "urbanismo",
+      "origen": "manual"
+    },
+    "construction": {
+      "es": "urbanismo",
+      "origen": "db_seed"
+    },
+    "container": {
+      "es": "contenedor",
+      "origen": "db_seed"
+    },
+    "contemporary design": {
+      "es": "diseño contemporáneo",
+      "origen": "db_seed"
+    },
+    "contrasená": {
+      "es": "contraseña",
+      "origen": "db_seed"
+    },
+    "conversation": {
+      "es": "conversación",
+      "origen": "db_seed"
+    },
+    "cookies": {
+      "es": "galletita",
+      "origen": "db_seed"
+    },
+    "cooking": {
+      "es": "preparación",
+      "origen": "db_seed"
+    },
+    "cordillera": {
+      "es": "montaña",
+      "origen": "manual"
+    },
+    "cordilleras": {
+      "es": "montaña",
+      "origen": "manual"
+    },
+    "cordoba": {
+      "es": "córdoba",
+      "origen": "db_seed"
+    },
+    "cords": {
+      "es": "cuerda",
+      "origen": "db_seed"
+    },
+    "corn": {
+      "es": "maíz",
+      "origen": "db_seed"
+    },
+    "cortesia": {
+      "es": "cortesía",
+      "origen": "db_seed"
+    },
+    "countryside": {
+      "es": "naturaleza",
+      "origen": "db_seed"
+    },
+    "cow": {
+      "es": "animales",
+      "origen": "db_seed"
+    },
+    "cows": {
+      "es": "animales",
+      "origen": "db_seed"
+    },
+    "cracked": {
+      "es": "grieta",
+      "origen": "db_seed"
+    },
+    "cracked concrete": {
+      "es": "hormigón agrietado",
+      "origen": "db_seed"
+    },
+    "cracks": {
+      "es": "grieta",
+      "origen": "db_seed"
+    },
+    "cranes": {
+      "es": "grúa",
+      "origen": "db_seed"
+    },
+    "crest": {
+      "es": "escudo",
+      "origen": "db_seed"
+    },
+    "crimped": {
+      "es": "doblado",
+      "origen": "db_seed"
+    },
+    "cross": {
+      "es": "cruce",
+      "origen": "db_seed"
+    },
+    "crossed strings": {
+      "es": "cuerdas cruzada",
+      "origen": "db_seed"
+    },
+    "cuando": {
+      "es": "cuando",
+      "origen": "db_seed"
+    },
+    "cultural": {
+      "es": "cultural",
+      "origen": "db_seed"
+    },
+    "curly hair": {
+      "es": "cabello rizado",
+      "origen": "db_seed"
+    },
+    "current": {
+      "es": "corriente",
+      "origen": "db_seed"
+    },
+    "cycle": {
+      "es": "bicicleta",
+      "origen": "db_seed"
+    },
+    "cycling": {
+      "es": "ciclismo",
+      "origen": "manual"
+    },
+    "cyclist": {
+      "es": "ciclismo",
+      "origen": "manual"
+    },
+    "cyclists": {
+      "es": "ciclismo",
+      "origen": "manual"
+    },
+    "cylindrical": {
+      "es": "cilíndrico",
+      "origen": "db_seed"
+    },
+    "dam": {
+      "es": "presa",
+      "origen": "db_seed"
+    },
+    "dardo s. dorronzoro": {
+      "es": "dardo",
+      "origen": "db_seed"
+    },
+    "dark": {
+      "es": "oscuro",
+      "origen": "db_seed"
+    },
+    "date": {
+      "es": "fecha",
+      "origen": "db_seed"
+    },
+    "dead": {
+      "es": "muerto",
+      "origen": "db_seed"
+    },
+    "dead dog": {
+      "es": "perro muerto",
+      "origen": "db_seed"
+    },
+    "dead tree": {
+      "es": "árbol muerto",
+      "origen": "db_seed"
+    },
+    "debris": {
+      "es": "escombro",
+      "origen": "db_seed"
+    },
+    "declaration": {
+      "es": "declaración",
+      "origen": "db_seed"
+    },
+    "declared interest": {
+      "es": "interés declarado",
+      "origen": "db_seed"
+    },
+    "decorative": {
+      "es": "decorativo",
+      "origen": "db_seed"
+    },
+    "delicate": {
+      "es": "delicada",
+      "origen": "db_seed"
+    },
+    "deportes": {
+      "es": "deporte",
+      "origen": "manual"
+    },
+    "der": {
+      "es": "debajo",
+      "origen": "db_seed"
+    },
+    "desayuno": {
+      "es": "comida",
+      "origen": "manual"
+    },
+    "desert": {
+      "es": "desierto",
+      "origen": "db_seed"
+    },
+    "dessert": {
+      "es": "postre",
+      "origen": "db_seed"
+    },
+    "destination": {
+      "es": "destino",
+      "origen": "db_seed"
+    },
+    "detailed": {
+      "es": "detallado",
+      "origen": "db_seed"
+    },
+    "deteriorated wall": {
+      "es": "muro deteriorado",
+      "origen": "db_seed"
+    },
+    "device": {
+      "es": "aparato",
+      "origen": "db_seed"
+    },
+    "devotion": {
+      "es": "devoción",
+      "origen": "db_seed"
+    },
+    "dignificar": {
+      "es": "elevar",
+      "origen": "db_seed"
+    },
+    "dining": {
+      "es": "comedor",
+      "origen": "db_seed"
+    },
+    "directional arrow": {
+      "es": "flecha direccional",
+      "origen": "db_seed"
+    },
+    "dirt": {
+      "es": "tierra",
+      "origen": "db_seed"
+    },
+    "discussion": {
+      "es": "charla",
+      "origen": "db_seed"
+    },
+    "distance": {
+      "es": "distancia",
+      "origen": "db_seed"
+    },
+    "distant cityscape": {
+      "es": "ciudad lejana",
+      "origen": "db_seed"
+    },
+    "distant mountains": {
+      "es": "montañas lejana",
+      "origen": "db_seed"
+    },
+    "divine figure": {
+      "es": "figura divina",
+      "origen": "db_seed"
+    },
+    "doble carril": {
+      "es": "autopista",
+      "origen": "manual"
+    },
+    "doctora": {
+      "es": "médica",
+      "origen": "db_seed"
+    },
+    "documents": {
+      "es": "documento",
+      "origen": "db_seed"
+    },
+    "dog": {
+      "es": "animales",
+      "origen": "db_seed"
+    },
+    "dogs": {
+      "es": "animales",
+      "origen": "db_seed"
+    },
+    "domed ceiling": {
+      "es": "techo abovedado",
+      "origen": "db_seed"
+    },
+    "dr. villarrel": {
+      "es": "doctor villarrel",
+      "origen": "db_seed"
+    },
+    "drainage": {
+      "es": "drenaje",
+      "origen": "db_seed"
+    },
+    "dried branches": {
+      "es": "ramas seca",
+      "origen": "db_seed"
+    },
+    "dried twigs": {
+      "es": "ramitas seca",
+      "origen": "db_seed"
+    },
+    "dried weeds": {
+      "es": "malezas seca",
+      "origen": "db_seed"
+    },
+    "drinking": {
+      "es": "consumo",
+      "origen": "db_seed"
+    },
+    "drinks": {
+      "es": "bebida",
+      "origen": "db_seed"
+    },
+    "dry": {
+      "es": "seco",
+      "origen": "db_seed"
+    },
+    "dry foliage": {
+      "es": "follaje seco",
+      "origen": "db_seed"
+    },
+    "dry grass": {
+      "es": "pasto seco",
+      "origen": "db_seed"
+    },
+    "dry ground": {
+      "es": "terreno seco",
+      "origen": "db_seed"
+    },
+    "dry vegetation": {
+      "es": "vegetación seca",
+      "origen": "db_seed"
+    },
+    "dulce de leche": {
+      "es": "comida_argentina",
+      "origen": "manual"
+    },
+    "duration": {
+      "es": "duración",
+      "origen": "db_seed"
+    },
+    "dusk": {
+      "es": "crepúsculo",
+      "origen": "db_seed"
+    },
+    "eagle": {
+      "es": "águila",
+      "origen": "db_seed"
+    },
+    "edge": {
+      "es": "borde",
+      "origen": "db_seed"
+    },
+    "edificaciones": {
+      "es": "arquitectura",
+      "origen": "manual"
+    },
+    "edificio": {
+      "es": "urbanismo",
+      "origen": "manual"
+    },
+    "edificios": {
+      "es": "urbanismo",
+      "origen": "manual"
+    },
+    "educational": {
+      "es": "educativo",
+      "origen": "db_seed"
+    },
+    "educational display": {
+      "es": "exhibición educativa",
+      "origen": "db_seed"
+    },
+    "effort": {
+      "es": "esfuerzo",
+      "origen": "manual"
+    },
+    "egg": {
+      "es": "huevo",
+      "origen": "db_seed"
+    },
+    "eggs": {
+      "es": "huevo",
+      "origen": "db_seed"
+    },
+    "el arbol": {
+      "es": "árbol",
+      "origen": "db_seed"
+    },
+    "el semaforo": {
+      "es": "semáforo",
+      "origen": "db_seed"
+    },
+    "elderly man": {
+      "es": "hombre anciano",
+      "origen": "db_seed"
+    },
+    "electrical wires": {
+      "es": "cables eléctrico",
+      "origen": "db_seed"
+    },
+    "elevation inniville": {
+      "es": "elevación",
+      "origen": "db_seed"
+    },
+    "emblem": {
+      "es": "símbolo",
+      "origen": "db_seed"
+    },
+    "emergency": {
+      "es": "emergencia",
+      "origen": "db_seed"
+    },
+    "empanadas": {
+      "es": "comida_argentina",
+      "origen": "manual"
+    },
+    "energies": {
+      "es": "energía",
+      "origen": "db_seed"
+    },
+    "entrance": {
+      "es": "entrada",
+      "origen": "db_seed"
+    },
+    "entrevistas": {
+      "es": "entrevista",
+      "origen": "db_seed"
+    },
+    "equipaje": {
+      "es": "mochila",
+      "origen": "manual"
+    },
+    "equipamento": {
+      "es": "equipamiento",
+      "origen": "manual"
+    },
+    "escarcha": {
+      "es": "frío",
+      "origen": "manual"
+    },
+    "esfuerzos": {
+      "es": "esfuerzo",
+      "origen": "manual"
+    },
+    "evening": {
+      "es": "tarde",
+      "origen": "db_seed"
+    },
+    "event": {
+      "es": "evento",
+      "origen": "db_seed"
+    },
+    "exercise": {
+      "es": "ejercicio",
+      "origen": "db_seed"
+    },
+    "exhibit": {
+      "es": "exposición",
+      "origen": "db_seed"
+    },
+    "fab7": {
+      "es": "marca fab7",
+      "origen": "db_seed"
+    },
+    "fabric": {
+      "es": "tela",
+      "origen": "manual"
+    },
+    "face mask": {
+      "es": "mascarilla",
+      "origen": "db_seed"
+    },
+    "fachada": {
+      "es": "arquitectura",
+      "origen": "manual"
+    },
+    "fachadas": {
+      "es": "arquitectura",
+      "origen": "manual"
+    },
+    "factory": {
+      "es": "fábrica",
+      "origen": "db_seed"
+    },
+    "fallen branch": {
+      "es": "rama caída",
+      "origen": "db_seed"
+    },
+    "fallen leaves": {
+      "es": "hojas caída",
+      "origen": "db_seed"
+    },
+    "fallen petals": {
+      "es": "pétalos caído",
+      "origen": "db_seed"
+    },
+    "farm": {
+      "es": "granja",
+      "origen": "db_seed"
+    },
+    "farmer": {
+      "es": "agricultor",
+      "origen": "db_seed"
+    },
+    "farmland": {
+      "es": "terreno",
+      "origen": "db_seed"
+    },
+    "fatiga": {
+      "es": "cansancio",
+      "origen": "manual"
+    },
+    "feathers": {
+      "es": "pluma",
+      "origen": "db_seed"
+    },
+    "feminismo": {
+      "es": "feminismo",
+      "origen": "db_seed"
+    },
+    "feminist": {
+      "es": "feminista",
+      "origen": "db_seed"
+    },
+    "fence": {
+      "es": "valla",
+      "origen": "db_seed"
+    },
+    "fencing": {
+      "es": "cercado",
+      "origen": "db_seed"
+    },
+    "field": {
+      "es": "naturaleza",
+      "origen": "db_seed"
+    },
+    "fields": {
+      "es": "naturaleza",
+      "origen": "db_seed"
+    },
+    "filming": {
+      "es": "grabación",
+      "origen": "db_seed"
+    },
+    "fire": {
+      "es": "fuego",
+      "origen": "db_seed"
+    },
+    "fire truck": {
+      "es": "camión bombero",
+      "origen": "db_seed"
+    },
+    "fireplace": {
+      "es": "estufa",
+      "origen": "db_seed"
+    },
+    "fitness": {
+      "es": "condición física",
+      "origen": "db_seed"
+    },
+    "fix": {
+      "es": "reparación",
+      "origen": "manual"
+    },
+    "flag": {
+      "es": "bandera",
+      "origen": "db_seed"
+    },
+    "flagpole": {
+      "es": "poste",
+      "origen": "db_seed"
+    },
+    "flip-flop": {
+      "es": "sandalia",
+      "origen": "db_seed"
+    },
+    "flood": {
+      "es": "inundación",
+      "origen": "db_seed"
+    },
+    "floor": {
+      "es": "suelo",
+      "origen": "db_seed"
+    },
+    "flow": {
+      "es": "corriente",
+      "origen": "db_seed"
+    },
+    "flower": {
+      "es": "flor",
+      "origen": "db_seed"
+    },
+    "flowering tree": {
+      "es": "árbol floreciente",
+      "origen": "db_seed"
+    },
+    "flowers": {
+      "es": "flores",
+      "origen": "db_seed"
+    },
+    "fluff": {
+      "es": "pelusa",
+      "origen": "db_seed"
+    },
+    "flujos": {
+      "es": "flujo",
+      "origen": "db_seed"
+    },
+    "flush outside": {
+      "es": "salida exterior",
+      "origen": "db_seed"
+    },
+    "foliage": {
+      "es": "follaje",
+      "origen": "db_seed"
+    },
+    "food": {
+      "es": "comida",
+      "origen": "manual"
+    },
+    "forest": {
+      "es": "bosque",
+      "origen": "manual"
+    },
+    "forklifts": {
+      "es": "montacarga",
+      "origen": "db_seed"
+    },
+    "fossilized structure": {
+      "es": "estructura fosilizada",
+      "origen": "db_seed"
+    },
+    "fossils": {
+      "es": "fósiles",
+      "origen": "db_seed"
+    },
+    "foto": {
+      "es": "fotografía",
+      "origen": "manual"
+    },
+    "fotos": {
+      "es": "fotografía",
+      "origen": "manual"
+    },
+    "founded 1670": {
+      "es": "fundada 1670",
+      "origen": "db_seed"
+    },
+    "fox": {
+      "es": "zorro",
+      "origen": "db_seed"
+    },
+    "freestile": {
+      "es": "estilo libre",
+      "origen": "db_seed"
+    },
+    "freeway": {
+      "es": "autopista",
+      "origen": "manual"
+    },
+    "frequencies": {
+      "es": "frecuencia",
+      "origen": "db_seed"
+    },
+    "fresh": {
+      "es": "fresco",
+      "origen": "db_seed"
+    },
+    "friends": {
+      "es": "amigo",
+      "origen": "manual"
+    },
+    "frio": {
+      "es": "frío",
+      "origen": "manual"
+    },
+    "fruits": {
+      "es": "fruta",
+      "origen": "db_seed"
+    },
+    "fundado": {
+      "es": "fundación",
+      "origen": "db_seed"
+    },
+    "fur": {
+      "es": "piel",
+      "origen": "db_seed"
+    },
+    "ganado": {
+      "es": "animales",
+      "origen": "manual"
+    },
+    "garden": {
+      "es": "jardín",
+      "origen": "db_seed"
+    },
+    "gastronomía": {
+      "es": "comida",
+      "origen": "manual"
+    },
+    "gate": {
+      "es": "puerta",
+      "origen": "db_seed"
+    },
+    "gathering": {
+      "es": "reunión",
+      "origen": "db_seed"
+    },
+    "gato": {
+      "es": "animales",
+      "origen": "manual"
+    },
+    "gatos": {
+      "es": "animales",
+      "origen": "manual"
+    },
+    "gear": {
+      "es": "equipamiento",
+      "origen": "manual"
+    },
+    "gears": {
+      "es": "engranajes",
+      "origen": "db_seed"
+    },
+    "geological": {
+      "es": "geológico",
+      "origen": "db_seed"
+    },
+    "geology": {
+      "es": "geología",
+      "origen": "db_seed"
+    },
+    "geometric facade": {
+      "es": "fachada geométrica",
+      "origen": "db_seed"
+    },
+    "german shepherd": {
+      "es": "pastor alemán",
+      "origen": "db_seed"
+    },
+    "glass": {
+      "es": "cristal",
+      "origen": "db_seed"
+    },
+    "glasses": {
+      "es": "gafa",
+      "origen": "db_seed"
+    },
+    "goal net": {
+      "es": "portería",
+      "origen": "db_seed"
+    },
+    "gobierno": {
+      "es": "gobierno",
+      "origen": "db_seed"
+    },
+    "gold": {
+      "es": "oro",
+      "origen": "db_seed"
+    },
+    "golden": {
+      "es": "dorado",
+      "origen": "db_seed"
+    },
+    "gothic architecture": {
+      "es": "arquitectura gótica",
+      "origen": "db_seed"
+    },
+    "graffiti": {
+      "es": "arte",
+      "origen": "manual"
+    },
+    "grass": {
+      "es": "césped",
+      "origen": "db_seed"
+    },
+    "grasses": {
+      "es": "pasto",
+      "origen": "db_seed"
+    },
+    "grassland": {
+      "es": "pradera",
+      "origen": "db_seed"
+    },
+    "grassy": {
+      "es": "césped",
+      "origen": "db_seed"
+    },
+    "grassy area": {
+      "es": "zona verde",
+      "origen": "db_seed"
+    },
+    "grassy field": {
+      "es": "naturaleza",
+      "origen": "db_seed"
+    },
+    "gratitude": {
+      "es": "agradecimiento",
+      "origen": "db_seed"
+    },
+    "grava": {
+      "es": "camino_de_tierra",
+      "origen": "manual"
+    },
+    "grave": {
+      "es": "tumba",
+      "origen": "db_seed"
+    },
+    "gravel": {
+      "es": "camino_de_tierra",
+      "origen": "manual"
+    },
+    "gray sky": {
+      "es": "cielo gri",
+      "origen": "db_seed"
+    },
+    "green": {
+      "es": "verde",
+      "origen": "db_seed"
+    },
+    "green fence": {
+      "es": "valla verde",
+      "origen": "db_seed"
+    },
+    "green foliage": {
+      "es": "follaje verde",
+      "origen": "db_seed"
+    },
+    "green lawn": {
+      "es": "césped verde",
+      "origen": "db_seed"
+    },
+    "green leaves": {
+      "es": "hojas verdes",
+      "origen": "db_seed"
+    },
+    "green stems": {
+      "es": "tallos verdes",
+      "origen": "db_seed"
+    },
+    "greenery": {
+      "es": "vegetación",
+      "origen": "db_seed"
+    },
+    "ground": {
+      "es": "tierra",
+      "origen": "db_seed"
+    },
+    "group": {
+      "es": "grupo",
+      "origen": "db_seed"
+    },
+    "group discussion": {
+      "es": "reunión",
+      "origen": "db_seed"
+    },
+    "group interaction": {
+      "es": "interacción grupal",
+      "origen": "db_seed"
+    },
+    "group ride": {
+      "es": "grupo",
+      "origen": "db_seed"
+    },
+    "growth": {
+      "es": "crecimiento",
+      "origen": "db_seed"
+    },
+    "guardrail": {
+      "es": "barandilla",
+      "origen": "db_seed"
+    },
+    "hallway": {
+      "es": "pasillo",
+      "origen": "db_seed"
+    },
+    "halo": {
+      "es": "halo",
+      "origen": "db_seed"
+    },
+    "hand": {
+      "es": "mano",
+      "origen": "db_seed"
+    },
+    "hand holding a tool": {
+      "es": "martillo",
+      "origen": "db_seed"
+    },
+    "hanging": {
+      "es": "colgar",
+      "origen": "db_seed"
+    },
+    "hat": {
+      "es": "patrón",
+      "origen": "db_seed"
+    },
+    "haze": {
+      "es": "niebla",
+      "origen": "db_seed"
+    },
+    "headphones": {
+      "es": "audífono",
+      "origen": "db_seed"
+    },
+    "heat": {
+      "es": "calor",
+      "origen": "manual"
+    },
+    "hedge": {
+      "es": "seto",
+      "origen": "db_seed"
+    },
+    "helada": {
+      "es": "frío",
+      "origen": "manual"
+    },
+    "held": {
+      "es": "sostenido",
+      "origen": "db_seed"
+    },
+    "helmet": {
+      "es": "casco",
+      "origen": "manual"
+    },
+    "helmets": {
+      "es": "casco",
+      "origen": "db_seed"
+    },
+    "hen": {
+      "es": "gallina",
+      "origen": "db_seed"
+    },
+    "high-visibility vest": {
+      "es": "chaleco reflectante",
+      "origen": "db_seed"
+    },
+    "highway": {
+      "es": "autopista",
+      "origen": "manual"
+    },
+    "highways": {
+      "es": "autopista",
+      "origen": "db_seed"
+    },
+    "hiking": {
+      "es": "senderismo",
+      "origen": "manual"
+    },
+    "hill": {
+      "es": "colina",
+      "origen": "db_seed"
+    },
+    "hills": {
+      "es": "colina",
+      "origen": "db_seed"
+    },
+    "historia del proyecto": {
+      "es": "james craig",
+      "origen": "db_seed"
+    },
+    "historical": {
+      "es": "histórico",
+      "origen": "db_seed"
+    },
+    "historical exhibit": {
+      "es": "exposición histórica",
+      "origen": "db_seed"
+    },
+    "historical figure": {
+      "es": "figura histórica",
+      "origen": "db_seed"
+    },
+    "hombres": {
+      "es": "personas",
+      "origen": "manual"
+    },
+    "hoodie": {
+      "es": "sudadera",
+      "origen": "db_seed"
+    },
+    "horizonte": {
+      "es": "cielo",
+      "origen": "manual"
+    },
+    "hotel isis": {
+      "es": "hotel isi",
+      "origen": "db_seed"
+    },
+    "house": {
+      "es": "casa",
+      "origen": "db_seed"
+    },
+    "houses": {
+      "es": "casa",
+      "origen": "db_seed"
+    },
+    "human": {
+      "es": "personas",
+      "origen": "db_seed"
+    },
+    "hydroelectric": {
+      "es": "hidroeléctrica",
+      "origen": "db_seed"
+    },
+    "iguales": {
+      "es": "iguales",
+      "origen": "db_seed"
+    },
+    "illuminated": {
+      "es": "iluminado",
+      "origen": "db_seed"
+    },
+    "illumination": {
+      "es": "iluminación",
+      "origen": "db_seed"
+    },
+    "imagen": {
+      "es": "fotografía",
+      "origen": "manual"
+    },
+    "imágenes": {
+      "es": "fotografía",
+      "origen": "manual"
+    },
+    "individuals": {
+      "es": "personas",
+      "origen": "db_seed"
+    },
+    "indoor": {
+      "es": "interior",
+      "origen": "db_seed"
+    },
+    "indoor setting": {
+      "es": "entorno interior",
+      "origen": "db_seed"
+    },
+    "indoor toilet": {
+      "es": "inodoro interior",
+      "origen": "db_seed"
+    },
+    "industrial": {
+      "es": "industrial",
+      "origen": "db_seed"
+    },
+    "industrial buildings": {
+      "es": "edificios industriales",
+      "origen": "db_seed"
+    },
+    "industrial structure": {
+      "es": "estructura industrial",
+      "origen": "db_seed"
+    },
+    "industrial tubes": {
+      "es": "tubos industriales",
+      "origen": "db_seed"
+    },
+    "industrial worker": {
+      "es": "trabajador industrial",
+      "origen": "db_seed"
+    },
+    "industrial workshop": {
+      "es": "taller industrial",
+      "origen": "db_seed"
+    },
+    "injured": {
+      "es": "herido",
+      "origen": "db_seed"
+    },
+    "injury": {
+      "es": "lesión",
+      "origen": "db_seed"
+    },
+    "inri": {
+      "es": "inri",
+      "origen": "db_seed"
+    },
+    "inriville": {
+      "es": "ciudad",
+      "origen": "db_seed"
+    },
+    "inscription": {
+      "es": "inscripción",
+      "origen": "db_seed"
+    },
+    "insect": {
+      "es": "insecto",
+      "origen": "db_seed"
+    },
+    "insulated": {
+      "es": "aislado",
+      "origen": "db_seed"
+    },
+    "interaction": {
+      "es": "interacción",
+      "origen": "db_seed"
+    },
+    "interior": {
+      "es": "interior",
+      "origen": "db_seed"
+    },
+    "izp": {
+      "es": "precio",
+      "origen": "db_seed"
+    },
+    "jacket": {
+      "es": "chaqueta",
+      "origen": "db_seed"
+    },
+    "jackets": {
+      "es": "chaqueta",
+      "origen": "db_seed"
+    },
+    "journey": {
+      "es": "viaje",
+      "origen": "db_seed"
+    },
+    "juventus": {
+      "es": "club",
+      "origen": "db_seed"
+    },
+    "kids": {
+      "es": "niño",
+      "origen": "manual"
+    },
+    "kitchen": {
+      "es": "cocina",
+      "origen": "db_seed"
+    },
+    "la delicia": {
+      "es": "placer",
+      "origen": "db_seed"
+    },
+    "la delita building": {
+      "es": "logotipo",
+      "origen": "db_seed"
+    },
+    "la panaderia": {
+      "es": "panadería",
+      "origen": "db_seed"
+    },
+    "la suta": {
+      "es": "cinta",
+      "origen": "db_seed"
+    },
+    "label": {
+      "es": "etiqueta",
+      "origen": "db_seed"
+    },
+    "ladybird": {
+      "es": "mariquita",
+      "origen": "db_seed"
+    },
+    "ladybug": {
+      "es": "cucarrón",
+      "origen": "db_seed"
+    },
+    "lake": {
+      "es": "lago",
+      "origen": "db_seed"
+    },
+    "lamp": {
+      "es": "lámpara",
+      "origen": "auto"
+    },
+    "land": {
+      "es": "tierra",
+      "origen": "db_seed"
+    },
+    "landscape": {
+      "es": "paisaje",
+      "origen": "manual"
+    },
+    "large letters": {
+      "es": "letras grandes",
+      "origen": "db_seed"
+    },
+    "large vehicles": {
+      "es": "vehículos grandes",
+      "origen": "db_seed"
+    },
+    "law enforcement": {
+      "es": "fuerzas policiales",
+      "origen": "db_seed"
+    },
+    "leaf": {
+      "es": "hoja",
+      "origen": "db_seed"
+    },
+    "leaf pattern": {
+      "es": "hoja",
+      "origen": "db_seed"
+    },
+    "leafy": {
+      "es": "hoja",
+      "origen": "db_seed"
+    },
+    "leafy foliage": {
+      "es": "follaje",
+      "origen": "db_seed"
+    },
+    "leafy stems": {
+      "es": "tallos verdes",
+      "origen": "db_seed"
+    },
+    "leandro": {
+      "es": "leandro",
+      "origen": "db_seed"
+    },
+    "leaves": {
+      "es": "hoja",
+      "origen": "db_seed"
+    },
+    "legs": {
+      "es": "pierna",
+      "origen": "db_seed"
+    },
+    "lens flare": {
+      "es": "reflejo",
+      "origen": "db_seed"
+    },
+    "leones morrison logo": {
+      "es": "leones morrison",
+      "origen": "db_seed"
+    },
+    "letters": {
+      "es": "letra",
+      "origen": "db_seed"
+    },
+    "libros": {
+      "es": "libro",
+      "origen": "db_seed"
+    },
+    "light": {
+      "es": "luz",
+      "origen": "db_seed"
+    },
+    "lighthouse": {
+      "es": "faro",
+      "origen": "db_seed"
+    },
+    "lights": {
+      "es": "luces",
+      "origen": "db_seed"
+    },
+    "llovizna": {
+      "es": "lluvia",
+      "origen": "manual"
+    },
+    "lluvia": {
+      "es": "lluvia",
+      "origen": "db_seed"
+    },
+    "lluvioso": {
+      "es": "lluvia",
+      "origen": "manual"
+    },
+    "locro": {
+      "es": "comida_argentina",
+      "origen": "manual"
+    },
+    "logo": {
+      "es": "logotipo",
+      "origen": "db_seed"
+    },
+    "loreto": {
+      "es": "loreto",
+      "origen": "db_seed"
+    },
+    "luchar": {
+      "es": "lucha",
+      "origen": "db_seed"
+    },
+    "luggage": {
+      "es": "mochila",
+      "origen": "db_seed"
+    },
+    "luxurious": {
+      "es": "lujo",
+      "origen": "db_seed"
+    },
+    "lying": {
+      "es": "acostado",
+      "origen": "db_seed"
+    },
+    "machinery": {
+      "es": "maquinaria",
+      "origen": "db_seed"
+    },
+    "macho": {
+      "es": "machismo",
+      "origen": "db_seed"
+    },
+    "madonna": {
+      "es": "virgen maría",
+      "origen": "db_seed"
+    },
+    "magazine": {
+      "es": "revista",
+      "origen": "db_seed"
+    },
+    "maintenance": {
+      "es": "reparación",
+      "origen": "db_seed"
+    },
+    "malbec": {
+      "es": "malbec",
+      "origen": "db_seed"
+    },
+    "man": {
+      "es": "hombre",
+      "origen": "db_seed"
+    },
+    "mantenimiento": {
+      "es": "reparación",
+      "origen": "manual"
+    },
+    "manufacturing": {
+      "es": "fabricación",
+      "origen": "db_seed"
+    },
+    "map": {
+      "es": "mapa",
+      "origen": "db_seed"
+    },
+    "mapbox": {
+      "es": "mapa",
+      "origen": "db_seed"
+    },
+    "marian icon": {
+      "es": "icono mariano",
+      "origen": "db_seed"
+    },
+    "marina": {
+      "es": "embarcadero",
+      "origen": "db_seed"
+    },
+    "marsh": {
+      "es": "pantano",
+      "origen": "db_seed"
+    },
+    "mask": {
+      "es": "mascarilla",
+      "origen": "db_seed"
+    },
+    "mat": {
+      "es": "estera",
+      "origen": "db_seed"
+    },
+    "mate": {
+      "es": "comida_argentina",
+      "origen": "manual"
+    },
+    "meal": {
+      "es": "comida",
+      "origen": "db_seed"
+    },
+    "meat": {
+      "es": "carne",
+      "origen": "db_seed"
+    },
+    "mechanic": {
+      "es": "mecánico",
+      "origen": "db_seed"
+    },
+    "mechanical": {
+      "es": "mecánico",
+      "origen": "db_seed"
+    },
+    "media": {
+      "es": "medio",
+      "origen": "db_seed"
+    },
+    "meeting": {
+      "es": "reunión",
+      "origen": "db_seed"
+    },
+    "memorial": {
+      "es": "monumento",
+      "origen": "db_seed"
+    },
+    "men": {
+      "es": "personas",
+      "origen": "db_seed"
+    },
+    "mensaje": {
+      "es": "mensaje",
+      "origen": "db_seed"
+    },
+    "mercedes": {
+      "es": "mercedes",
+      "origen": "db_seed"
+    },
+    "mercedes-benz": {
+      "es": "mercedes benz",
+      "origen": "db_seed"
+    },
+    "mesh": {
+      "es": "malla",
+      "origen": "db_seed"
+    },
+    "metal": {
+      "es": "metal",
+      "origen": "db_seed"
+    },
+    "metal pipes": {
+      "es": "tuberías metálica",
+      "origen": "db_seed"
+    },
+    "metallic": {
+      "es": "metal",
+      "origen": "db_seed"
+    },
+    "metallic framework": {
+      "es": "estructura metálica",
+      "origen": "db_seed"
+    },
+    "metrics": {
+      "es": "indicadores",
+      "origen": "db_seed"
+    },
+    "microphone": {
+      "es": "micrófono",
+      "origen": "db_seed"
+    },
+    "milanesa": {
+      "es": "comida_argentina",
+      "origen": "manual"
+    },
+    "military uniform": {
+      "es": "uniforme militar",
+      "origen": "db_seed"
+    },
+    "minerals": {
+      "es": "minerales",
+      "origen": "db_seed"
+    },
+    "minister": {
+      "es": "ministro",
+      "origen": "db_seed"
+    },
+    "mochilas": {
+      "es": "mochila",
+      "origen": "manual"
+    },
+    "modern bikes": {
+      "es": "bicicletas moderna",
+      "origen": "db_seed"
+    },
+    "montañas": {
+      "es": "montaña",
+      "origen": "manual"
+    },
+    "monte bley": {
+      "es": "montaña",
+      "origen": "db_seed"
+    },
+    "monte buey": {
+      "es": "monte bué",
+      "origen": "db_seed"
+    },
+    "monument": {
+      "es": "monumento",
+      "origen": "db_seed"
+    },
+    "moon": {
+      "es": "luna",
+      "origen": "db_seed"
+    },
+    "moss": {
+      "es": "musgo",
+      "origen": "db_seed"
+    },
+    "moto": {
+      "es": "motocicleta",
+      "origen": "manual"
+    },
+    "moto de enduro": {
+      "es": "motocicleta",
+      "origen": "manual"
+    },
+    "motocicletas": {
+      "es": "motocicleta",
+      "origen": "manual"
+    },
+    "motomel": {
+      "es": "motocicleta",
+      "origen": "manual"
+    },
+    "motorbike": {
+      "es": "motocicleta",
+      "origen": "db_seed"
+    },
+    "motorcycle": {
+      "es": "motocicleta",
+      "origen": "manual"
+    },
+    "motorcycles": {
+      "es": "motocicleta",
+      "origen": "db_seed"
+    },
+    "motorway": {
+      "es": "autopista",
+      "origen": "manual"
+    },
+    "mountain": {
+      "es": "montaña",
+      "origen": "manual"
+    },
+    "mountain bike": {
+      "es": "bicicleta",
+      "origen": "manual"
+    },
+    "mountain ranges": {
+      "es": "llanura",
+      "origen": "db_seed"
+    },
+    "mountains": {
+      "es": "montaña",
+      "origen": "manual"
+    },
+    "movement": {
+      "es": "movimiento",
+      "origen": "db_seed"
+    },
+    "mtb": {
+      "es": "bicicleta",
+      "origen": "manual"
+    },
+    "muddy": {
+      "es": "fangoso",
+      "origen": "db_seed"
+    },
+    "muddy water": {
+      "es": "agua turbia",
+      "origen": "db_seed"
+    },
+    "mujeres": {
+      "es": "personas",
+      "origen": "manual"
+    },
+    "multimedia": {
+      "es": "multimedia",
+      "origen": "db_seed"
+    },
+    "municipal": {
+      "es": "municipal",
+      "origen": "db_seed"
+    },
+    "municipalidad james craik": {
+      "es": "municipalidad",
+      "origen": "db_seed"
+    },
+    "mural": {
+      "es": "arte",
+      "origen": "manual"
+    },
+    "murales": {
+      "es": "arte",
+      "origen": "manual"
+    },
+    "museum": {
+      "es": "museo",
+      "origen": "db_seed"
+    },
+    "music": {
+      "es": "música",
+      "origen": "manual"
+    },
+    "musica": {
+      "es": "música",
+      "origen": "manual"
+    },
+    "nadie": {
+      "es": "nadie",
+      "origen": "db_seed"
+    },
+    "natural": {
+      "es": "natural",
+      "origen": "db_seed"
+    },
+    "natural environment": {
+      "es": "entorno natural",
+      "origen": "db_seed"
+    },
+    "natural setting": {
+      "es": "entorno natural",
+      "origen": "db_seed"
+    },
+    "natural trail": {
+      "es": "vegetación seca",
+      "origen": "db_seed"
+    },
+    "nature": {
+      "es": "naturaleza",
+      "origen": "manual"
+    },
+    "navigation": {
+      "es": "navegación",
+      "origen": "db_seed"
+    },
+    "neglected": {
+      "es": "descuidado",
+      "origen": "db_seed"
+    },
+    "negotiations": {
+      "es": "negociaciones",
+      "origen": "db_seed"
+    },
+    "nene": {
+      "es": "niño",
+      "origen": "manual"
+    },
+    "nenes": {
+      "es": "niño",
+      "origen": "manual"
+    },
+    "nest": {
+      "es": "nido",
+      "origen": "db_seed"
+    },
+    "news": {
+      "es": "noticia",
+      "origen": "db_seed"
+    },
+    "newspaper": {
+      "es": "periódico",
+      "origen": "db_seed"
+    },
+    "night": {
+      "es": "noche",
+      "origen": "manual"
+    },
+    "nighttime": {
+      "es": "noche",
+      "origen": "db_seed"
+    },
+    "nighttime setting": {
+      "es": "entorno nocturno",
+      "origen": "db_seed"
+    },
+    "niños": {
+      "es": "niño",
+      "origen": "manual"
+    },
+    "no symbol": {
+      "es": "sin símbolo",
+      "origen": "db_seed"
+    },
+    "noche estrellada": {
+      "es": "noche",
+      "origen": "manual"
+    },
+    "nocturna": {
+      "es": "noche",
+      "origen": "manual"
+    },
+    "nocturno": {
+      "es": "noche",
+      "origen": "manual"
+    },
+    "nose": {
+      "es": "nariz",
+      "origen": "db_seed"
+    },
+    "not engaging": {
+      "es": "no participar",
+      "origen": "db_seed"
+    },
+    "nubes": {
+      "es": "cielo",
+      "origen": "manual"
+    },
+    "ocaso": {
+      "es": "atardecer",
+      "origen": "manual"
+    },
+    "old": {
+      "es": "antiguo",
+      "origen": "db_seed"
+    },
+    "old machinery": {
+      "es": "maquinaria vieja",
+      "origen": "db_seed"
+    },
+    "old tree": {
+      "es": "árbol viejo",
+      "origen": "db_seed"
+    },
+    "old trunk": {
+      "es": "tronco viejo",
+      "origen": "db_seed"
+    },
+    "old tv": {
+      "es": "televisor antiguo",
+      "origen": "db_seed"
+    },
+    "onna": {
+      "es": "mujer",
+      "origen": "db_seed"
+    },
+    "open landscape": {
+      "es": "paisaje abierto",
+      "origen": "db_seed"
+    },
+    "open road": {
+      "es": "camino abierto",
+      "origen": "db_seed"
+    },
+    "open space": {
+      "es": "espacio abierto",
+      "origen": "db_seed"
+    },
+    "orange": {
+      "es": "naranja",
+      "origen": "db_seed"
+    },
+    "orange sky": {
+      "es": "cielo naranja",
+      "origen": "db_seed"
+    },
+    "orange vest": {
+      "es": "chaleco naranja",
+      "origen": "db_seed"
+    },
+    "oranges": {
+      "es": "naranja",
+      "origen": "db_seed"
+    },
+    "ornate dress": {
+      "es": "vestido ornamentado",
+      "origen": "db_seed"
+    },
+    "outdoor": {
+      "es": "naturaleza",
+      "origen": "manual"
+    },
+    "outdoor seating": {
+      "es": "asientos exteriores",
+      "origen": "db_seed"
+    },
+    "outdoor setting": {
+      "es": "espacio exterior",
+      "origen": "db_seed"
+    },
+    "outdoors": {
+      "es": "exterior",
+      "origen": "db_seed"
+    },
+    "oveja": {
+      "es": "animales",
+      "origen": "manual"
+    },
+    "ovejas": {
+      "es": "animales",
+      "origen": "manual"
+    },
+    "overcast": {
+      "es": "cielo nublado",
+      "origen": "db_seed"
+    },
+    "overcast sky": {
+      "es": "cielo nublado",
+      "origen": "db_seed"
+    },
+    "overflow": {
+      "es": "desbordamiento",
+      "origen": "db_seed"
+    },
+    "overgrown plant": {
+      "es": "planta desbocada",
+      "origen": "db_seed"
+    },
+    "overgrown plants": {
+      "es": "planta",
+      "origen": "db_seed"
+    },
+    "overgrowth": {
+      "es": "vegetación",
+      "origen": "db_seed"
+    },
+    "overpass": {
+      "es": "paso elevado",
+      "origen": "db_seed"
+    },
+    "packages": {
+      "es": "paquetes",
+      "origen": "db_seed"
+    },
+    "packaging": {
+      "es": "embalaje",
+      "origen": "db_seed"
+    },
+    "paisaje natural": {
+      "es": "naturaleza",
+      "origen": "manual"
+    },
+    "palm trees": {
+      "es": "palmera",
+      "origen": "db_seed"
+    },
+    "pan casero": {
+      "es": "pan artesanal",
+      "origen": "db_seed"
+    },
+    "pannier": {
+      "es": "mochila",
+      "origen": "manual"
+    },
+    "panniers": {
+      "es": "cesta",
+      "origen": "db_seed"
+    },
+    "parador": {
+      "es": "hotel",
+      "origen": "db_seed"
+    },
+    "parar": {
+      "es": "alto",
+      "origen": "db_seed"
+    },
+    "park": {
+      "es": "parque",
+      "origen": "db_seed"
+    },
+    "parts": {
+      "es": "pieza",
+      "origen": "db_seed"
+    },
+    "party": {
+      "es": "fiesta",
+      "origen": "db_seed"
+    },
+    "pasteleria": {
+      "es": "pastelería",
+      "origen": "db_seed"
+    },
+    "pastries": {
+      "es": "pasteles",
+      "origen": "db_seed"
+    },
+    "patch": {
+      "es": "parche",
+      "origen": "db_seed"
+    },
+    "pathway": {
+      "es": "senderismo",
+      "origen": "db_seed"
+    },
+    "paved road": {
+      "es": "camino asfaltado",
+      "origen": "db_seed"
+    },
+    "paved walkway": {
+      "es": "sendero pavimentado",
+      "origen": "db_seed"
+    },
+    "pavement": {
+      "es": "pavimento",
+      "origen": "db_seed"
+    },
+    "pebbles": {
+      "es": "guijarro",
+      "origen": "db_seed"
+    },
+    "pedal": {
+      "es": "pedaleo",
+      "origen": "db_seed"
+    },
+    "pedaleando": {
+      "es": "ciclismo",
+      "origen": "manual"
+    },
+    "pedestrians": {
+      "es": "peatones",
+      "origen": "db_seed"
+    },
+    "peeling": {
+      "es": "descascarado",
+      "origen": "db_seed"
+    },
+    "peeling paint": {
+      "es": "pintura descascarada",
+      "origen": "db_seed"
+    },
+    "pensar": {
+      "es": "pensar",
+      "origen": "db_seed"
+    },
+    "people": {
+      "es": "personas",
+      "origen": "manual"
+    },
+    "pequeño": {
+      "es": "niño",
+      "origen": "manual"
+    },
+    "perro": {
+      "es": "animales",
+      "origen": "manual"
+    },
+    "perros": {
+      "es": "animales",
+      "origen": "manual"
+    },
+    "person": {
+      "es": "personas",
+      "origen": "db_seed"
+    },
+    "persona": {
+      "es": "personas",
+      "origen": "manual"
+    },
+    "personas": {
+      "es": "gente",
+      "origen": "db_seed"
+    },
+    "pet": {
+      "es": "mascota",
+      "origen": "db_seed"
+    },
+    "petting": {
+      "es": "acariciar",
+      "origen": "db_seed"
+    },
+    "phone": {
+      "es": "teléfono",
+      "origen": "db_seed"
+    },
+    "photographer": {
+      "es": "fotógrafo",
+      "origen": "db_seed"
+    },
+    "photography": {
+      "es": "fotografía",
+      "origen": "manual"
+    },
+    "pine trees": {
+      "es": "pino",
+      "origen": "db_seed"
+    },
+    "pink blossoms": {
+      "es": "flores rosada",
+      "origen": "db_seed"
+    },
+    "pink flowers": {
+      "es": "flores rosa",
+      "origen": "db_seed"
+    },
+    "pintura": {
+      "es": "arte",
+      "origen": "manual"
+    },
+    "pipes": {
+      "es": "tubería",
+      "origen": "db_seed"
+    },
+    "pizza": {
+      "es": "pizza",
+      "origen": "db_seed"
+    },
+    "place": {
+      "es": "lugar",
+      "origen": "db_seed"
+    },
+    "plant": {
+      "es": "planta",
+      "origen": "db_seed"
+    },
+    "plant life": {
+      "es": "vida vegetal",
+      "origen": "db_seed"
+    },
+    "plantas": {
+      "es": "árbol",
+      "origen": "manual"
+    },
+    "planter": {
+      "es": "maceta",
+      "origen": "db_seed"
+    },
+    "plants": {
+      "es": "planta",
+      "origen": "db_seed"
+    },
+    "plaque": {
+      "es": "placa",
+      "origen": "db_seed"
+    },
+    "plates": {
+      "es": "comida",
+      "origen": "db_seed"
+    },
+    "plato": {
+      "es": "comida",
+      "origen": "manual"
+    },
+    "platos": {
+      "es": "comida",
+      "origen": "manual"
+    },
+    "playground": {
+      "es": "parque infantil",
+      "origen": "db_seed"
+    },
+    "plaza": {
+      "es": "plaza",
+      "origen": "db_seed"
+    },
+    "podcast": {
+      "es": "programa",
+      "origen": "db_seed"
+    },
+    "poetry": {
+      "es": "poesía",
+      "origen": "db_seed"
+    },
+    "police": {
+      "es": "policía",
+      "origen": "db_seed"
+    },
+    "post": {
+      "es": "poste",
+      "origen": "db_seed"
+    },
+    "posters": {
+      "es": "carteles",
+      "origen": "db_seed"
+    },
+    "power": {
+      "es": "poder",
+      "origen": "db_seed"
+    },
+    "power lines": {
+      "es": "líneas eléctrica",
+      "origen": "db_seed"
+    },
+    "power pole": {
+      "es": "poste eléctrico",
+      "origen": "db_seed"
+    },
+    "pozo": {
+      "es": "pozo",
+      "origen": "db_seed"
+    },
+    "presentation": {
+      "es": "presentación",
+      "origen": "db_seed"
+    },
+    "price": {
+      "es": "valor",
+      "origen": "db_seed"
+    },
+    "processing": {
+      "es": "procesamiento",
+      "origen": "db_seed"
+    },
+    "production": {
+      "es": "producción",
+      "origen": "db_seed"
+    },
+    "profesionalismo": {
+      "es": "profesionalismo",
+      "origen": "db_seed"
+    },
+    "prohibited": {
+      "es": "prohibido",
+      "origen": "db_seed"
+    },
+    "protective packaging": {
+      "es": "embalaje protector",
+      "origen": "db_seed"
+    },
+    "protective wrap": {
+      "es": "envase protector",
+      "origen": "db_seed"
+    },
+    "proviene": {
+      "es": "procede",
+      "origen": "db_seed"
+    },
+    "province": {
+      "es": "provincia",
+      "origen": "db_seed"
+    },
+    "provincial sign": {
+      "es": "señal provincial",
+      "origen": "db_seed"
+    },
+    "public art": {
+      "es": "arte público",
+      "origen": "db_seed"
+    },
+    "public space": {
+      "es": "espacio público",
+      "origen": "db_seed"
+    },
+    "public square": {
+      "es": "plaza pública",
+      "origen": "db_seed"
+    },
+    "public works": {
+      "es": "obras pública",
+      "origen": "db_seed"
+    },
+    "publication": {
+      "es": "publicación",
+      "origen": "db_seed"
+    },
+    "puddle": {
+      "es": "charco",
+      "origen": "db_seed"
+    },
+    "pueblo": {
+      "es": "ciudad",
+      "origen": "manual"
+    },
+    "pueblo sanaviron": {
+      "es": "san vavrón",
+      "origen": "db_seed"
+    },
+    "pueblos": {
+      "es": "ciudad",
+      "origen": "manual"
+    },
+    "puesta de sol": {
+      "es": "atardecer",
+      "origen": "manual"
+    },
+    "pupa": {
+      "es": "crisálida",
+      "origen": "db_seed"
+    },
+    "purple": {
+      "es": "morado",
+      "origen": "db_seed"
+    },
+    "qr code": {
+      "es": "código qr",
+      "origen": "db_seed"
+    },
+    "radio": {
+      "es": "emisor",
+      "origen": "db_seed"
+    },
+    "radio 435": {
+      "es": "emisora 435",
+      "origen": "db_seed"
+    },
+    "rail": {
+      "es": "riel",
+      "origen": "db_seed"
+    },
+    "railway": {
+      "es": "ferrocarril",
+      "origen": "db_seed"
+    },
+    "railway track": {
+      "es": "vía férrea",
+      "origen": "db_seed"
+    },
+    "rain": {
+      "es": "lluvia",
+      "origen": "manual"
+    },
+    "rama": {
+      "es": "árbol",
+      "origen": "manual"
+    },
+    "ramas": {
+      "es": "árbol",
+      "origen": "manual"
+    },
+    "rascacielos": {
+      "es": "urbanismo",
+      "origen": "manual"
+    },
+    "real": {
+      "es": "realidad",
+      "origen": "db_seed"
+    },
+    "recital": {
+      "es": "música",
+      "origen": "manual"
+    },
+    "recognition": {
+      "es": "reconocimiento",
+      "origen": "db_seed"
+    },
+    "recompensa": {
+      "es": "premio",
+      "origen": "db_seed"
+    },
+    "reconciliacion": {
+      "es": "reconciliación",
+      "origen": "db_seed"
+    },
+    "recording": {
+      "es": "grabación",
+      "origen": "db_seed"
+    },
+    "recorrido": {
+      "es": "viaje",
+      "origen": "manual"
+    },
+    "red": {
+      "es": "código",
+      "origen": "db_seed"
+    },
+    "red building": {
+      "es": "edificio rojo",
+      "origen": "db_seed"
+    },
+    "red car": {
+      "es": "coche rojo",
+      "origen": "db_seed"
+    },
+    "red fabric": {
+      "es": "tela",
+      "origen": "db_seed"
+    },
+    "red light": {
+      "es": "luz roja",
+      "origen": "db_seed"
+    },
+    "red roof": {
+      "es": "techo rojo",
+      "origen": "db_seed"
+    },
+    "reeds": {
+      "es": "junco",
+      "origen": "db_seed"
+    },
+    "reflective": {
+      "es": "reflectante",
+      "origen": "db_seed"
+    },
+    "reflective vest": {
+      "es": "chaleco reflectante",
+      "origen": "db_seed"
+    },
+    "relaxed": {
+      "es": "relajado",
+      "origen": "db_seed"
+    },
+    "religious icon": {
+      "es": "imagen religiosa",
+      "origen": "db_seed"
+    },
+    "religious statue": {
+      "es": "estatua religiosa",
+      "origen": "db_seed"
+    },
+    "repair": {
+      "es": "reparación",
+      "origen": "manual"
+    },
+    "reparar": {
+      "es": "reparación",
+      "origen": "manual"
+    },
+    "repetition": {
+      "es": "repetición",
+      "origen": "db_seed"
+    },
+    "research": {
+      "es": "investigación",
+      "origen": "db_seed"
+    },
+    "residential area": {
+      "es": "zona residencial",
+      "origen": "db_seed"
+    },
+    "residential street": {
+      "es": "calle residencial",
+      "origen": "db_seed"
+    },
+    "resist": {
+      "es": "resistencia",
+      "origen": "db_seed"
+    },
+    "respect": {
+      "es": "respeto",
+      "origen": "db_seed"
+    },
+    "respetar": {
+      "es": "respeto",
+      "origen": "db_seed"
+    },
+    "rest": {
+      "es": "descanso",
+      "origen": "db_seed"
+    },
+    "retrato fotográfico": {
+      "es": "fotografía",
+      "origen": "manual"
+    },
+    "revolution": {
+      "es": "revolución",
+      "origen": "db_seed"
+    },
+    "rider": {
+      "es": "conductor",
+      "origen": "db_seed"
+    },
+    "riding": {
+      "es": "ciclismo",
+      "origen": "db_seed"
+    },
+    "ripio": {
+      "es": "camino_de_tierra",
+      "origen": "manual"
+    },
+    "risa": {
+      "es": "felicidad",
+      "origen": "manual"
+    },
+    "risas": {
+      "es": "felicidad",
+      "origen": "manual"
+    },
+    "river": {
+      "es": "río",
+      "origen": "db_seed"
+    },
+    "road": {
+      "es": "ruta",
+      "origen": "manual"
+    },
+    "road trip": {
+      "es": "viaje",
+      "origen": "manual"
+    },
+    "roads": {
+      "es": "calles",
+      "origen": "db_seed"
+    },
+    "roadside": {
+      "es": "banquina",
+      "origen": "manual"
+    },
+    "rock": {
+      "es": "piedra",
+      "origen": "db_seed"
+    },
+    "rocks": {
+      "es": "roca",
+      "origen": "db_seed"
+    },
+    "rocky": {
+      "es": "roca",
+      "origen": "db_seed"
+    },
+    "rocky habitat": {
+      "es": "hábitat rocoso",
+      "origen": "db_seed"
+    },
+    "rojas": {
+      "es": "rojo",
+      "origen": "db_seed"
+    },
+    "roll-door": {
+      "es": "puerta enrollable",
+      "origen": "db_seed"
+    },
+    "rooster": {
+      "es": "gallo",
+      "origen": "db_seed"
+    },
+    "root": {
+      "es": "raíz",
+      "origen": "db_seed"
+    },
+    "root structures": {
+      "es": "raíces",
+      "origen": "db_seed"
+    },
+    "roots": {
+      "es": "raíces",
+      "origen": "db_seed"
+    },
+    "rough surface": {
+      "es": "superficie áspera",
+      "origen": "db_seed"
+    },
+    "rough texture": {
+      "es": "textura áspera",
+      "origen": "db_seed"
+    },
+    "route": {
+      "es": "itinerario",
+      "origen": "db_seed"
+    },
+    "ruins": {
+      "es": "ruina",
+      "origen": "db_seed"
+    },
+    "rural": {
+      "es": "naturaleza",
+      "origen": "db_seed"
+    },
+    "rural landscape": {
+      "es": "paisaje rural",
+      "origen": "db_seed"
+    },
+    "rural road": {
+      "es": "camino rural",
+      "origen": "db_seed"
+    },
+    "rural setting": {
+      "es": "entorno rural",
+      "origen": "db_seed"
+    },
+    "rusted": {
+      "es": "oxidado",
+      "origen": "db_seed"
+    },
+    "rusted sign": {
+      "es": "cartel oxidado",
+      "origen": "db_seed"
+    },
+    "rustic building": {
+      "es": "construcción rústica",
+      "origen": "db_seed"
+    },
+    "ruta 9": {
+      "es": "ruta",
+      "origen": "manual"
+    },
+    "ruta nacional": {
+      "es": "ruta",
+      "origen": "manual"
+    },
+    "ruta viajera": {
+      "es": "viaje",
+      "origen": "manual"
+    },
+    "sacate": {
+      "es": "quitarse",
+      "origen": "db_seed"
+    },
+    "sacks": {
+      "es": "saco",
+      "origen": "db_seed"
+    },
+    "sacred": {
+      "es": "sagrado",
+      "origen": "db_seed"
+    },
+    "safety": {
+      "es": "seguridad",
+      "origen": "db_seed"
+    },
+    "safety vest": {
+      "es": "chaleco reflectante",
+      "origen": "db_seed"
+    },
+    "salad": {
+      "es": "ensalada",
+      "origen": "db_seed"
+    },
+    "saladillo": {
+      "es": "saladillo",
+      "origen": "db_seed"
+    },
+    "salida del sol": {
+      "es": "amanecer",
+      "origen": "manual"
+    },
+    "sanctuary": {
+      "es": "refugio",
+      "origen": "db_seed"
+    },
+    "sand": {
+      "es": "arena",
+      "origen": "db_seed"
+    },
+    "sandy ground": {
+      "es": "tierra arenosa",
+      "origen": "db_seed"
+    },
+    "santiago": {
+      "es": "santiagueño",
+      "origen": "db_seed"
+    },
+    "scattered": {
+      "es": "disperso",
+      "origen": "db_seed"
+    },
+    "scenery": {
+      "es": "paisaje",
+      "origen": "manual"
+    },
+    "school": {
+      "es": "escuela",
+      "origen": "db_seed"
+    },
+    "scientific": {
+      "es": "científico",
+      "origen": "db_seed"
+    },
+    "scooter": {
+      "es": "patinete",
+      "origen": "db_seed"
+    },
+    "scrubby vegetation": {
+      "es": "vegetación escasa",
+      "origen": "db_seed"
+    },
+    "scrubland": {
+      "es": "matorral",
+      "origen": "db_seed"
+    },
+    "sculpture": {
+      "es": "escultura",
+      "origen": "db_seed"
+    },
+    "sculptures": {
+      "es": "escultura",
+      "origen": "db_seed"
+    },
+    "sea": {
+      "es": "mar",
+      "origen": "db_seed"
+    },
+    "seasonal": {
+      "es": "estacional",
+      "origen": "db_seed"
+    },
+    "seed": {
+      "es": "semilla",
+      "origen": "db_seed"
+    },
+    "seed pods": {
+      "es": "burbuja",
+      "origen": "db_seed"
+    },
+    "seeds": {
+      "es": "semilla",
+      "origen": "db_seed"
+    },
+    "selva": {
+      "es": "bosque",
+      "origen": "manual"
+    },
+    "sendero": {
+      "es": "senderismo",
+      "origen": "manual"
+    },
+    "sequía": {
+      "es": "calor",
+      "origen": "manual"
+    },
+    "serene": {
+      "es": "tranquilidad",
+      "origen": "db_seed"
+    },
+    "shadow": {
+      "es": "sombra",
+      "origen": "db_seed"
+    },
+    "shed": {
+      "es": "cobertizo",
+      "origen": "db_seed"
+    },
+    "shoe": {
+      "es": "zapato",
+      "origen": "db_seed"
+    },
+    "shoes": {
+      "es": "zapato",
+      "origen": "db_seed"
+    },
+    "shoreline": {
+      "es": "costa",
+      "origen": "db_seed"
+    },
+    "shorts": {
+      "es": "pantalones corto",
+      "origen": "db_seed"
+    },
+    "show": {
+      "es": "música",
+      "origen": "manual"
+    },
+    "shrubbery": {
+      "es": "arbusto",
+      "origen": "db_seed"
+    },
+    "sidewalk": {
+      "es": "acera",
+      "origen": "db_seed"
+    },
+    "sierra": {
+      "es": "montaña",
+      "origen": "manual"
+    },
+    "sierras": {
+      "es": "montaña",
+      "origen": "manual"
+    },
+    "sign": {
+      "es": "señal",
+      "origen": "db_seed"
+    },
+    "signages": {
+      "es": "señalización",
+      "origen": "db_seed"
+    },
+    "signature": {
+      "es": "firma",
+      "origen": "db_seed"
+    },
+    "signs": {
+      "es": "señales",
+      "origen": "db_seed"
+    },
+    "silhouette": {
+      "es": "silueta",
+      "origen": "db_seed"
+    },
+    "silhouettes": {
+      "es": "silueta",
+      "origen": "db_seed"
+    },
+    "skull": {
+      "es": "cráneo",
+      "origen": "db_seed"
+    },
+    "sky": {
+      "es": "cielo",
+      "origen": "manual"
+    },
+    "sleeping": {
+      "es": "dormir",
+      "origen": "db_seed"
+    },
+    "small insect": {
+      "es": "insecto pequeño",
+      "origen": "db_seed"
+    },
+    "small leaves": {
+      "es": "hojas pequeña",
+      "origen": "db_seed"
+    },
+    "smartphone": {
+      "es": "teléfono inteligente",
+      "origen": "db_seed"
+    },
+    "smile": {
+      "es": "felicidad",
+      "origen": "manual"
+    },
+    "snack": {
+      "es": "merienda",
+      "origen": "db_seed"
+    },
+    "soccer": {
+      "es": "fútbol",
+      "origen": "db_seed"
+    },
+    "social": {
+      "es": "social",
+      "origen": "db_seed"
+    },
+    "social gathering": {
+      "es": "encuentro",
+      "origen": "db_seed"
+    },
+    "social interaction": {
+      "es": "interacción social",
+      "origen": "db_seed"
+    },
+    "soil": {
+      "es": "tierra",
+      "origen": "db_seed"
+    },
+    "sol intenso": {
+      "es": "calor",
+      "origen": "manual"
+    },
+    "soledad": {
+      "es": "soledad",
+      "origen": "db_seed"
+    },
+    "solidarity": {
+      "es": "solidaridad",
+      "origen": "db_seed"
+    },
+    "son": {
+      "es": "son",
+      "origen": "db_seed"
+    },
+    "sonrisa": {
+      "es": "felicidad",
+      "origen": "manual"
+    },
+    "sonrisas": {
+      "es": "felicidad",
+      "origen": "manual"
+    },
+    "sparse bushes": {
+      "es": "arbustos escaso",
+      "origen": "db_seed"
+    },
+    "specimen": {
+      "es": "ejemplar",
+      "origen": "db_seed"
+    },
+    "spiky": {
+      "es": "espina",
+      "origen": "db_seed"
+    },
+    "spillway": {
+      "es": "desagüe",
+      "origen": "db_seed"
+    },
+    "spines": {
+      "es": "espina",
+      "origen": "db_seed"
+    },
+    "spires": {
+      "es": "torres",
+      "origen": "db_seed"
+    },
+    "spirituistas": {
+      "es": "espiritista",
+      "origen": "db_seed"
+    },
+    "spokes": {
+      "es": "radio",
+      "origen": "db_seed"
+    },
+    "sport": {
+      "es": "deporte",
+      "origen": "manual"
+    },
+    "sports": {
+      "es": "deporte",
+      "origen": "db_seed"
+    },
+    "spotted": {
+      "es": "manchada",
+      "origen": "db_seed"
+    },
+    "square": {
+      "es": "cuadrado",
+      "origen": "db_seed"
+    },
+    "standing": {
+      "es": "postura",
+      "origen": "db_seed"
+    },
+    "statue": {
+      "es": "estatua",
+      "origen": "db_seed"
+    },
+    "stem": {
+      "es": "tallo",
+      "origen": "db_seed"
+    },
+    "stems": {
+      "es": "tallo",
+      "origen": "db_seed"
+    },
+    "sticker": {
+      "es": "pegatina",
+      "origen": "db_seed"
+    },
+    "stickers": {
+      "es": "pegatina",
+      "origen": "db_seed"
+    },
+    "stone": {
+      "es": "piedra",
+      "origen": "db_seed"
+    },
+    "stones": {
+      "es": "piedra",
+      "origen": "db_seed"
+    },
+    "storage": {
+      "es": "almacenamiento",
+      "origen": "db_seed"
+    },
+    "store": {
+      "es": "tienda",
+      "origen": "db_seed"
+    },
+    "street": {
+      "es": "calle",
+      "origen": "db_seed"
+    },
+    "street art": {
+      "es": "arte callejero",
+      "origen": "db_seed"
+    },
+    "street food": {
+      "es": "comida callejera",
+      "origen": "db_seed"
+    },
+    "streetlight": {
+      "es": "farol",
+      "origen": "db_seed"
+    },
+    "streetlights": {
+      "es": "farola",
+      "origen": "db_seed"
+    },
+    "streets": {
+      "es": "calles",
+      "origen": "db_seed"
+    },
+    "structure": {
+      "es": "estructura",
+      "origen": "db_seed"
+    },
+    "sun": {
+      "es": "sol",
+      "origen": "db_seed"
+    },
+    "sunglasses": {
+      "es": "gafa",
+      "origen": "db_seed"
+    },
+    "sunlight": {
+      "es": "luz solar",
+      "origen": "db_seed"
+    },
+    "sunny": {
+      "es": "soleado",
+      "origen": "db_seed"
+    },
+    "sunny day": {
+      "es": "día soleado",
+      "origen": "db_seed"
+    },
+    "sunny sky": {
+      "es": "cielo soleado",
+      "origen": "db_seed"
+    },
+    "sunrise": {
+      "es": "amanecer",
+      "origen": "manual"
+    },
+    "sunset": {
+      "es": "atardecer",
+      "origen": "manual"
+    },
+    "support structures": {
+      "es": "soportes",
+      "origen": "db_seed"
+    },
+    "survival": {
+      "es": "supervivencia",
+      "origen": "db_seed"
+    },
+    "symbolic transit": {
+      "es": "tránsito simbólico",
+      "origen": "db_seed"
+    },
+    "símbolo": {
+      "es": "emblema",
+      "origen": "db_seed"
+    },
+    "table": {
+      "es": "mesa",
+      "origen": "db_seed"
+    },
+    "tall tower": {
+      "es": "torre alta",
+      "origen": "db_seed"
+    },
+    "tanker truck": {
+      "es": "camión cisterna",
+      "origen": "db_seed"
+    },
+    "tanks": {
+      "es": "tanques",
+      "origen": "db_seed"
+    },
+    "tasting": {
+      "es": "cata",
+      "origen": "db_seed"
+    },
+    "tela roja": {
+      "es": "tela",
+      "origen": "manual"
+    },
+    "telas": {
+      "es": "tela",
+      "origen": "manual"
+    },
+    "television": {
+      "es": "televisión",
+      "origen": "db_seed"
+    },
+    "termo": {
+      "es": "mate",
+      "origen": "manual"
+    },
+    "text": {
+      "es": "texto",
+      "origen": "db_seed"
+    },
+    "texture": {
+      "es": "textura",
+      "origen": "db_seed"
+    },
+    "thistle": {
+      "es": "cardo",
+      "origen": "db_seed"
+    },
+    "tile": {
+      "es": "baldosa",
+      "origen": "db_seed"
+    },
+    "tillandsia": {
+      "es": "tilandsia",
+      "origen": "db_seed"
+    },
+    "time": {
+      "es": "hora",
+      "origen": "db_seed"
+    },
+    "tire": {
+      "es": "neumático",
+      "origen": "db_seed"
+    },
+    "tired": {
+      "es": "cansancio",
+      "origen": "manual"
+    },
+    "tires": {
+      "es": "neumático",
+      "origen": "db_seed"
+    },
+    "tocar": {
+      "es": "música",
+      "origen": "manual"
+    },
+    "todes": {
+      "es": "todo",
+      "origen": "db_seed"
+    },
+    "tool": {
+      "es": "herramienta",
+      "origen": "db_seed"
+    },
+    "tools": {
+      "es": "herramienta",
+      "origen": "db_seed"
+    },
+    "tormenta": {
+      "es": "lluvia",
+      "origen": "manual"
+    },
+    "tormentas": {
+      "es": "lluvia",
+      "origen": "manual"
+    },
+    "tour": {
+      "es": "viaje",
+      "origen": "db_seed"
+    },
+    "touring": {
+      "es": "turismo",
+      "origen": "db_seed"
+    },
+    "tower": {
+      "es": "torre",
+      "origen": "db_seed"
+    },
+    "towers": {
+      "es": "torres",
+      "origen": "db_seed"
+    },
+    "town": {
+      "es": "ciudad",
+      "origen": "manual"
+    },
+    "tp-link": {
+      "es": "tp-link",
+      "origen": "db_seed"
+    },
+    "traditional": {
+      "es": "tradicional",
+      "origen": "db_seed"
+    },
+    "traffic": {
+      "es": "tránsito",
+      "origen": "db_seed"
+    },
+    "traffic light": {
+      "es": "semáforo",
+      "origen": "db_seed"
+    },
+    "trail": {
+      "es": "senderismo",
+      "origen": "manual"
+    },
+    "train tracks": {
+      "es": "rieles",
+      "origen": "db_seed"
+    },
+    "tranquility": {
+      "es": "tranquilidad",
+      "origen": "db_seed"
+    },
+    "transitar": {
+      "es": "tránsito",
+      "origen": "db_seed"
+    },
+    "transparent": {
+      "es": "transparente",
+      "origen": "db_seed"
+    },
+    "transportation": {
+      "es": "transporte",
+      "origen": "db_seed"
+    },
+    "travel": {
+      "es": "viaje",
+      "origen": "db_seed"
+    },
+    "travelers": {
+      "es": "personas",
+      "origen": "db_seed"
+    },
+    "tray": {
+      "es": "bandeja",
+      "origen": "db_seed"
+    },
+    "trayecto": {
+      "es": "viaje",
+      "origen": "manual"
+    },
+    "trays": {
+      "es": "bandeja",
+      "origen": "db_seed"
+    },
+    "treatment": {
+      "es": "tratamiento",
+      "origen": "db_seed"
+    },
+    "tree": {
+      "es": "árbol",
+      "origen": "manual"
+    },
+    "tree bark": {
+      "es": "corteza",
+      "origen": "db_seed"
+    },
+    "tree branches": {
+      "es": "árbol",
+      "origen": "db_seed"
+    },
+    "tree trunk": {
+      "es": "tronco",
+      "origen": "db_seed"
+    },
+    "tree-covered hills": {
+      "es": "sendero natural",
+      "origen": "db_seed"
+    },
+    "tree-lined": {
+      "es": "arbolado",
+      "origen": "db_seed"
+    },
+    "trees": {
+      "es": "árbol",
+      "origen": "db_seed"
+    },
+    "trip": {
+      "es": "viaje",
+      "origen": "manual"
+    },
+    "trophies": {
+      "es": "trofeo",
+      "origen": "db_seed"
+    },
+    "truck": {
+      "es": "camión",
+      "origen": "db_seed"
+    },
+    "trucks": {
+      "es": "camiones",
+      "origen": "db_seed"
+    },
+    "truss": {
+      "es": "estructura",
+      "origen": "db_seed"
+    },
+    "truth": {
+      "es": "verdad",
+      "origen": "db_seed"
+    },
+    "tubes": {
+      "es": "conducto",
+      "origen": "db_seed"
+    },
+    "tubular": {
+      "es": "tubular",
+      "origen": "db_seed"
+    },
+    "twig": {
+      "es": "ramita",
+      "origen": "db_seed"
+    },
+    "twisted tree": {
+      "es": "árbol retorcido",
+      "origen": "db_seed"
+    },
+    "underpass": {
+      "es": "túnel",
+      "origen": "db_seed"
+    },
+    "unesco": {
+      "es": "organización",
+      "origen": "db_seed"
+    },
+    "unida": {
+      "es": "equipo",
+      "origen": "db_seed"
+    },
+    "unidad ciclistica": {
+      "es": "componente",
+      "origen": "db_seed"
+    },
+    "uniform": {
+      "es": "uniforme",
+      "origen": "db_seed"
+    },
+    "urban": {
+      "es": "urbano",
+      "origen": "db_seed"
+    },
+    "urban architecture": {
+      "es": "arquitectura urbana",
+      "origen": "db_seed"
+    },
+    "urban landscape": {
+      "es": "paisaje urbano",
+      "origen": "db_seed"
+    },
+    "urban setting": {
+      "es": "entorno urbano",
+      "origen": "db_seed"
+    },
+    "urban skyline": {
+      "es": "horizonte urbano",
+      "origen": "db_seed"
+    },
+    "urban street": {
+      "es": "calle urbana",
+      "origen": "db_seed"
+    },
+    "urban streets": {
+      "es": "calles urbana",
+      "origen": "db_seed"
+    },
+    "usuario": {
+      "es": "usuario",
+      "origen": "db_seed"
+    },
+    "usuta": {
+      "es": "automóvil",
+      "origen": "db_seed"
+    },
+    "utility poles": {
+      "es": "postes eléctrico",
+      "origen": "db_seed"
+    },
+    "vaca": {
+      "es": "animales",
+      "origen": "manual"
+    },
+    "vacas": {
+      "es": "animales",
+      "origen": "manual"
+    },
+    "vaina": {
+      "es": "cáscara",
+      "origen": "db_seed"
+    },
+    "van": {
+      "es": "furgoneta",
+      "origen": "db_seed"
+    },
+    "vegetables": {
+      "es": "verdura",
+      "origen": "db_seed"
+    },
+    "vegetation": {
+      "es": "vegetación",
+      "origen": "db_seed"
+    },
+    "vehicle": {
+      "es": "automóvil",
+      "origen": "manual"
+    },
+    "vehicles": {
+      "es": "automóvil",
+      "origen": "db_seed"
+    },
+    "vehiculo": {
+      "es": "automóvil",
+      "origen": "manual"
+    },
+    "vehículo": {
+      "es": "automóvil",
+      "origen": "manual"
+    },
+    "velocity": {
+      "es": "velocidad",
+      "origen": "db_seed"
+    },
+    "vendor": {
+      "es": "vendedor",
+      "origen": "db_seed"
+    },
+    "vest": {
+      "es": "ropa",
+      "origen": "db_seed"
+    },
+    "vests": {
+      "es": "chaleco",
+      "origen": "db_seed"
+    },
+    "viaje en ruta": {
+      "es": "viaje",
+      "origen": "manual"
+    },
+    "viajero": {
+      "es": "personas",
+      "origen": "manual"
+    },
+    "viajeros": {
+      "es": "personas",
+      "origen": "manual"
+    },
+    "vintage": {
+      "es": "antiguo",
+      "origen": "db_seed"
+    },
+    "virgin mary": {
+      "es": "madonna",
+      "origen": "db_seed"
+    },
+    "vista": {
+      "es": "paisaje",
+      "origen": "manual"
+    },
+    "walking": {
+      "es": "caminata",
+      "origen": "db_seed"
+    },
+    "wall": {
+      "es": "pared",
+      "origen": "db_seed"
+    },
+    "warehouse": {
+      "es": "almacén",
+      "origen": "db_seed"
+    },
+    "warning": {
+      "es": "advertencia",
+      "origen": "db_seed"
+    },
+    "waste": {
+      "es": "desecho",
+      "origen": "db_seed"
+    },
+    "water": {
+      "es": "agua",
+      "origen": "db_seed"
+    },
+    "wavy line": {
+      "es": "línea ondulada",
+      "origen": "db_seed"
+    },
+    "weather": {
+      "es": "clima",
+      "origen": "db_seed"
+    },
+    "weathered": {
+      "es": "desgastado",
+      "origen": "db_seed"
+    },
+    "weathered surface": {
+      "es": "superficie desgastada",
+      "origen": "db_seed"
+    },
+    "weathered texture": {
+      "es": "textura desgastada",
+      "origen": "db_seed"
+    },
+    "weathered trunk": {
+      "es": "tronco envejecido",
+      "origen": "db_seed"
+    },
+    "web": {
+      "es": "página web",
+      "origen": "db_seed"
+    },
+    "website": {
+      "es": "sitio web",
+      "origen": "db_seed"
+    },
+    "welcome": {
+      "es": "bienvenida",
+      "origen": "db_seed"
+    },
+    "wetland": {
+      "es": "humedales",
+      "origen": "db_seed"
+    },
+    "wheel": {
+      "es": "rueda",
+      "origen": "db_seed"
+    },
+    "wheel rims": {
+      "es": "llanta",
+      "origen": "db_seed"
+    },
+    "wheels": {
+      "es": "rueda",
+      "origen": "db_seed"
+    },
+    "white building": {
+      "es": "edificio blanco",
+      "origen": "db_seed"
+    },
+    "white surface": {
+      "es": "superficie blanca",
+      "origen": "db_seed"
+    },
+    "white van": {
+      "es": "furgoneta blanca",
+      "origen": "db_seed"
+    },
+    "white walls": {
+      "es": "paredes blanca",
+      "origen": "db_seed"
+    },
+    "wife": {
+      "es": "esposa",
+      "origen": "db_seed"
+    },
+    "wifi": {
+      "es": "red inalámbrica",
+      "origen": "db_seed"
+    },
+    "wilderness": {
+      "es": "naturaleza salvaje",
+      "origen": "db_seed"
+    },
+    "wildlife": {
+      "es": "fauna",
+      "origen": "db_seed"
+    },
+    "wind": {
+      "es": "viento",
+      "origen": "manual"
+    },
+    "wind energy": {
+      "es": "energía eólica",
+      "origen": "db_seed"
+    },
+    "wind turbine": {
+      "es": "aerogenerador",
+      "origen": "db_seed"
+    },
+    "winding": {
+      "es": "serpenteante",
+      "origen": "db_seed"
+    },
+    "winding sign": {
+      "es": "sendero sinuoso",
+      "origen": "db_seed"
+    },
+    "wine": {
+      "es": "vino",
+      "origen": "db_seed"
+    },
+    "woman": {
+      "es": "mujer",
+      "origen": "db_seed"
+    },
+    "wood": {
+      "es": "madera",
+      "origen": "db_seed"
+    },
+    "wooden": {
+      "es": "madera",
+      "origen": "db_seed"
+    },
+    "work": {
+      "es": "trabajo",
+      "origen": "db_seed"
+    },
+    "workers": {
+      "es": "obrero",
+      "origen": "db_seed"
+    },
+    "workshop": {
+      "es": "taller",
+      "origen": "db_seed"
+    },
+    "wrapped": {
+      "es": "envuelto",
+      "origen": "db_seed"
+    },
+    "wrench": {
+      "es": "llave inglesa",
+      "origen": "db_seed"
+    },
+    "writing": {
+      "es": "escritura",
+      "origen": "db_seed"
+    },
+    "yellow bags": {
+      "es": "bolsas amarilla",
+      "origen": "db_seed"
+    },
+    "yellow facade": {
+      "es": "fachada amarilla",
+      "origen": "db_seed"
+    },
+    "yellow flowers": {
+      "es": "flores amarilla",
+      "origen": "db_seed"
+    },
+    "yerba": {
+      "es": "mate",
+      "origen": "manual"
+    },
+    "zipper": {
+      "es": "cremallera",
+      "origen": "db_seed"
+    },
+    "zona urbana": {
+      "es": "ciudad",
+      "origen": "manual"
+    },
+    "árboles": {
+      "es": "árbol",
+      "origen": "manual"
+    },
+    "天空": {
+      "es": "cielo",
+      "origen": "db_seed"
+    },
+    "枯枝": {
+      "es": "rama seca",
+      "origen": "db_seed"
+    },
+    "荒芜": {
+      "es": "abandono",
+      "origen": "db_seed"
+    },
+    "衰败": {
+      "es": "decadencia",
+      "origen": "db_seed"
+    }
+  },
+  "reemplazos_descripcion": {
+    "aparcamiento": "estacionamiento",
+    "chaqueta": "campera",
+    "coche": "auto",
+    "coger": "tomar",
+    "conducir": "manejar",
+    "movil": "celular",
+    "ordenador": "computadora",
+    "tarta": "torta",
+    "zumo": "jugo"
+  },
+  "version": 1
+}
