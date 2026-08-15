@@ -91,6 +91,7 @@ PROMPT_CLASIFICAR = (
 PREFIJOS_META_EN: tuple[str, ...] = (
     # Familia A — narración del proceso
     "to describe the image in detail, we analyze its key components:",
+    "to describe the image in detail, we analyze its main components:",
     "to describe the image in detail, we first observe the main visual elements:",
     "to describe the image in detail, we observe the main visual elements:",
     "to describe the image, we first observe the main visual elements:",
@@ -110,6 +111,13 @@ PREFIJOS_META_EN: tuple[str, ...] = (
     "here is a description of the image:",
     "here's my description of the image:",
     "here is my description of the image:",
+    # Familia B2 — sin "of the image" (variantes reales observadas)
+    "here's a long description:",
+    "here is a long description:",
+    "here's a detailed description:",
+    "here is a detailed description:",
+    "here's a description:",
+    "here is a description:",
     # Familia C — "This is / My / The following is ..."
     "this is a description of the image:",
     "this is my description of the image:",
@@ -119,11 +127,29 @@ PREFIJOS_META_EN: tuple[str, ...] = (
     # Familia D — primera persona meta
     "i will describe the image:",
     "i will describe this image:",
-    "let me describe the image:",
     "let me describe this image:",
+    "let me describe the image in detail:",
+    "let me describe the image:",
     # Familia F — headers de formato
     "description of the image:",
     "description:",
+    # Familia G — "Based on the image provided, ..." (variantes reales)
+    "based on the image provided, here's a detailed description:",
+    "based on the image provided, here is a detailed description:",
+    "based on the image provided, here's a long description:",
+    "based on the image provided, here is a long description:",
+    "based on the image provided, here's a description:",
+    "based on the image provided, here is a description:",
+    "based on the provided image, here's a detailed description:",
+    "based on the provided image, here is a detailed description:",
+    "based on the provided image, here's a long description:",
+    "based on the provided image, here is a long description:",
+    # Familia H — caso puntual observado
+    "certainly! let's break down the image description step by step to ensure it captures all the vivid elements.",
+    # Familia I — variantes finales observadas (ronda post-cleanup)
+    "based on the image provided, i can describe the following:",
+    "let's break down the image description:",
+    "looking at the image,",
 )
 
 # Continuaciones meta que siguen a un prefijo (solo se recortan si hubo match

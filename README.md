@@ -98,6 +98,7 @@ python flujos.py --help         # Ayuda general
 | `import-telegram` / `tg` | Importar export de Telegram a la DB |
 | `mover --new-root X --mode mover` | Mover/copiar medios y actualizar rutas en DB |
 | `detectar-contenedores` / `contenedores` | Auditar contenedores de video/audio con ffprobe (streams faltantes) → `contenedor_estado` |
+| `limpiar-descripciones` / `descripciones` | Limpiar descripciones con eco del prompt (meta-intros) → recorta prefijos en `ia_description_en`/`ia_description` |
 | `repetir-contenido` / `repetidos` | Buscar contenido repetido por coincidencias de audio (solo reporta, no escribe) |
 | `audio-frame` / `crossref` | Correlacionar contenido de audio con frames de video |
 | `analizar-video` / `analizar` | Analizar videos con IA: escenas + keywords (scene detection → muestreo → visión) |
@@ -209,6 +210,13 @@ Al ejecutar `python flujos.py` sin argumentos se ingresa al menú TUI:
   │  │   └─ 0. Volver
   │  ├─ p. << Anterior → Hoja 1
   │  └─ 0. Volver
+  ├─ Hoja 3: Limpieza de datos
+  │  ├─ 1. Limpiar descripciones (eco del prompt)
+  │  │   ├─ 1. Ejecutar limpieza (con backup)
+  │  │   ├─ 2. Previsualizar (dry-run)
+  │  │   └─ 0. Volver
+  │  ├─ p. << Anterior → Hoja 2
+  │  └─ 0. Volver
 
 6. Visualizaciones
   ├─ 1. Mapa de ruta (Folium)
@@ -220,15 +228,11 @@ Al ejecutar `python flujos.py` sin argumentos se ingresa al menú TUI:
       ├─ 5. Previsualizar deploy (dry-run)
       └─ 0. Volver
   └─ 3. TouchDesigner (puente OSC)
-      ├─ 1. Enviar colores a TD
-      ├─ 2. Enviar nube de tags (keywords)
-      ├─ 3. Enviar elecciones (horas, municipios, colores, tags, días, clima)
-      ├─ 4. Enviar imágenes de un color
-      ├─ 5. Enviar loop completo (colores → selección → imágenes)
-      ├─ 6. Modo "Fluir" (recibir ráfaga de TD y generar loop)
-      │   ├─ 1. Escuchar una ráfaga y salir
-      │   └─ 2. Escucha continua (Ctrl+C para salir)
-      ├─ 7. Probar OSC (eco)
+      ├─ 1. Enviar elecciones (horas, municipios, colores, tags, días, clima)
+      ├─ 2. Modo "Fluir" (recibir ráfaga de TD y generar loop)
+      │   ├─ 1. Una ráfaga (prueba rápida)
+      │   └─ 2. Modo instalación: escucha continua (Enter para detener)
+      ├─ 3. Probar OSC (eco)
       └─ 0. Volver
 
 9. Ayuda
@@ -270,6 +274,7 @@ Todas las operaciones que modifican la DB preguntan el modo
 | `scripts/detectar_contenedores.py` | Audita contenedores de video/audio con ffprobe (streams faltantes) → `contenedor_estado`/`contenedor_streams` | Auditoría |
 | `scripts/repetir_contenido.py` | Detecta contenido repetido por audio (cross-correlación RMS; solo reporta, no escribe) | Auditoría |
 | `scripts/audio_frame_crossref.py` | Correlaciona sonidos (CED-mini) con frames de video (solo reporta, no escribe) | Auditoría |
+| `scripts/limpiar_descripciones.py` | Recorta meta-intros (eco del prompt) en `ia_description_en`/`ia_description` — determinista, sin IA, backup automático | Mantenimiento |
 | `scripts/fix_gps_sign.py` | Corrección de signo GPS (herramienta de mantenimiento) | Mantenimiento |
 | `scripts/test_gradiente.py` | Tests unitarios de gradiente.py | — |
 
@@ -278,7 +283,7 @@ Todas las operaciones que modifican la DB preguntan el modo
 | Script | Propósito |
 |--------|-----------|
 | `ollama_client.py` | Cliente Ollama compartido (visión + texto + embeddings) |
-| `image_analysis.py` | Keywords + descripción de imágenes vía Ollama (keywords libres, sin género) |
+| `image_analysis.py` | Keywords + descripción de imágenes vía Ollama (keywords libres, sin género); recorta meta-intros regurgitadas con `limpiar_meta_intro()` |
 | `analyze_video.py` | Análisis de videos por escenas: scene detection → ~10 imgs/escena → nitidez → 1 llamada de visión por escena (keywords + descripción, máx 20 tags) |
 | `keypoints_video.py` | Keypoints semánticos de video: `media_keypoints` key=`escena`/`keyword`, source `ollama` (desde `video_analysis`) |
 | `tag_images.py` | Etiquetar imágenes (modo DB o sidecar) |

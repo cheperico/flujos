@@ -53,7 +53,8 @@ referenciados en **Dónde está la información** (al final) — consultar bajo 
 │   │   exportar_csv.py, mover_media.py, mapa_ruta.py, consolidar_medios.py,
 │   │   fix_gps_sign.py, mover_descartadas.py, ingest_textos.py,
 │   │   keypoints_contexto.py, detectar_contenedores.py,
-│   │   repetir_contenido.py, audio_frame_crossref.py, exportar_visualizacion.py
+│   │   repetir_contenido.py, audio_frame_crossref.py, exportar_visualizacion.py,
+│   │   limpiar_descripciones.py
 │   ├── check_db.py, check_gps.py, check_db_data.py, test_gradiente.py
 │   ├── ai_media/
 │   │   ├── ollama_client.py, image_analysis.py, transcribe.py, transcribe_media.py,
@@ -62,7 +63,7 @@ referenciados en **Dónde está la información** (al final) — consultar bajo 
 │   │   │   keywords_transcripciones.py, audio_tagging.py, checkpoint.py, proxy.py
 │   │   └── loop_engine.py, loop_db.py, test_motor_loop.py
 │   └── td/
-│       └── puente_td.py, elecciones.py, osc_probe.py
+│       └── puente_td.py, elecciones.py, osc_probe.py, util_enter.py
 ├── td/
 │   ├── osc_callbacks.dat, elecciones_ui.dat, flujos.toe
 ├── docs/
@@ -139,6 +140,7 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 | **AUDITORÍA CONTENEDORES** | `detectar_contenedores.py` | Estado del contenedor de video/audio con ffprobe (streams faltantes) | `media_metadata` | key=`contenedor_estado`, value=ok\|sin_video\|sin_audio\|sin_contenido\|error_ffprobe\|archivo_faltante; key=`contenedor_streams` (JSON detalle de streams) |
 | **AUDIO REPETIDO** | `repetir_contenido.py` | Detecta pasajes de audio repetidos entre pares de medios (cross-correlación RMS; **solo reporta**, no escribe) | — | — (reporte por consola / `--json`) |
 | **CROSSREF AUDIO-FRAME** | `audio_frame_crossref.py` | Correlaciona sonidos (CED-mini) con frames del video (**solo reporta**, no escribe) | — | — (reporte por consola) |
+| **LIMPIEZA DESCRIPCIONES** | `limpiar_descripciones.py` | Recorta meta-intros (eco del prompt) en descripciones; determinista, sin IA; backup automático + `--dry-run`; invariante: ningún registro con apertura legítima modificado | `media_metadata` | keys `ia_description_en` / `ia_description` (recorta PREFIJOS_META_EN de image_analysis.py + PREFIJOS_META_ES local); NO escribe claves nuevas |
 | **BACKFILL** | `flujos.py` backfill-end-time | Precalcula end_time = timestamp_utc + duration_secs | `media` | end_time, updated_at |
 | **RELOCATE** | `relocate.py` | Actualiza rutas cuando los archivos se mudan de carpeta | `media` | filepath_absoluto, filepath_relativo, carpeta, sidecar_xml |
 | **GPX** | `ingest_gpx.py` | Ingesta de archivo GPX: waypoints, registro de track y backfill de altitud | `tracks` | name, filepath_absoluto, filepath_relativo, source_url, start_time, end_time, total_points |
@@ -180,9 +182,10 @@ Detalle de args CLI de cada script en su **docstring** (o `python script.py --he
 | `ingest_textos.py` | Ingiere textos `.md` de `textos/` como medios type='text' (frontmatter + subtítulos `##` = textos individuales) | TUI Ingesta→5; CLI `flujos.py ingest-textos` / `textos` |
 | `exportar_csv.py` | Exporta tablas a CSV en `db/exports/<timestamp>/` | TUI Mantenimiento→7; CLI `flujos.py export-csv` |
 | `exportar_visualizacion.py` | Exporta snapshot de la DB → visualizacion.db; deploy genérico a deploy/ (por defecto) con copia de medios y transcode web | TUI Visualizaciones→2; CLI no (solo TUI) |
-| `td/puente_td.py` | Puente BD → TouchDesigner vía OSC (9000→TD, 9001←TD) | TUI Visualizaciones→3; CLI `python scripts/td/puente_td.py <modo>` |
+| `td/puente_td.py` | Puente BD → TouchDesigner vía OSC (9000→TD, 9001←TD). Modos: `elecciones` (default) y `fluir` — el modo instalación escucha sin límite de tiempo hasta Enter | TUI Visualizaciones→3; CLI `python scripts/td/puente_td.py <modo>` |
 | `td/elecciones.py` | Nubes de elecciones (metadatos seleccionables: horas, municipios, colores, tags, días, clima) → TD vía OSC (9000) | Standalone: `python scripts/td/elecciones.py` |
-| `td/osc_probe.py` | Eco OSC: escucha lo que llega a un puerto y lo imprime. Test rápido TD→Python sin puente completo | TUI Visualizaciones→3; standalone: `python scripts/td/osc_probe.py 9001 [segundos]` |
+| `td/osc_probe.py` | Eco OSC: escucha lo que llega a un puerto y lo imprime. Test rápido TD→Python sin puente completo; el modo indefinido se detiene con Enter | TUI Visualizaciones→3; standalone: `python scripts/td/osc_probe.py 9001 [segundos]` |
+| `td/util_enter.py` | Helper compartido: `detener_con_enter()` devuelve un `threading.Event` que se setea al presionar Enter (salida limpia para escuchas continuas) | Usado por `puente_td.py` (fluir) y `osc_probe.py` |
 | `mover_media.py` | Mueve/copia medios y actualiza rutas en DB | TUI Mantenimiento→8; CLI `flujos.py mover` |
 | `ai_media/ollama_client.py` | Cliente Ollama compartido (visión/texto/embeddings) + auto-inicio `asegurar_ollama()` | Usado por todos los scripts IA |
 | `ai_media/image_analysis.py` | Keywords + descripción de imágenes (visión minicpm, prompts EN) | Usado por `improve_db --step keywords/descriptions` |
@@ -194,6 +197,7 @@ Detalle de args CLI de cada script en su **docstring** (o `python script.py --he
 | `detectar_contenedores.py` | Audita contenedores de video/audio con ffprobe (streams faltantes); anota `contenedor_estado`/`contenedor_streams` | TUI Mantenimiento→9; CLI `flujos.py detectar-contenedores` / `contenedores` |
 | `repetir_contenido.py` | Detecta contenido repetido por audio (cross-correlación RMS; solo reporta, no escribe) | TUI Mantenimiento Hoja 2→1; CLI `flujos.py repetir-contenido` / `repetidos` |
 | `audio_frame_crossref.py` | Correlaciona audio (CED-mini) con frames de video (solo reporta, no escribe) | TUI Mantenimiento Hoja 2→2; CLI `flujos.py audio-frame` / `crossref` |
+| `limpiar_descripciones.py` | Recorta meta-intros (eco del prompt) en `ia_description_en`/`ia_description`; determinista, sin IA, backup automático + `--dry-run`; invariante: ningún registro con apertura legítima modificado | TUI Mantenimiento Hoja 3→1; CLI `flujos.py limpiar-descripciones` / `descripciones` |
 | `ai_media/tag_images.py` | Taggear imágenes (DB o sidecar) | Standalone |
 | `ai_media/batch_selector.py` | Selecciona mejor imagen de tanda (moondream; criterio `nitidez` sin IA) | Usado por `limpiar_tandas` |
 | `ai_media/clustering.py` | Agrupa por tags/embeddings (moondream, prompts EN) | Usado por `limpiar_tandas` |
@@ -333,7 +337,7 @@ Se consulta bajo demanda según la necesidad:
 - `elec_<id>_container<N>` — Container COMP por grupo; dentro cada uno tiene `replicator1` (Replicator COMP) que clona `boton_<id>_N`
 - `boton_<id>_0` — Button COMP "semilla"/template en la raíz de `/project2`; los `boton_<id>_N` (uno por opción del grupo) viven dentro del container del grupo
 - Hijos fijos de cada botón: `par1` (Parameter CHOP → lee la fila de `elec_<id>`), `text` (Text COMP → etiqueta), `parexec1` (Parameter Execute DAT), `panelexec1` (Panel Execute DAT) → dispara `/flujos/seleccion/<grupo> <valor>` por `osc_out1`
-- **NO existen** (eliminados o legacy): `movie1`, `tabla_colores`, `nube_container`, `nube_datos`, `color_actual`, `seleccion_actual`, `info_imagen`. Los handlers de `osc_callbacks.dat` para colores/slideshow apuntan a ops todavía no recreadas (pipeline visual en construcción); el de la nube quedó como código muerto
+- **NO existen** (eliminados o legacy): `movie1`, `tabla_colores`, `nube_container`, `nube_datos`, `color_actual`, `seleccion_actual`, `info_imagen`. Los handlers de `osc_callbacks.dat` para colores/slideshow apuntan a ops todavía no recreadas (pipeline visual en construcción); los modos legacy de `puente_td.py` que enviaban a esas ops (colores, nube, imágenes de un color, loop completo) fueron eliminados — el CLI solo soporta `elecciones`/`fluir`
 
 ## Riesgos conocidos
 

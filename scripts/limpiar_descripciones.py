@@ -16,8 +16,11 @@ Este script recorta esos prefijos de forma DETERMINISTA (sin IA ni red):
 
 Nunca se pierde contenido: si el recorte dejaría el texto vacío o con menos
 de 15 caracteres, se conserva el original. Solo se recorta del INICIO; las
-aperturas legítimas ("The image shows...", "La imagen muestra...") no se tocan
-(se reportan como negativos antes/después para verificar que no cambiaron).
+aperturas legítimas ("The image shows...", "La imagen muestra...") no se tocan.
+Nota: los conteos de aperturas legítimas pueden AUMENTAR tras la limpieza
+(recortar un meta-intro revela la apertura que había debajo); el invariante
+real se verifica con violaciones_negativos: ningún registro que YA empezaba
+con una apertura legítima es modificado.
 
 Uso:
     python scripts/limpiar_descripciones.py                      # limpiar (con backup automático)
@@ -58,6 +61,7 @@ CLAVE_DESC_ES = "ia_description"
 # finales en español arrastran el eco traducido y necesitan esta lista local.
 PREFIJOS_META_ES: tuple[str, ...] = (
     "para describir la imagen en detalle, analizamos sus componentes clave:",
+    "para describir la imagen en detalle, analizamos sus componentes principales:",
     "para describir la imagen en detalle, primero observamos los elementos visuales principales:",
     "para describir la imagen en detalle, observamos los elementos visuales principales:",
     "para describir la imagen, primero observamos los elementos visuales principales:",
@@ -78,6 +82,24 @@ PREFIJOS_META_ES: tuple[str, ...] = (
     "esta es una descripción detallada de la imagen:",
     "esta es una descripción de la imagen:",
     "esta es mi descripción de la imagen:",
+    # Variantes sin "de la imagen" (reales observadas; van después de las
+    # variantes completas para que el prefijo largo gane primero)
+    "aquí hay una descripción larga:",
+    "aquí hay una descripción detallada:",
+    "aquí hay una descripción:",
+    "aquí está una descripción larga:",
+    "aquí está una descripción detallada:",
+    "aquí está una descripción:",
+    "aquí está la descripción:",
+    "aquí tienes una descripción detallada:",
+    "aquí tienes una descripción larga:",
+    "aquí tienes una descripción:",
+    # "Basándonos en la imagen proporcionada, ..." (lo que antes quedaba como
+    # residuo mid-text ahora se vuelve limpiable como prefijo)
+    "basándonos en la imagen proporcionada, aquí hay una descripción detallada:",
+    "basándonos en la imagen proporcionada, aquí hay una descripción larga:",
+    "basándonos en la imagen proporcionada, aquí hay una descripción:",
+    "basado en la imagen que se proporciona, aquí hay una descripción detallada:",
     "mi descripción de la imagen:",
     "la siguiente es una descripción de la imagen:",
     "voy a describir la imagen:",
@@ -85,6 +107,10 @@ PREFIJOS_META_ES: tuple[str, ...] = (
     "dejame describir la imagen:",
     "descripción de la imagen:",
     "descripción:",
+    "aquí tienes una descripción de la imagen:",
+    "vamos a analizar sus elementos clave:",
+    "vamos a analizar sus elementos:",
+    "vamos a analizar la descripción de la imagen:",
 )
 
 # Continuaciones meta que siguen a un prefijo (solo se recortan si hubo match
@@ -362,10 +388,12 @@ def limpiar(conn, dry_run: bool, claves: list[str]) -> dict:
         claves: Lista de claves a procesar (CLAVE_DESC_EN / CLAVE_DESC_ES).
 
     Returns:
-        Dict con {"revisados", "modificados", "muestras"}.
+        Dict con {"revisados", "modificados", "muestras",
+                  "violaciones_negativos"}.
     """
     if not claves:
-        return {"revisados": 0, "modificados": 0, "muestras": []}
+        return {"revisados": 0, "modificados": 0, "muestras": [],
+                "violaciones_negativos": []}
     marcadores = ",".join("?" * len(claves))
     filas = conn.execute(
         "SELECT media_id, key, value FROM media_metadata "
@@ -376,11 +404,16 @@ def limpiar(conn, dry_run: bool, claves: list[str]) -> dict:
     revisados = 0
     modificados = 0
     muestras: list[dict] = []
+    violaciones_negativos: list[tuple[int, str]] = []
     cp = Checkpoint(conn, cada=50, etiqueta="limpiar_descripciones")
     with manejar_interrupcion(conn=conn, etiqueta="limpiar_descripciones"):
         for media_id, clave, valor in filas:
             nuevo, cambiado = _limpiar_valor(valor, clave)
             if cambiado and _reconstruible(valor, nuevo):
+                # Invariante: ningún registro que YA empezaba con una apertura
+                # legítima puede ser modificado (violaciones_negativos).
+                if _empieza_con_prefijo(valor, OPENER_LEGITIMOS):
+                    violaciones_negativos.append((media_id, clave))
                 if len(muestras) < 10:
                     muestras.append({
                         "media_id": media_id,
@@ -412,7 +445,12 @@ def limpiar(conn, dry_run: bool, claves: list[str]) -> dict:
             print(f"      antes   : {m['antes'][:120]!r}")
             print(f"      después : {m['despues'][:120]!r}")
 
-    return {"revisados": revisados, "modificados": modificados, "muestras": muestras}
+    return {
+        "revisados": revisados,
+        "modificados": modificados,
+        "muestras": muestras,
+        "violaciones_negativos": violaciones_negativos,
+    }
 
 
 def _crear_backup(db_path: str) -> str:
@@ -515,30 +553,37 @@ def main(argv: list[str] | None = None) -> int:
         elif not args.dry_run:
             log.info("  Nada para limpiar: no se crea backup ni se escribe.")
 
-        # ── Negativos después (deben coincidir con los de antes) ──
-        negativos_despues = _contar_negativos(conn)
-        print("\n  Aperturas legítimas después de la limpieza (deben coincidir):")
-        negativos_intactos = True
-        for opener in OPENER_LEGITIMOS:
-            antes_n = resumen_auditoria["negativos"][opener]
-            despues_n = negativos_despues[opener]
-            ok = "OK" if antes_n == despues_n else "¡CAMBIÓ!"
-            if antes_n != despues_n:
-                negativos_intactos = False
-            print(f"    {opener!r:<30} antes={antes_n}  después={despues_n}  {ok}")
+        # ── Aperturas legítimas (negativos): informe + invariante real ──
+        # Los conteos ANTES son informativos: tras la limpieza pueden AUMENTAR
+        # legítimamente porque recortar un meta-intro REVELA una apertura
+        # legítima debajo ("Aquí hay una descripción...\n\nLa imagen muestra..."
+        # → "La imagen muestra..."). El invariante real es que ningún registro
+        # que YA empezaba con una apertura legítima haya sido modificado.
+        print("\n  Aperturas legítimas antes de la limpieza (información):")
+        for opener, cantidad in resumen_auditoria["negativos"].items():
+            print(f"    {opener!r:<30} {cantidad}")
+        violaciones = resumen["violaciones_negativos"]
+        if not violaciones:
+            print("  Invariante: ningún registro con apertura legítima fue modificado — OK")
+        else:
+            for media_id, clave in violaciones:
+                log.error(
+                    "  ⚠ Violación de apertura legítima: media %s clave %s fue modificado",
+                    media_id, clave,
+                )
 
         # ── Resumen final ──
         residuo_en = resumen_auditoria["residuos"].get("'to describe the image' (EN, pos>1)", 0)
         residuo_es = resumen_auditoria["residuos"].get("'para describir la imagen' (ES, pos>1)", 0)
         log.info(
             "Resumen: claves=%s revisados=%d modificados=%d residuos_en=%d "
-            "residuos_es=%d negativos_intactos=%s backup=%s",
+            "residuos_es=%d violaciones_negativos=%d backup=%s",
             ",".join(claves),
             resumen["revisados"],
             resumen["modificados"],
             residuo_en,
             residuo_es,
-            negativos_intactos,
+            len(resumen["violaciones_negativos"]),
             ruta_backup or "—",
         )
     finally:

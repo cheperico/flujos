@@ -7,6 +7,34 @@ Las versiones corresponden a entregas funcionales, no a releases semánticas.
 
 ---
 
+## [Entrega 30] — 2026-08-14
+
+### Añadido
+- **Limpieza de descripciones con eco del prompt** (`scripts/limpiar_descripciones.py`): el modelo de visión (minicpm) a veces abría las descripciones regurgitando parte del prompt como meta-introducción ("To describe the image, we observe...", "Here's a long description of the image:", "Para describir la imagen, ..."). El script recorta esos prefijos de forma **determinista** (sin IA ni red) sobre `ia_description_en` y `ia_description`, con backup automático en `db/backups/`, `--dry-run`, `--solo-en`/`--solo-es`, assert de no-pérdida (sufix-strip estricto) e idempotencia. Invariante de negativos: ningún registro que ya empezaba con apertura legítima ("The image shows...", "La imagen muestra...") fue modificado. TUI Mantenimiento → Hoja 3 "Limpieza de datos" → 1; CLI `flujos.py limpiar-descripciones` / `descripciones`. Limpieza aplicada: **284 registros** (144 EN + 140 ES), residuos mid-text 0.
+- **Prevención en `scripts/ai_media/image_analysis.py`**: nuevo `limpiar_meta_intro()` + `PREFIJOS_META_EN` (54 prefijos, familias A–I) que recorta las meta-intros al generarse las descripciones EN (`describir_imagen`, `_parsear_combinado` — cubre también `analyze_video` — y `_descripcion_utilizable`). Los 3 call sites quedan protegidos para corridas futuras.
+
+### Corregido
+- **Falso positivo en verificación de negativos**: el chequeo comparaba conteos antes/después de aperturas legítimas, pero los conteos suben legítimamente porque limpiar *revela* la apertura debajo de la meta-intro. Ahora verifica el invariante real: `violaciones_negativos` (ningún registro con apertura legítima modificado) = 0.
+
+---
+
+## [Entrega 29] — 2026-08-14
+
+### Añadido
+- **Nuevo helper compartido `scripts/td/util_enter.py`**: `detener_con_enter()` lanza un hilo daemon que bloquea en `input()` y setea un `threading.Event` al presionar Enter (con fallback EOF/Ctrl+C); lo usan `puente_td.py` (modo `fluir`) y `osc_probe.py` (modo indefinido) para salir limpio sin depender de Ctrl+C.
+- **Fluir "Modo instalación"**: la escucha continua ya no tiene límite de tiempo — queda activa hasta que el usuario presiona Enter para detenerla (TUI Visualizaciones → 3 → 2 → 2).
+
+### Cambiado
+- **TUI TouchDesigner (Visualizaciones → 3)**: se eliminaron las opciones legacy — enviar colores, nube de tags, imágenes de un color y loop completo — porque apuntaban a ops que ya no existen en el .toe (`tabla_colores`, `nube_datos`, `movie1`). El menú queda: 1) Enviar elecciones, 2) Modo 'Fluir' (submenú: una ráfaga / modo instalación), 3) Probar OSC (eco).
+- **`scripts/td/puente_td.py`**: eliminados los modos muertos (`enviar`, `colores`, `enviar_imgs`, `nube`) y sus helpers (consultas de colores, contador de keywords, `KEYWORDS_A_IGNORAR`); el CLI queda solo con `elecciones` (default) y `fluir`; se quitaron el argumento posicional `color`, `--cant` y `--max-tags`.
+- **Salida limpia con Enter**: `fluir` y `osc_probe` (modo indefinido) se detienen presionando Enter (Ctrl+C queda como fallback); los mensajes de escucha lo indican.
+- **Docs sincronizadas**: README (árbol TUI TouchDesigner) y AGENTS (catálogo de scripts TD y helper nuevo).
+
+### Corregido
+- **Ctrl+C en consola ya no mata el TUI**: `_correr()` en `flujos.py` lanza los scripts TD como proceso propio (`CREATE_NEW_PROCESS_GROUP` en Windows) y captura el `KeyboardInterrupt` para terminar el hijo sin cerrar `flujos.py`.
+
+---
+
 ## [Entrega 28] — 2026-08-13
 
 ### Cambiado

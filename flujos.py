@@ -1959,10 +1959,13 @@ def opcion_exportar_visualizacion(db_path: str | None = None):
 
 
 def opcion_touchdesigner(db_path: str | None = None):
-    """Menu: puente BD → TouchDesigner vía OSC (colores, nube, elecciones, fluir...).
+    """Menú: puente BD → TouchDesigner vía OSC (elecciones, Fluir, probar OSC).
 
-    Expone los modos de puente_td.py y osc_probe.py en el TUI: envían datos a TD
-    por 9000 o escuchan la ráfaga del "Fluir" por 9001 (respuesta por 9002).
+    Expone los modos actuales de puente_td.py y osc_probe.py en el TUI:
+    envían las nubes de elecciones a TD por 9000 o escuchan la ráfaga del
+    "Fluir" por 9001 (respuesta por 9002). Los modos legacy (colores, nube,
+    imágenes de un color, loop completo) se eliminaron porque apuntaban a ops
+    que ya no existen en el .toe.
     Requiere TouchDesigner corriendo con osc_in1 (9000) / osc_out1 (9001).
     """
     base = os.path.dirname(__file__)
@@ -1970,27 +1973,21 @@ def opcion_touchdesigner(db_path: str | None = None):
     probe = os.path.join(base, "scripts", "td", "osc_probe.py")
 
     def _correr(script: str, *args: str) -> None:
-        """Ejecuta un script con salida UTF-8 y pausa al terminar."""
+        """Ejecuta un script con salida UTF-8; Ctrl+C detiene el hijo sin cerrar flujos."""
         env = dict(os.environ)
         env["PYTHONIOENCODING"] = "utf-8"
-        subprocess.run([sys.executable, script, *args], env=env)
+        flags = subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == "win32" else 0
+        proc = subprocess.Popen([sys.executable, script, *args], env=env, creationflags=flags)
+        try:
+            proc.wait()
+        except KeyboardInterrupt:
+            print("\n  (Ctrl+C: deteniendo script...)")
+            try:
+                proc.terminate()
+                proc.wait(timeout=3)
+            except Exception:
+                proc.kill()
         pausa()
-
-    def _preguntar_max_tags() -> list[str]:
-        """Pregunta el máximo de tags de la nube; args extra si es entero."""
-        texto = input("  Máximo de tags [40]: ").strip()
-        try:
-            return ["--max-tags", str(int(texto))]
-        except ValueError:
-            return []
-
-    def _preguntar_cantidad() -> list[str]:
-        """Pregunta cuántas imágenes enviar; args extra si es entero."""
-        texto = input("  Cantidad [10]: ").strip()
-        try:
-            return ["--cant", str(int(texto))]
-        except ValueError:
-            return []
 
     def _preguntar_loop_secs() -> list[str]:
         """Pregunta la duración del loop; args extra si es float."""
@@ -2000,29 +1997,12 @@ def opcion_touchdesigner(db_path: str | None = None):
         except ValueError:
             return []
 
-    def _colores(db):
-        _correr(puente, "colores", "--db", db_path)
-
-    def _nube(db):
-        _correr(puente, "nube", "--db", db_path, *_preguntar_max_tags())
-
     def _elecciones(db):
         grupos = input("  Grupos (coma, Enter = todos) [ej: horas,tags]: ").strip()
         args = ["elecciones", "--db", db_path]
         if grupos:
             args += ["--grupo", grupos]
         _correr(puente, *args)
-
-    def _enviar_imgs(db):
-        color = input("  Color (ej: rojo): ").strip()
-        if not color:
-            print("  Cancelado (color vacío).")
-            pausa()
-            return
-        _correr(puente, "enviar_imgs", color, "--db", db_path, *_preguntar_cantidad())
-
-    def _enviar_loop(db):
-        _correr(puente, "enviar", "--db", db_path)
 
     def _fluir_una_vez(db):
         _correr(puente, "fluir", "--una-vez", "--db", db_path, *_preguntar_loop_secs())
@@ -2032,7 +2012,7 @@ def opcion_touchdesigner(db_path: str | None = None):
 
     def _probar_osc(db):
         puerto = input("  Puerto [9001]: ").strip()
-        segundos = input("  Segundos de ventana (0 = hasta Ctrl+C) [0]: ").strip()
+        segundos = input("  Segundos de ventana (0 = hasta Enter) [0]: ").strip()
         args = []
         if puerto:
             try:
@@ -2048,25 +2028,25 @@ def opcion_touchdesigner(db_path: str | None = None):
 
     def _menu_fluir(db):
         _menu("FLUIR (OSC 9001 <- TD → 9002)", {
-            "1": ("Escuchar una ráfaga y salir", _fluir_una_vez),
-            "2": ("Escucha continua (Ctrl+C para salir)", _fluir_continua),
+            "1": ("Una ráfaga (prueba rápida)", _fluir_una_vez),
+            "2": ("Modo instalación: escucha continua (Enter para detener)", _fluir_continua),
         }, db_path, intro=(
             "  Recibe la ráfaga del botón 'Fluir' de TouchDesigner por 9001,\n"
-            "  la acumula por grupo, genera el spec del loop y lo envía por 9002."
+            "  la acumula por grupo, genera el spec del loop y lo envía por 9002.\n"
+            "  El modo instalación escucha sin límite de tiempo: queda activo\n"
+            "  hasta que presiones Enter para detenerlo."
         ), cerrar_al_ejecutar=True)
 
     _menu("TOUCHDESIGNER (puente OSC)", {
-        "1": ("Enviar colores a TD", _colores),
-        "2": ("Enviar nube de tags (keywords)", _nube),
-        "3": ("Enviar elecciones (horas, municipios, colores, tags...)", _elecciones),
-        "4": ("Enviar imágenes de un color", _enviar_imgs),
-        "5": ("Enviar loop completo (colores → selección → imágenes)", _enviar_loop),
-        "6": ("Modo 'Fluir' (recibir ráfaga de TD y generar loop)", _menu_fluir),
-        "7": ("Probar OSC (eco)", _probar_osc),
+        "1": ("Enviar elecciones (horas, municipios, colores, tags...)", _elecciones),
+        "2": ("Modo 'Fluir' (recibir ráfaga de TD y generar loop)", _menu_fluir),
+        "3": ("Probar OSC (eco)", _probar_osc),
     }, db_path, intro=(
         "  Puente BD → TouchDesigner vía OSC. Requiere TouchDesigner corriendo\n"
-        "  con osc_in1 (9000) / osc_out1 (9001). Los modos envían datos a TD\n"
-        "  o escuchan la ráfaga del 'Fluir' (9001 → loop por 9002)."
+        "  con osc_in1 (9000) / osc_out1 (9001). Los modos envían las nubes de\n"
+        "  elecciones a TD o escuchan la ráfaga del 'Fluir' (9001 → loop por 9002).\n"
+        "  Los modos legacy (colores, nube, imágenes de un color, loop completo)\n"
+        "  se quitaron porque apuntaban a ops que ya no existen en el .toe."
     ))
 
 
