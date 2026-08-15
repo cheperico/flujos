@@ -9,7 +9,7 @@ nube de elecciones en TD y ver en la consola:
     [OSC] /flujos/seleccion ('horas', '14:00', 1)
 
 Uso:
-    python scripts/td/osc_probe.py              # escucha en 9001
+    python scripts/td/osc_probe.py              # escucha en 9001 (Enter para salir)
     python scripts/td/osc_probe.py 9001 60      # puerto + segundos de ventana
 """
 
@@ -19,6 +19,8 @@ import threading
 import time
 
 from pythonosc import dispatcher, osc_server
+
+from util_enter import detener_con_enter
 
 HOST = "127.0.0.1"
 PUERTO_DEFAULT = 9001
@@ -37,14 +39,14 @@ def main(argv=None) -> int:
         description="Eco OSC: escucha mensajes en un puerto y los imprime.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Ejemplos:
-  python scripts/td/osc_probe.py            # escucha en 9001 (TD -> Python)
+  python scripts/td/osc_probe.py            # escucha en 9001 (TD -> Python), Enter para salir
   python scripts/td/osc_probe.py 9001 60    # 60 segundos de ventana
         """,
     )
     parser.add_argument("puerto", type=int, nargs="?", default=PUERTO_DEFAULT,
                         help=f"Puerto a escuchar (default: {PUERTO_DEFAULT}).")
     parser.add_argument("segundos", type=float, nargs="?", default=0,
-                        help="Ventana de escucha en segundos (0 = hasta Ctrl+C).")
+                        help="Ventana de escucha en segundos (0 = hasta Enter).")
     parser.add_argument("--host", default=HOST, help=f"Host (default: {HOST}).")
     args = parser.parse_args(argv)
 
@@ -56,7 +58,7 @@ def main(argv=None) -> int:
 
     server = osc_server.ThreadingOSCUDPServer((args.host, args.puerto), disp)
     print(f"Escuchando OSC en {args.host}:{args.puerto} ... "
-          f"(Ctrl+C para salir)", flush=True)
+          f"(Enter para salir)", flush=True)
 
     ventana = args.segundos
     if ventana:
@@ -73,12 +75,19 @@ def main(argv=None) -> int:
         print(f"Ventana terminada: {len(RECIBIDOS)} mensaje(s) recibido(s).")
         return 0 if RECIBIDOS else 1
 
+    detener = detener_con_enter()
     try:
-        server.serve_forever()
+        hilo = threading.Thread(target=server.serve_forever, daemon=True)
+        hilo.start()
+        while not detener.is_set():
+            time.sleep(0.1)
     except KeyboardInterrupt:
         print()
     finally:
+        server.shutdown()
         server.server_close()
+    if detener.is_set():
+        print("Detenido por el usuario (Enter).")
     return 0
 
 

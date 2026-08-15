@@ -53,8 +53,7 @@
     // La batería de audios se distribuye pareja a lo largo del fluir:
     // 10s de silencio al inicio y al final, y silencio entre audios.
     var SONIDO = {
-        habilitado: true,     // interruptor general (botón lateral) — arranca encendido
-        muted: true,          // arranca silenciado
+        habilitado: false,    // interruptor general (botón lateral) — arranca apagado
         items: [],            // audios seleccionados (con duracion_seg)
         plan: [],             // plan de reproducción [{audio, inicioMs, duracionMs}]
         reproduciendo: false,
@@ -824,7 +823,6 @@
     }
 
     function toggleHora(h) {
-        if (FLOW.activo) return; // bloqueado durante el flujo
         var idx = horasSeleccionadas.indexOf(h);
         if (idx === -1) {
             horasSeleccionadas.push(h);
@@ -1068,7 +1066,7 @@
     // Reproduce el audio objetivo; se reanuda si es el mismo que ya sonaba
     // (sin reiniciar), o lo carga con el offset correcto si cambia de audio.
     function reproducirAudioObjetivo(objetivo) {
-        if (!SONIDO.habilitado || SONIDO.muted || !objetivo) { detenerAudios(); return; }
+        if (!SONIDO.habilitado || !objetivo) { detenerAudios(); return; }
 
         if (SONIDO.actualPlan === objetivo) {
             return; // ya estamos intentando (o logrando) reproducir este tramo → no reiniciar
@@ -1090,7 +1088,7 @@
     // En cada frame del fluire, decide qué audio debe sonar según elapsedMs,
     // respetando los silencios de inicio/fin y el plan distribuido.
     function actualizarAudio(elapsedMs) {
-        if (!SONIDO.habilitado || SONIDO.muted) { detenerAudios(); return; }
+        if (!SONIDO.habilitado) { detenerAudios(); return; }
 
         var tEn = elapsedMs - SONIDO_SILENCIO_INICIO;   // tiempo dentro de la ventana útil
         var fin = FLOW.duracionMs - SONIDO_SILENCIO_FINAL;
@@ -1161,7 +1159,6 @@
         // Resetear slideshow para que arranque desde el frame 0
         SLIDESHOW.ultimoAvance = 0;
         reiniciarSlideshow();
-        document.getElementById('btn-fluir').classList.add('activo');
         actualizarBotonFluir();
         // Cargar medios filtrados (no bloquear el flow)
         cargarMediosFiltrados();
@@ -1179,8 +1176,7 @@
     function detenerFlow() {
         FLOW.activo = false;
         detenerAudios();
-        document.getElementById('btn-fluir').classList.remove('activo');
-        document.getElementById('btn-fluir').textContent = 'Fluir';
+        actualizarBotonFluir();
     }
 
     function actualizarFlow() {
@@ -1225,7 +1221,13 @@
     function actualizarBotonFluir() {
         var btn = document.getElementById('btn-fluir');
         if (!btn) return;
-        btn.textContent = 'Fluir';
+        if (FLOW.activo) {
+            btn.textContent = 'Detener';
+            btn.classList.add('activo');
+        } else {
+            btn.textContent = 'Fluir';
+            btn.classList.remove('activo');
+        }
     }
 
     // ═══════════════════════════════════════════════════════
@@ -1542,7 +1544,7 @@
     // ═══════════════════════════════════════════════════════
 
     function inicializar() {
-    dims.w = window.innerWidth - 60;
+    dims.w = window.innerWidth - 90;
     dims.h = window.innerHeight;
     canvas.width = dims.w;
     canvas.height = dims.h;
@@ -1573,32 +1575,30 @@
     document.getElementById('btn-fluir').addEventListener('click', function() {
         if (FLOW.activo) {
             detenerFlow();
-            this.textContent = 'Fluir';
-            this.classList.remove('activo');
         } else {
             iniciarFlowConFade();
         }
     });
 
-    // Botón sonido: activa/desactiva el mute del motor de audio
+    // Botón sonido: activa/desactiva el motor de audio (arranca apagado)
     function actualizarBotonSonido() {
         var btn = document.getElementById('btn-sonido');
         if (!btn) return;
-        if (SONIDO.muted) {
-            btn.textContent = '🔇 Silencio';
+        if (SONIDO.habilitado) {
+            btn.textContent = '🔊 Sonido';
             btn.classList.add('activo');
         } else {
-            btn.textContent = '🔊 Sonido';
+            btn.textContent = '🔇 Silencio';
             btn.classList.remove('activo');
         }
     }
     var btnSonido = document.getElementById('btn-sonido');
     if (btnSonido) {
         btnSonido.addEventListener('click', function() {
-            SONIDO.muted = !SONIDO.muted;
+            SONIDO.habilitado = !SONIDO.habilitado;
             // Update audio element mute state without stopping playback
             if (SONIDO.elem) {
-                SONIDO.elem.muted = SONIDO.muted;
+                SONIDO.elem.muted = !SONIDO.habilitado;
             }
             actualizarBotonSonido();
         });
@@ -1632,10 +1632,7 @@
         rerenderBloque('horas');
         rerenderBloque('municipios');
         // Cargar medios y mensajes según la nueva selección
-        cargarMediosFiltrados();
-        if (municipiosSeleccionados.length > 0) {
-            cargarMensajesTelegram(municipiosSeleccionados.slice());
-        }
+        // (iniciarFlow se encarga de cargarlos al arrancar)
     }
 
     // Crea el overlay de fade si no existe.
@@ -1651,10 +1648,14 @@
     }
 
     // Al presionar Fluir: arranca con la configuración actual del usuario
+    var fadeEnCurso = false;
     function iniciarFlowConFade() {
+        if (fadeEnCurso) return; // evitar doble click → doble fade
+        fadeEnCurso = true;
         var overlay = obtenerOverlay();
         overlay.style.opacity = '1'; // fade out
         setTimeout(function() {
+            fadeEnCurso = false;
             iniciarFlow();
             // fade in hacia la nueva configuración
             requestAnimationFrame(function() {

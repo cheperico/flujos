@@ -65,14 +65,13 @@ def _consulta_horas(conn: sqlite3.Connection) -> list[tuple[str, int]]:
 
 
 def _consulta_municipios(conn: sqlite3.Connection) -> list[tuple[str, int]]:
-    """Municipios con más medios (top 12)."""
+    """Municipios con más medios (todos, ordenados por frecuencia)."""
     filas = conn.execute("""
         SELECT municipio, COUNT(*) AS n
         FROM media
         WHERE municipio IS NOT NULL AND municipio != ''
         GROUP BY municipio
         ORDER BY n DESC
-        LIMIT 12
     """).fetchall()
     return [(str(fila[0]), int(fila[1])) for fila in filas]
 
