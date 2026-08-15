@@ -274,6 +274,7 @@ El modo `replace` vía `_preguntar_modo()` (flujos.py) crea backup automático e
 5. **Transcripción**: usar VAD + `whisper_estado` como marcador de pendiente (no `whisper_segments`, un `sin_voz` no tiene segmentos). NO forzar idioma español (`language=None`).
 6. **No usar capa semántica de embeddings en refinar_keywords**: produce falsos sinónimos (`ciclismo→deporte`, `nublado→soleado`). Eliminada por completo.
 7. **No copiar el schema en AGENTS.md**: referenciar `db/schema.sql` (fuente de verdad versionada).
+8. **minicpm regurgita prompts de descripción con "Give me..."** (eco: "Here's a long description...", "To describe the image, we first observe..."). Usar formulación directa: `"Start directly with the scene, without any preamble"` (A/B Ago 2026: 0/9 eco vs 1/9 con el viejo, sin pérdida de calidad). Mantener `limpiar_meta_intro()` como red de seguridad, nunca depender solo del prompt.
 
 ---
 

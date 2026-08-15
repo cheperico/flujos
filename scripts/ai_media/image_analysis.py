@@ -60,16 +60,23 @@ MODELO_VISION_DEFAULT = "minicpm-v4.6:latest"
 # ──────────────────────────────────────────────
 # minicpm responde mejor a prompts simples. Las keywords son libres (EN):
 # NO se pide ni se valida género fotográfico (descartado Ago 2026).
+# Prompts de descripción reescritos (2026-08-14) para evitar ecos de
+# meta-intro: sin "Give me", con "start directly with the scene, without
+# any preamble" (limpiar_meta_intro sigue como red de seguridad).
 
 PROMPT_KEYWORDS = "Give me exactly 5 keywords for this image, comma-separated."
 
-PROMPT_DESCRIBIR = "Give me a long description of this image."
+PROMPT_DESCRIBIR = (
+    "Describe what you see in this image in detail. "
+    "Start directly with the scene, without any preamble."
+)
 
 PROMPT_COMBINADO = (
     "Respond with ONLY JSON about THIS image with two fields:\n"
     '1. "keywords": exactly 5 keywords comma-separated, describing ONLY the '
     "content of THIS image.\n"
-    '2. "description": a long description of THIS image.\n'
+    '2. "description": a long description of THIS image, written directly '
+    "without preamble or meta-commentary.\n"
     'Exact format: {"keywords": ["sofa", "bookshelf", "lamp", "carpet", "window"], '
     '"description": "Long description text here."}\n'
     "The JSON format above is just an example; its keywords are NOT part of "
@@ -620,7 +627,7 @@ def _parsear_combinado(respuesta: str) -> Optional[dict]:
         kw = _parsear_keywords(keywords_line)
         if kw:
             desc = texto.strip()
-            return {"keywords": kw, "description": desc}
+            return {"keywords": kw, "description": limpiar_meta_intro(desc)}
 
     return None
 
