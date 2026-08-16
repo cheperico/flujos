@@ -585,6 +585,10 @@ def generar_loop(
             medio = {
                 "media_id": mid,
                 "tipo": fila["tipo"],
+                # Marca de video 360° (media.subtype = '360', escrito por
+                # improve_db --step video_metadata). Es ADITIVO al spec: el
+                # puente la usa para separar los videos 360 en la emisión OSC.
+                "es_360": fila["tipo"] == "video" and (fila["subtype"] == "360"),
                 "ruta": fila["ruta"],
                 "hora": hora,
                 "duracion": fila["duration_secs"] or 0.0,

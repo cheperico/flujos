@@ -430,7 +430,16 @@ def main(argv: list[str] | None = None) -> None:
 
     # Obtener metadata tags de media_metadata
     meta = {}
-    cur = src.execute("SELECT media_id, key, value FROM media_metadata WHERE key IN ('dia_semana','weather_label','ia_description','whisper_segments','ia_keywords','texto_completo','titulo_seccion','ia_keywords_texto')")
+    cur = src.execute("""
+        SELECT media_id, key, value
+        FROM media_metadata
+        WHERE key IN (
+            'dia_semana', 'weather_label', 'ia_description',
+            'whisper_segments', 'ia_keywords', 'texto_completo',
+            'titulo_seccion', 'ia_keywords_texto',
+            'ia_keywords_transcripcion', 'ia_keywords_sonido'
+        )
+    """)
     for r in cur:
         meta.setdefault(r['media_id'], {})[r['key']] = r['value']
 
@@ -451,6 +460,22 @@ def main(argv: list[str] | None = None) -> None:
             return txt
         except Exception:
             return None
+
+    def unir_keywords(*valores):
+        """Une listas de keywords separadas por coma, preservando orden y deduplicando."""
+        vistas = set()
+        salida = []
+        for valor in valores:
+            if not valor:
+                continue
+            partes = [p.strip() for p in str(valor).split(',') if p.strip()]
+            for parte in partes:
+                clave = parte.lower()
+                if clave in vistas:
+                    continue
+                vistas.add(clave)
+                salida.append(parte)
+        return ', '.join(salida) if salida else None
 
     # Obtener embeddings 2D (si existen)
     embs = {}
@@ -522,6 +547,7 @@ def main(argv: list[str] | None = None) -> None:
             descripcion TEXT,
             keywords TEXT,
             transcripcion TEXT,
+            titulo TEXT,
             embedding_x REAL,
             embedding_y REAL,
             cluster REAL
@@ -564,8 +590,8 @@ def main(argv: list[str] | None = None) -> None:
             color_1, color_1_hex,
             color_2, color_2_hex,
             color_3, color_3_hex,
-            dia_semana, clima, descripcion, keywords, transcripcion
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            dia_semana, clima, descripcion, keywords, transcripcion, titulo
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
 
     count = 0
@@ -587,11 +613,21 @@ def main(argv: list[str] | None = None) -> None:
         clima = m.get('weather_label')
         es_texto = (r['type'] == 'text')
         desc = m.get('texto_completo') or m.get('ia_description')
-        keywords = m.get('ia_keywords_texto') or m.get('ia_keywords')
-        if es_texto:
-            titulo = m.get('titulo_seccion')
-            if titulo:
-                desc = (titulo + "\n\n" + (desc or '')) if desc else titulo
+        if r['type'] == 'audio':
+            keywords = unir_keywords(m.get('ia_keywords_sonido'), m.get('ia_keywords_transcripcion'))
+        elif r['type'] == 'video':
+            keywords = unir_keywords(
+                m.get('ia_keywords'),
+                m.get('ia_keywords_transcripcion'),
+                m.get('ia_keywords_sonido'),
+            )
+        elif es_texto:
+            keywords = unir_keywords(m.get('ia_keywords_texto'), m.get('ia_keywords'))
+        else:
+            keywords = m.get('ia_keywords')
+        # Titulo propio del texto (subtitulo `##`). NULL si el texto no tiene
+        # titulo o no es texto: la web muestra la cabecera solo si existe.
+        titulo = (m.get('titulo_seccion') or None) if es_texto else None
 
         if not args.snapshot_local:
             # Ruta web-relativa (slash '/') + tamaño del archivo web si se transcodificó.
@@ -618,7 +654,8 @@ def main(argv: list[str] | None = None) -> None:
             r['color_1_name_basic'], r['color_1_hex'],
             r['color_2_name_basic'], r['color_2_hex'],
             r['color_3_name_basic'], r['color_3_hex'],
-            dia_sem, clima, desc, keywords, extraer_transcripcion(m.get('whisper_segments'))
+            dia_sem, clima, desc, keywords, extraer_transcripcion(m.get('whisper_segments')),
+            titulo
         )
         try:
             dst.execute(insert_sql, vals)

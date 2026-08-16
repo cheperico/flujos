@@ -183,6 +183,25 @@ def _enviar_filtro(cli, clave: str, valor) -> None:
     enviar(cli, f"{OSC_ADDR_FLUIR}/filtro", clave, "" if valor is None else str(valor))
 
 
+def _separar_videos_360(por_tipo: dict) -> tuple[list, list]:
+    """Divide por_tipo['video'] en (normales, 360) según el marcador es_360.
+
+    El marcador `es_360` lo agrega loop_db al spec (True solo para videos con
+    media.subtype = '360'). Los items sin la clave se tratan como normales
+    (los specs viejos no la traen y el campo es aditivo).
+
+    Args:
+        por_tipo: dict del spec, {tipo: [medios...]}.
+
+    Returns:
+        (normales, es360): dos listas de dicts de medios.
+    """
+    videos = por_tipo.get("video", []) or []
+    normales = [m for m in videos if not m.get("es_360")]
+    es360 = [m for m in videos if m.get("es_360")]
+    return normales, es360
+
+
 def _procesar_rafaga(
     db_path: str,
     selecciones: dict[str, list[str]],
@@ -196,17 +215,20 @@ def _procesar_rafaga(
     lo envía por OSC al puerto 9002 (canal separado para el resultado).
 
 Contrato de salida por 9002 (rediseño: el spec trae `por_tipo` y `resumen`):
-      1. `/flujos/fluir/resumen <total> <loop_secs> <image> <video> <audio> <text>`
-         — resumen con conteos por tipo (de `spec['resumen']`).
+      1. `/flujos/fluir/resumen <total> <loop_secs> <image> <video> <audio> <text> <video360>`
+         — resumen con conteos por tipo (de `spec['resumen']`, salvo video/
+         video360 que salen de la separación por es_360).
       2. `/flujos/fluir/filtro <clave> <valor>` — uno por filtro puesto por el
          usuario (hora_inicio, hora_fin, horas_elegidas, municipios, colores,
          tags, dias, clima). El callbacks los escribe como filas [clave, valor]
          en `fluir_estado`.
-      3. Por tipo, en orden estable (image, video, audio, text):
+      3. Por tipo, en orden estable (image, video, video360, audio, text):
          `/flujos/fluir/tabla <tipo> <cantidad>` — anuncio del comienzo de una
-         tabla para un tipo (TD arma fluir_fotos/fluir_videos/fluir_audios/fluir_textos).
+         tabla para un tipo (TD arma fluir_fotos/fluir_videos/fluir_videos_360/
+         fluir_audios/fluir_textos).
          `/flujos/fluir/medio <media_id> <ruta> <keypoint> <hora> <tipo>` — uno
          por medio (keypoint + hora posicionan temporalmente sin leer el archivo).
+         Los videos 360 van con `tipo=video360` a su propia tabla.
       4. `/flujos/fluir/chiche <hora> <texto>` — uno por chiche ambiental.
       5. `/flujos/fluir/fin <total>` — marca de finalización.
       6. La spec completa se escribe a `spec_salida` (TD puede leerla).
@@ -254,14 +276,20 @@ Contrato de salida por 9002 (rediseño: el spec trae `por_tipo` y `resumen`):
         log.warning("  El loop no dejó medios dentro del arco "
                     "(filtros + horas demasiado estrictos).")
 
+    por_tipo = spec.get("por_tipo") or {}
+    # Separación de videos 360° (marcador es_360 del spec): los normales van a
+    # fluir_videos y los 360 a fluir_videos_360 en la emisión por 9002.
+    videos_normales, videos_360 = _separar_videos_360(por_tipo)
+
     cli = udp_client.SimpleUDPClient(host, OSC_PUERTO_TD_RESULTADO)
     enviar(cli, f"{OSC_ADDR_FLUIR}/resumen",
            n_total,
            spec.get("loop_secs", loop_secs),
            resumen.get("image", 0),
-           resumen.get("video", 0),
+           len(videos_normales),
            resumen.get("audio", 0),
-           resumen.get("text", 0))
+           resumen.get("text", 0),
+           len(videos_360))
 
     # Filtros puestos por el usuario: se reflejan en fluir_estado para que el
     # estado del loop muestre qué eligió el visitante (hora inicio/fin y
@@ -288,13 +316,18 @@ Contrato de salida por 9002 (rediseño: el spec trae `por_tipo` y `resumen`):
              filtros.get("colores") or [],
              filtros.get("tags") or [])
 
-    por_tipo = spec.get("por_tipo") or {}
     if enviar_medios:
-        # `por_tipo` se itera en el orden estable de loop_db (image, video,
-        # audio, text). Si un tipo no tiene medios no se emite nada: el
+        # Bloques en orden estable: image, video (normales), video360,
+        # audio, text. Si un bloque no tiene medios no se emite nada: el
         # resumen ya lo reporta en 0.
-        for tipo in loop_db.TIPOS_POR_DEFECTO:
-            items = por_tipo.get(tipo, [])
+        bloques_envio: list[tuple[str, list]] = [
+            ("image", por_tipo.get("image", []) or []),
+            ("video", videos_normales),
+            ("video360", videos_360),
+            ("audio", por_tipo.get("audio", []) or []),
+            ("text", por_tipo.get("text", []) or []),
+        ]
+        for tipo, items in bloques_envio:
             if not items:
                 continue
             enviar(cli, f"{OSC_ADDR_FLUIR}/tabla", tipo, len(items))

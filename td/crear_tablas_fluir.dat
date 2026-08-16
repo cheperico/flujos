@@ -1,10 +1,11 @@
 # =============================================================================
 # crear_tablas_fluir.dat — Auto-creación de las tablas del "Fluir" (Table DAT)
 #
-# Crea las 6 tablas que espera `td/fluir_callbacks.dat` (receptor OSC 9002):
+# Crea las 7 tablas que espera `td/fluir_callbacks.dat` (receptor OSC 9002):
 #     fluir_estado   [clave, valor]
 #     fluir_fotos    [media_id, ruta, keypoint, hora, tipo]
 #     fluir_videos   [media_id, ruta, keypoint, hora, tipo]
+#     fluir_videos_360 [media_id, ruta, keypoint, hora, tipo]
 #     fluir_sonidos  [media_id, ruta, keypoint, hora, tipo]
 #     fluir_textos   [media_id, ruta, keypoint, hora, tipo]
 #     fluir_chiches  [hora, texto]
@@ -22,7 +23,7 @@
 #   2. En su parámetro File escribí:  td/crear_tablas_fluir.dat
 #      y activá Sync (File > Sync to File). Guardá el .toe para persistirlo.
 #   3. Ejecutalo con el botón Run del panel del DAT. El resumen sale en el
-#      Textport: "Listo: 6 creadas, 0 ya existían, 0 con problemas".
+#      Textport: "Listo: 7 creadas, 0 ya existían, 0 con problemas".
 #
 # Opción B: copiar/pegar en el text port de un Text DAT.
 #   1. Creá un Text DAT en /project2.
@@ -43,6 +44,7 @@ TABLAS = {
     "fluir_estado": ["clave", "valor"],
     "fluir_fotos": ["media_id", "ruta", "keypoint", "hora", "tipo"],
     "fluir_videos": ["media_id", "ruta", "keypoint", "hora", "tipo"],
+    "fluir_videos_360": ["media_id", "ruta", "keypoint", "hora", "tipo"],
     "fluir_sonidos": ["media_id", "ruta", "keypoint", "hora", "tipo"],
     "fluir_textos": ["media_id", "ruta", "keypoint", "hora", "tipo"],
     "fluir_chiches": ["hora", "texto"],
@@ -86,7 +88,7 @@ def _normalizar_headers(tabla, header):
 
 
 def crear_tablas_fluir(padre=None):
-    """Crea las 6 tablas fluir_* si no existen y normaliza sus headers.
+    """Crea las 7 tablas fluir_* si no existen y normaliza sus headers.
 
     Idempotente: si la tabla ya existe no se borra ni se recrea; solo se
     asegura que su fila 0 tenga el header correcto. Devuelve una lista de

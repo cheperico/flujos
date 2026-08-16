@@ -81,7 +81,7 @@ Etapa 5: INSTALACIÓN          →  TouchDesigner + motor de deriva
 | **Posición del sol / twilight** (NOAA) | Alta | ✅ | `astronomia.py --mode` (sin dependencias externas) |
 | Keywords del sentido de transcripciones | Media | ✅ | `keywords_transcripciones.py` |
 | Keywords de sonidos **no hablados** (extender audio tagging → sentido semántico; no probado aún) | Media | ❌ Pendiente | — |
-| Embeddings vectoriales (búsqueda semántica) — **desactivados**, rediseño profundo pendiente (ver Etapa 3) | Media | ✅ Desactivado | `generate_embeddings.py` (retirado del TUI) |
+| Embeddings vectoriales (búsqueda semántica) — **desactivados**, rediseño profundo pendiente; dirección de diseño en `docs/embeddings_rediseno.md` (2026-08-15) | Media | ✅ Desactivado | `generate_embeddings.py` (retirado del TUI) |
 
 ---
 
@@ -96,6 +96,16 @@ Etapa 5: INSTALACIÓN          →  TouchDesigner + motor de deriva
 | Caché de consultas frecuentes / recorridos predefinidos | Baja | ❌ |
 | **"Fluir" (multiselector OSC, decisión 2026-08-08/09)**: como en la web (`#btn-fluir`), el visitante **acumula** elecciones y al presionar el botón **"Fluir"** se envía **todas las selecciones juntas** (la ráfaga sobre 9001 ES el "Fluir", verificada con `osc_probe.py`; formato `/flujos/seleccion/<grupo> <valor>`). **Lado Python implementado (2026-08-09)**: recibe la ráfaga por 9001, la acumula por grupo, detecta fin con **debounce** y genera el loop; el retorno va por **canal separado 9002** (`osc_in2`/`osc_in2_callbacks`), NO toca `osc_in1`/9000. **Rediseño por tipo**: `loop_db.generar_loop` filtra por **rango de horas [min,max]** (duro), **municipios** (duro si vienen), **colores y tags como prioridad** (score, no descartan), ordena por hora asc + score desc, y devuelve tablas **por tipo** (`por_tipo`: image/video/audio/text) con `keypoint` (= `t_loop`) en cada medio; chiches limitados a **clima+astronomía**. `puente_td.py` envía por 9002 el contrato por tipo (`/flujos/fluir/resumen`, `/tabla`, `/medio <id> <ruta> <keypoint> <hora> <tipo>`, `/chiche`, `/fin`). Pendiente: armado TD de `osc_in2` + tablas `fluir_*` (checklist en `docs/retorno_fluir_td.md`) | Alta | 🚧 Lado Python ✅ — falta receptor en TD |
 | **Refactor `elecciones_ui.dat` al patrón manual actual**: el toe se arma a mano (Replicator COMP + `elec_<id>_container<N>` + `boton_<id>_N`); opción futura: que el script genere lo mismo. Por ahora se sigue armando manualmente | Baja | ❌ Opción diferida |
+
+---
+
+## Visualización web (deploy)
+
+| Item | Prioridad | Estado |
+|---|---|---|
+| **Reproducción de videos en la web** (hoy el bloque Videos es solo una lista de descripciones; sin `<video>` en el lienzo) | Media | ❌ Pendiente |
+| **Visualización de videos 360° equirectangulares**: opciones documentadas en `docs/videos_360_web.md` (Three.js esfera / WebGL custom / A-Frame / librerías nicho). Requiere: flag `es_360` en el snapshot (`exportar_visualizacion.py`), soporte HTTP Range en `servir_medio.php`, transcode `--transcode --transcode-360-largo 1920`, y renderer 360 en `app.js`. Recomendación: Three.js local | Media | ❌ Pendiente (documentado 2026-08-15) |
+| **Detección de videos 360 reales**: 139 videos, 0 marcados `xmp_spherical`; correr ffprobe (aspecto 2:1 / ancho ≥ 3840 / metadata esférica) y marcar en DB los que correspondan | Media | ❌ Pendiente |
 
 ---
 
@@ -143,6 +153,27 @@ Etapa 5: INSTALACIÓN          →  TouchDesigner + motor de deriva
 ---
 
 ## Historial
+
+- **2026-08-15:** **Nota de dirección para el rediseño de embeddings.**
+  - Motivación: pares de ideas distintas pero cercanas que el léxico no unifica
+    ("identidad nacional" ~ "monumento") y textos de viajeros (crónicas históricas
+    que hacen a la identidad nacional) que deberían agruparse con las fotos.
+  - Dirección: embeddings = agrupación SEMÁNTICA entre tipos de medio (imagen ↔
+    texto ↔ audio); fuentes = ia_keywords + ia_description + ia_keywords_texto +
+    texto_completo + ia_keywords_transcripcion; NO duplicar SINONIMOS (falsos
+    sinónimos ya descartados).
+  - Documentado en `docs/embeddings_rediseno.md`; pendiente de decisión e implementación.
+
+- **2026-08-15:** **Opciones de visualización 360° web documentadas.**
+  - La web (deploy/) no reproduce videos (bloque Videos = lista de descripciones).
+  - Opciones para videos 360° equirectangulares: A) Three.js esfera (recomendada,
+    sin build), B) WebGL custom sin deps, C) A-Frame, D) librerías nicho
+    (Panolens/cloudimage/Photo Sphere Viewer).
+  - Requisitos de pipeline: flag `es_360` en snapshot (`exportar_visualizacion.py`),
+    HTTP Range en `servir_medio.php`, transcode 360 `--transcode-360-largo 1920`,
+    renderer 360 en `app.js` + fallback a lista.
+  - Datos: 139 videos, 0 marcados `xmp_spherical` (detectar con ffprobe pendiente).
+  - Documentado en `docs/videos_360_web.md`; pendiente de decisión e implementación.
 
 - **2026-08-09:** **Plan: repetidos, embeddings y análisis de video.**
   - Detección de repetidos (video/sonido): pipeline de sospecha N1-N4 con banda sonora

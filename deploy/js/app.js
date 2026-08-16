@@ -35,6 +35,8 @@
         'Ballesteros', 'Salto', 'Saladillo'
     ];
     var municipiosSeleccionados = [];
+    // Mapa municipio -> provincia (cada municipio pertenece a UNA provincia).
+    var MUNICIPIOS_POR_PROVINCIA = {};
 
     // ═══════════════════════════════════════════════════════
     //  FLOW — duración y ciclo de paleta
@@ -46,6 +48,7 @@
     var TAGS_API = null;
     var tagsSeleccionados = [];
     var MEDIOS_FILTRADOS = null;
+    var MEDIOS_REQUEST_ID = 0;
     var MENSAJES_TELEGRAM = null;
     var MENSAJES_TELEGRAM_MUNICIPIO = '';
 
@@ -445,13 +448,22 @@
         var t = TEXTO_ROTADOR.cont;
         if (!t) return;
         var item = TEXTO_ROTADOR.items[TEXTO_ROTADOR.index];
-        var archivo = item.archivo || '';
-        var html = '<div style="display:flex;flex-direction:column;width:100%;flex:1;min-height:0">'
-                 + '<div style="flex:1;min-height:0;overflow-y:auto;font-size:.58rem;line-height:1.5;opacity:.9">'
-                 + (item.transcripcion || item.descripcion || '') + '</div>'
-                 + '<div style="flex-shrink:0;font-size:.42rem;opacity:.45;margin-top:.15rem;text-align:center">'
-                 + ((TEXTO_ROTADOR.index + 1) + '/' + TEXTO_ROTADOR.items.length + ' · ' + archivo) + '</div>'
-                 + '</div>';
+        // Origen: nombre del archivo fuente (basename de ruta_relativa)
+        var origen = (item.ruta_relativa || '').split(/[\\/]/).pop() || '';
+        var html = '<div style="display:flex;flex-direction:column;width:100%;flex:1;min-height:0">';
+        // Cabecera del titulo solo si el texto tiene titulo propio
+        if (item.titulo) {
+            html += '<div style="flex-shrink:0;font-size:.68rem;font-weight:600;line-height:1.3;margin-bottom:.25rem;color:rgb(var(--ar),var(--ag),var(--ab))">'
+                  + item.titulo + '</div>';
+        }
+        html += '<div style="flex:1;min-height:0;overflow-y:auto;font-size:.58rem;line-height:1.5;opacity:.9">'
+              + (item.transcripcion || item.descripcion || '') + '</div>'
+              + '<div style="flex-shrink:0;font-size:.42rem;opacity:.45;margin-top:.15rem;text-align:center">'
+              + ((TEXTO_ROTADOR.index + 1) + '/' + TEXTO_ROTADOR.items.length);
+        if (origen) {
+            html += ' · ' + origen;
+        }
+        html += '</div></div>';
         t.innerHTML = html;
 
         // Programar el avance dentro de 30 segundos
@@ -468,6 +480,8 @@
                     ? MEDIOS_FILTRADOS.resultados[tipo] : [];
 
         if (!items.length) {
+            if (tipo === 'audio') limpiarSeleccionAudios();
+            if (tipo === 'image') limpiarSeleccionImagenes();
             cont.innerHTML = '<div style="opacity:.2;font-size:.6rem;text-align:center;padding:.5rem">—</div>';
             return;
         }
@@ -876,14 +890,38 @@
         actualizarInfoProvincias();
     }
 
+    // Municipios que pertenecen a una provincia (según el mapa cargado de la API).
+    function municipiosDeProvincia(provincia) {
+        return MUNICIPIOS.filter(function(m) {
+            return MUNICIPIOS_POR_PROVINCIA[m] === provincia;
+        });
+    }
+
     function toggleProvincia(nombre) {
         var idx = provinciasSeleccionadas.indexOf(nombre);
-        if (idx === -1) provinciasSeleccionadas.push(nombre);
-        else provinciasSeleccionadas.splice(idx, 1);
+        if (idx === -1) {
+            provinciasSeleccionadas.push(nombre);
+            // Al seleccionar la provincia, se seleccionan sus municipios.
+            municipiosDeProvincia(nombre).forEach(function(m) {
+                if (municipiosSeleccionados.indexOf(m) === -1) {
+                    municipiosSeleccionados.push(m);
+                }
+            });
+        } else {
+            provinciasSeleccionadas.splice(idx, 1);
+            // Al deseleccionar la provincia, se deseleccionan sus municipios.
+            var restantes = [];
+            municipiosSeleccionados.forEach(function(m) {
+                if (MUNICIPIOS_POR_PROVINCIA[m] !== nombre) restantes.push(m);
+            });
+            municipiosSeleccionados = restantes;
+        }
         document.querySelectorAll('#bloque-provincias [data-accion="toggle-provincia"]').forEach(function(btn) {
             if (btn.dataset.valor === nombre) btn.classList.toggle('activo');
         });
         actualizarInfoProvincias();
+        // Reflejar los municipios marcados/desmarcados en su bloque.
+        rerenderBloque('municipios');
     }
 
     function actualizarInfoProvincias() {
@@ -998,13 +1036,16 @@
 
     function obtenerFiltrosActivos() {
         var params = {};
-        if (municipiosSeleccionados.length === 1) params.municipio = municipiosSeleccionados[0];
-        if (coloresSeleccionados.length === 1) params.color = coloresSeleccionados[0];
-        if (provinciasSeleccionadas.length === 1) params.provincia = provinciasSeleccionadas[0];
+        if (municipiosSeleccionados.length) params.municipio = municipiosSeleccionados.join(',');
+        if (coloresSeleccionados.length) params.color = coloresSeleccionados.join(',');
+        if (provinciasSeleccionadas.length) params.provincia = provinciasSeleccionadas.join(',');
+        if (tagsSeleccionados.length) params.tag = tagsSeleccionados.join(',');
         return params;
     }
 
     function cargarMediosFiltrados() {
+        var requestId = ++MEDIOS_REQUEST_ID;
+        limpiarSeleccionAudios();
         var params = obtenerFiltrosActivos();
         var qs = Object.keys(params).map(function(k) {
             return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
@@ -1015,13 +1056,16 @@
         return fetch('api/medios_filtrados.php?' + qs)
             .then(function(r) { return r.json(); })
             .then(function(data) {
+                if (requestId !== MEDIOS_REQUEST_ID) return;
                 MEDIOS_FILTRADOS = data;
                 // Re-renderear los bloques de medios
                 renderMediaBlocks();
             })
             .catch(function(e) {
+                if (requestId !== MEDIOS_REQUEST_ID) return;
                 console.warn('Error cargando medios filtrados', e);
                 MEDIOS_FILTRADOS = null;
+                limpiarSeleccionAudios();
                 renderMediaBlocks();
             });
     }
@@ -1052,6 +1096,18 @@
         }
         SONIDO.reproduciendo = false;
         SONIDO.actualPlan = null;
+    }
+
+    function limpiarSeleccionAudios() {
+        detenerAudios();
+        SONIDO.items = [];
+        SONIDO.plan = [];
+    }
+
+    function limpiarSeleccionImagenes() {
+        SLIDESHOW.items = [];
+        SLIDESHOW.index = 0;
+        SLIDESHOW.cont = null;
     }
 
     // Crea (o reutiliza) un <audio> oculto para reproducir.
@@ -1162,8 +1218,6 @@
         actualizarBotonFluir();
         // Cargar medios filtrados (no bloquear el flow)
         cargarMediosFiltrados();
-        // Preparar la batería de audios para autoplay (si ya hay cargados)
-        if (SONIDO.items.length) planificarAudios();
         // Cargar mensajes Telegram si hay municipios seleccionados
         if (municipiosSeleccionados.length > 0) {
             cargarMensajesTelegram(municipiosSeleccionados.slice());
@@ -1471,6 +1525,16 @@
                 });
                 var munArr = Object.keys(munMap).sort();
                 if (munArr.length) MUNICIPIOS = munArr;
+
+                // Mapa municipio -> provincia (cada municipio pertenece a UNA
+                // provincia; sin colisiones en los datos). Se usa al seleccionar
+                // una provincia para marcar automáticamente sus municipios.
+                MUNICIPIOS_POR_PROVINCIA = {};
+                datos.puntos.forEach(function(p) {
+                    if (p.municipio && p.provincia) {
+                        MUNICIPIOS_POR_PROVINCIA[p.municipio] = p.provincia;
+                    }
+                });
 
                 console.log('COLORES:', COLORES.map(function(c){return c.nombre;}).join(', '));
                 console.log('PROVINCIAS:', PROVINCIAS.map(function(p){return p.nombre;}).join(', '));

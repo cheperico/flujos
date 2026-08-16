@@ -1910,8 +1910,8 @@ def opcion_exportar_visualizacion(db_path: str | None = None):
 
     def _deploy_default(db):
         cmd = [sys.executable, exportador]
-        if not _preguntar_transcode():
-            cmd.append("--no-transcode")
+        if _preguntar_transcode():
+            cmd.append("--transcode")
         subprocess.run(cmd)
         pausa()
 
@@ -1920,8 +1920,8 @@ def opcion_exportar_visualizacion(db_path: str | None = None):
         if not ruta:
             return
         cmd = [sys.executable, exportador, "--deploy-dir", ruta]
-        if not _preguntar_transcode():
-            cmd.append("--no-transcode")
+        if _preguntar_transcode():
+            cmd.append("--transcode")
         subprocess.run(cmd)
         pausa()
 

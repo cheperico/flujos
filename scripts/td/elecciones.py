@@ -77,20 +77,23 @@ def _consulta_municipios(conn: sqlite3.Connection) -> list[tuple[str, int]]:
 
 
 def _consulta_colores(conn: sqlite3.Connection) -> list[tuple[str, int]]:
-    """Colores básicos dominantes (slot 1, top 12)."""
+    """Colores básicos dominantes (slot 1, todos)."""
     filas = conn.execute("""
         SELECT color_1_name_basic AS color, COUNT(*) AS n
         FROM media
         WHERE color_1_name_basic IS NOT NULL
         GROUP BY color_1_name_basic
         ORDER BY n DESC
-        LIMIT 12
     """).fetchall()
     return [(str(fila[0]), int(fila[1])) for fila in filas]
 
 
-def _consulta_tags(conn: sqlite3.Connection, max_tags: int = 30) -> list[tuple[str, int]]:
-    """Keywords de ia_keywords (plano o JSON) contadas individualmente."""
+def _consulta_tags(conn: sqlite3.Connection) -> list[tuple[str, int]]:
+    """Keywords de ia_keywords (plano o JSON) contadas individualmente.
+
+    Se conserva el cuarto más significativo: el top 25% por frecuencia
+    (elimina el ruido de keywords que aparecen una sola vez).
+    """
     filas = conn.execute(
         "SELECT value FROM media_metadata WHERE key='ia_keywords'"
     ).fetchall()
@@ -107,9 +110,13 @@ def _consulta_tags(conn: sqlite3.Connection, max_tags: int = 30) -> list[tuple[s
                 continue
             if any(ign in p for ign in KEYWORDS_A_IGNORAR):
                 continue
+            if p in KEYWORDS_SENSIBLES:
+                continue
             contador[p] = contador.get(p, 0) + 1
-    top = sorted(contador.items(), key=lambda x: -x[1])[:max_tags]
-    return [(str(v), int(f)) for v, f in top]
+    top = sorted(contador.items(), key=lambda x: -x[1])
+    # Cuarto más significativo: ceil(len / 4), mínimo 1 (cociente entero: (n+3)//4)
+    n_cuarto = max(1, (len(top) + 3) // 4)
+    return [(str(v), int(f)) for v, f in top[:n_cuarto]]
 
 
 KEYWORDS_A_IGNORAR = [
@@ -119,6 +126,11 @@ KEYWORDS_A_IGNORAR = [
     "el aguaje", "elante", "ella", "documento", "objetivo", "objeto",
     "otras)", "otras.", "gushing river",
 ]
+
+# Contenido sensible de la instalación: se conserva en la DB pero NUNCA se
+# muestra en la nube de tags (muerte). Match exacto tras normalizar a
+# minúsculas. No confundir con muerte vegetal benigna (árbol muerto, etc.).
+KEYWORDS_SENSIBLES = {"cadáver", "perro muerto", "cuerpo muerto", "muerto"}
 
 
 def _partes_keywords(texto: str) -> list[str]:

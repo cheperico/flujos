@@ -4,13 +4,13 @@ fluir_callbacks.dat - Callbacks del receptor de retorno del "Fluir" (OSC 9002).
 El cerebro Python (`scripts/td/puente_td.py` modo 'fluir') envía por el puerto
 9002 un contrato POR TIPO, en este orden exacto:
 
-    /flujos/fluir/resumen <total> <loop_secs> <image> <video> <audio> <text>
+    /flujos/fluir/resumen <total> <loop_secs> <image> <video> <audio> <text> <video360>
         Resumen del lote: totales por tipo (vienen de spec['resumen']).
     /flujos/fluir/filtro <clave> <valor>   (0..N, uno por filtro puesto por
         el usuario): hora_inicio, hora_fin, horas_elegidas, municipios,
         colores, tags, dias, clima. Se guardan como filas [clave, valor] en
         fluir_estado (igual que los totales).
-    Por tipo (orden estable image, video, audio, text; SOLO si tiene medios;
+    Por tipo (orden estable image, video, video360, audio, text; SOLO si tiene medios;
     si un tipo tiene 0 medios NO se envían su /tabla ni /medio):
         /flujos/fluir/tabla  <tipo> <cantidad>
             Anuncia el comienzo de la tabla para ese tipo.
@@ -25,22 +25,23 @@ hora decimal de los metadatos (0..24). El OSC ya trae todo esto: el archivo
 td/spec_fluir.json se escribe ANTES del primer mensaje y se lee SOLO para
 cotejar (debug de pérdida UDP), ya NO es fuente única de datos.
 
-Tablas destino (Table DAT en /project2). Las CUATRO tablas de medios tienen la
+Tablas destino (Table DAT en /project2). Las CINCO tablas de medios tienen la
 MISMA estructura [media_id, ruta, keypoint, hora, tipo]:
-  fluir_estado  [clave, valor]  total, loop_secs, image, video, audio, text,
-                                fin (0/1), recibidos, esperados,
+  fluir_estado  [clave, valor]  total, loop_secs, image, video, video360,
+                                audio, text, fin (0/1), recibidos, esperados,
                                 + los filtros del usuario (hora_inicio,
                                 hora_fin, horas_elegidas, municipios,
                                 colores, tags, dias, clima si vienen)
   fluir_fotos   [media_id, ruta, keypoint, hora, tipo]  <- image
   fluir_videos  [media_id, ruta, keypoint, hora, tipo]  <- video
+  fluir_videos_360 [media_id, ruta, keypoint, hora, tipo]  <- video360
   fluir_sonidos [media_id, ruta, keypoint, hora, tipo]  <- audio
   fluir_textos  [media_id, ruta, keypoint, hora, tipo]  <- text
   fluir_chiches [hora, texto]
 
 Un único helper _tabla_para_tipo(tipo) resuelve el nombre de tabla correcto
-para cada tipo: image -> fluir_fotos, video -> fluir_videos, audio ->
-fluir_sonidos, text -> fluir_textos.
+para cada tipo: image -> fluir_fotos, video -> fluir_videos, video360 ->
+fluir_videos_360, audio -> fluir_sonidos, text -> fluir_textos.
 
 Este callbacks es INDEPENDIENTE del canal 9000/osc_in1 (nubes de elecciones):
 solo escribe las tablas `fluir_*`. No toca `elec_*` ni `osc_out1`.
@@ -58,6 +59,7 @@ OSC_ADDR_FLUIR = "/flujos/fluir"
 TABLAS_POR_TIPO = {
     "image": "fluir_fotos",
     "video": "fluir_videos",
+    "video360": "fluir_videos_360",
     "audio": "fluir_sonidos",
     "text": "fluir_textos",
 }
@@ -109,8 +111,8 @@ def _tabla(nombre):
 def _tabla_para_tipo(tipo):
     """Devuelve el nombre de la tabla que corresponde a un tipo de medio.
 
-    image -> fluir_fotos, video -> fluir_videos, audio -> fluir_sonidos,
-    text -> fluir_textos. Si el tipo es desconocido, imprime advertencia y
+    image -> fluir_fotos, video -> fluir_videos, video360 -> fluir_videos_360,
+    audio -> fluir_sonidos, text -> fluir_textos. Si el tipo es desconocido, imprime advertencia y
     devuelve None.
     """
     nombre = TABLAS_POR_TIPO.get(tipo)
@@ -135,7 +137,7 @@ def _limpiar(tabla, header):
 def _recibir_resumen(args):
     """Guarda la metadata del lote en fluir_estado y reinicia las tablas.
 
-    Escribe total, loop_secs, image, video, audio, text y fin=0. También vacía
+    Escribe total, loop_secs, image, video, video360, audio, text y fin=0. También vacía
     las tablas por tipo y los chiches: cada lote nuevo arranca limpio. Los
     filtros del usuario llegan después con /filtro y se agregan abajo.
     """
@@ -150,6 +152,7 @@ def _recibir_resumen(args):
     n_video = int(args[3]) if len(args) > 3 and args[3] is not None else 0
     n_audio = int(args[4]) if len(args) > 4 and args[4] is not None else 0
     n_text = int(args[5]) if len(args) > 5 and args[5] is not None else 0
+    n_video360 = int(args[6]) if len(args) > 6 and args[6] is not None else 0
 
     _total_esperado = total
     _tipo_actual = None
@@ -159,6 +162,7 @@ def _recibir_resumen(args):
     tabla.appendRow(["loop_secs", loop_secs])
     tabla.appendRow(["image", n_image])
     tabla.appendRow(["video", n_video])
+    tabla.appendRow(["video360", n_video360])
     tabla.appendRow(["audio", n_audio])
     tabla.appendRow(["text", n_text])
     tabla.appendRow(["fin", 0])
@@ -173,7 +177,7 @@ def _recibir_resumen(args):
         _limpiar(t_chiches, ["hora", "texto"])
 
     print(f"{PREFIJO_LOG} Resumen: {total} medios (image={n_image}, "
-          f"video={n_video}, audio={n_audio}, text={n_text}), "
+          f"video={n_video}, video360={n_video360}, audio={n_audio}, text={n_text}), "
           f"loop de {loop_secs}s")
 
 
@@ -268,7 +272,7 @@ def _recibir_fin(args):
     """Finaliza el lote: marca fin=1 y valida recibidos vs esperados.
 
     Compara el total esperado (args[0] o el de /resumen) contra la suma real
-    de filas de las 4 tablas por tipo y guarda received/esperados en
+    de filas de las 5 tablas por tipo y guarda received/esperados en
     fluir_estado para debug de pérdida UDP. Luego coteja (opcional) contra
     td/spec_fluir.json - que ya NO es fuente única de datos.
     """
@@ -337,7 +341,13 @@ def _cotejar_spec(recibido):
 
     por_tipo = spec.get("por_tipo") or {}
     for tipo, nombre in TABLAS_POR_TIPO.items():
-        esperados_tipo = len(por_tipo.get(tipo, []))
+        if tipo == "video360":
+            # El spec JSON mantiene TODOS los videos bajo por_tipo["video"],
+            # con el campo es_360 por item (lo agrega el Python). Los esperados
+            # de video360 salen de ahí, no de una clave por_tipo["video360"].
+            esperados_tipo = sum(1 for m in (por_tipo.get("video") or []) if m.get("es_360"))
+        else:
+            esperados_tipo = len(por_tipo.get(tipo, []) or [])
         t = _tabla(nombre)
         recibidos_tipo = _filas_datos(t) if t is not None else 0
         if esperados_tipo != recibidos_tipo:

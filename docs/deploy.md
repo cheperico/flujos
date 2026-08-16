@@ -93,7 +93,7 @@ El snapshot se genera desde `db/flujos.db` (FUENTE de verdad). Pasos:
 
 | Endpoint | Recibe (GET) | Devuelve |
 |---|---|---|
-| `medios_filtrados.php` | `limite` (1–20), `tipo` (csv), `municipio`, `color`, `provincia` | resultados agrupados por tipo |
+| `medios_filtrados.php` | `limite` (1–20), `tipo` (csv), `municipio`, `color`, `provincia`, `tag` (municipio/color/provincia/tag aceptan csv multi-valor) | resultados agrupados por tipo (incluye `titulo` para textos) |
 | `servir_medio.php` | `id` (obligatorio), `thumb` (opcional) | archivo binario (MIME, cache 86400 s) |
 | `tags.php` | `limite` (10–100, default 40) | `{total, tags:[{tag, frecuencia, peso}]}` |
 
@@ -106,6 +106,13 @@ El snapshot se genera desde `db/flujos.db` (FUENTE de verdad). Pasos:
 > `scripts/td/puente_td.py` / `scripts/td/elecciones.py`) las frases se respetan y el
 > ruido desaparece. Requiere que el snapshot tenga la columna `keywords`
 > (agregada al exportador).
+>
+> Desde Ago 2026 el exportador además **une** keywords por tipo de medio
+> (`unir_keywords()`): audio = `ia_keywords_sonido` + `ia_keywords_transcripcion`;
+> video = `ia_keywords` + transcripción + sonido; texto = `ia_keywords_texto` +
+> `ia_keywords`; resto = `ia_keywords`. Así la nube incluye sonidos ambientales y
+> transcripciones, no solo visión. También persiste la columna `titulo`
+> (`titulo_seccion` solo para type='text').
 | `recorrido.php` | — | `{total, puntos, colores}` (colores = UNION de color_1..3) |
 | `puntos.php` | — | `{total, puntos}` (embeddings) — **hoy 0 puntos** |
 | `mensajes_telegram.php` | `municipio` (obligatorio), `limite` (def 200), `fotos` (bool) | `{total, rango, mensajes + fotos JSON}` |
@@ -120,11 +127,16 @@ El snapshot se genera desde `db/flujos.db` (FUENTE de verdad). Pasos:
   generación de embeddings está en `generate_embeddings.py` y el modelo `nomic-embed-text`;
   no se volcaron a 2 dims en el snapshot.
 - **`medio_categoria` vacío**: tabla puente creada pero sin uso.
-- **El snapshot de la web** está desincronizado del pipeline hasta re-exportar
-  (ver "Cómo regenerar"). Fuera de sincronía, la web muestra datos viejos/basura
-  (p. ej. descripciones pre-translategemma).
+- **El snapshot de la web** se re-exportó el 15/8/2026 con el exportador actual
+  (1.341 medios, 1.316 con keywords, 1.506 tags, columna `titulo`). Para
+  actualizarlo de nuevo: ver "Cómo regenerar". Fuera de sincronía, la web
+  mostraría datos viejos (p. ej. descripciones pre-translategemma).
 - **`descripcion`** de todos los medios en el snapshot depende de `ia_description`
   (clave `ia_description` de `media_metadata` en la principal).
+- **No se reproducen videos** (ni 360°): el bloque "Videos" del lienzo es solo
+  una lista de descripciones; `servir_medio.php` sirve con `readfile()` sin HTTP
+  Range (imprescindible para `<video>`). Opciones para visor 360° en
+  `docs/videos_360_web.md` (pendiente).
 
 ---
 

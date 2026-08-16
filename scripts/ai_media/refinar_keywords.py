@@ -118,6 +118,20 @@ SINONIMOS: dict[str, list[str]] = {
     "senderismo": ["trail", "sendero", "hiking"],
     "esfuerzo": ["effort", "esfuerzos"],
     "paisaje": ["landscape", "scenery", "vista"],
+    # Variantes de nombres propios leídos de la escena (visión) — un mismo lugar
+    # aparece con varias formas según cómo lo leyó minicpm y lo tradujo
+    # translategemma (análisis de frecuencia-1, Ago 2026).
+    "bell ville": ["villa bell"],
+    "monte buey": ["monte bué", "monte bley", "cerro boyero"],
+    "melincué": ["melincue"],
+    "chacabuco": ["chacabú"],
+    "james craik": ["james craig"],
+    "ruta sanmartiniana": ["ruta santamarianense"],
+    "bottasso": ["botta"],
+    # Nombres propios que NO se deben singularizar ni descartar como basura.
+    "bicivilizados": ["bicivilizado"],                 # nombre del programa de radio (feed 435)
+    "dardo s. dorronzoro": ["dardo", "s. dorronzoro"],  # monumento en Luján
+    "cadáver": ["cadaver"],                            # tag sensible, unificado (evita deriva ortográfica)
 }
 
 # Palabras tan genéricas que no aportan (se descartan si no son género)
@@ -175,12 +189,16 @@ def _es_frase_basura(palabra: str) -> bool:
     El modelo a veces regurgita frases completas como keyword
     (ej: "pájaro de ánus morrison", "del tiempo no de de la").
     Se excluyen las variantes multi-palabra de SINONIMOS
-    (ej: "bici de montaña" es válida y se mapea a "bicicleta").
+    (ej: "bici de montaña" es válida y se mapea a "bicicleta") y también los
+    CANÓNICOS (un canónico es por definición una keyword legítima del dominio,
+    ej: "dardo s. dorronzoro").
     """
     if palabra.count(" ") < 2:  # 2 palabras o menos: no aplica
         return False
     p = palabra.lower()
-    for variantes in SINONIMOS.values():
+    for canonico, variantes in SINONIMOS.items():
+        if p == canonico.lower():
+            return False
         if p in [v.lower() for v in variantes]:
             return False
     return True

@@ -16,7 +16,11 @@ $limite = isset($_GET['limite']) ? max(10, min(100, (int)$_GET['limite'])) : 40;
 
 // Normalizar palabra: minúsculas, quitar puntuación rara (conserva letras con tilde y guiones)
 function limpiar_palabra($p) {
-    $p = mb_strtolower(trim($p), 'UTF-8');
+    $p = strtr(trim($p), [
+        'Á' => 'á', 'É' => 'é', 'Í' => 'í', 'Ó' => 'ó', 'Ú' => 'ú',
+        'Ü' => 'ü', 'Ñ' => 'ñ',
+    ]);
+    $p = strtolower($p);
     $p = preg_replace('/[^a-záéíóúüñ\s-]/u', '', $p);
     return trim($p);
 }
