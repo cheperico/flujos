@@ -19,8 +19,8 @@ _keywords2.py
 models/
 deploy/media/
 deploy/db/
-deploy/spec.json
+pruebas/spec.json
 td/spec_fluir.json
 td/Backup/
 td/flujos.15.toe
-Directory_PH
+td/flujos.17.toe

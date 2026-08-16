@@ -263,9 +263,12 @@ def _leer_textos(carpeta_root: str) -> list[dict]:
         # Metadata de la COLECCIÓN (del .md, NO de cada texto):
         # titulo (control/origen), compilador (quien armó el archivo, opcional),
         # tags (opcionales, se heredan a todos los textos del archivo).
-        titulo_coleccion = str(campos.get("titulo", "")).strip() or os.path.splitext(filename)[0]
-        compilador = str(campos.get("compilador", "")).strip() or None
-        tags_coleccion = str(campos.get("tags", "")).strip() or None
+        # `or ""` ANTES de str: los campos YAML vacíos (`key:`) llegan como None y
+        # str(None) = 'None' (string literal). Con `or ""` el None se vuelve '' y el
+        # `.strip() or ...` final lo resuelve a None/fallback correctamente.
+        titulo_coleccion = str(campos.get("titulo") or "").strip() or os.path.splitext(filename)[0]
+        compilador = str(campos.get("compilador") or "").strip() or None
+        tags_coleccion = str(campos.get("tags") or "").strip() or None
 
         secciones = separar_textos(cuerpo)
         if not secciones:
@@ -276,11 +279,13 @@ def _leer_textos(carpeta_root: str) -> list[dict]:
             meta, cuerpo_texto = _separar_metadata_texto(contenido)
 
             titulo_final = subtitulo or titulo_coleccion
-            autor = str(meta.get("autor", "")).strip() or None
-            fecha_raw = str(meta.get("fecha", "")).strip() or None
+            # `or ""` ANTES de str: `_separar_metadata_texto` guarda None para
+            # claves sin valor (`fecha:`) y str(None) = 'None' (string literal).
+            autor = str(meta.get("autor") or "").strip() or None
+            fecha_raw = str(meta.get("fecha") or "").strip() or None
             fecha_iso = parsear_fecha(fecha_raw) if fecha_raw else None
-            tags_texto = str(meta.get("tags", "")).strip() or None
-            ubicacion_raw = str(meta.get("ubicacion", "")).strip() or None
+            tags_texto = str(meta.get("tags") or "").strip() or None
+            ubicacion_raw = str(meta.get("ubicacion") or "").strip() or None
             # ubcion es un texto de lugar o una coordenada 'lat, lon'
             ubicacion, lat, lon = _parsear_ubicacion(ubicacion_raw)
             # Tags del texto + tags heredadas de la colección

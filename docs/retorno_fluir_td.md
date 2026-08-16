@@ -30,24 +30,27 @@ Python: puente_td.py modo fluir
    │
    │  1. escribe td/spec_fluir.json   (spec completo: loop_secs, resumen, por_tipo, chiches)
    │  2. envía por OSC 9002, en orden:
-   │     /flujos/fluir/resumen <total> <loop_secs> <image> <video> <audio> <text>
-   │     Por tipo (image, video, audio, text; solo si tiene medios):
+   │     /flujos/fluir/resumen <total> <loop_secs> <image> <video> <audio> <text> <video360>
+   │     Por tipo (image, video, video360, audio, text; solo si tiene medios):
    │       /flujos/fluir/tabla  <tipo> <cantidad>
    │       /flujos/fluir/medio  <media_id> <ruta> <keypoint> <hora> <tipo>  (×cantidad)
+   │       /flujos/fluir/texto  <media_id> <titulo> <texto>   (solo type='text', justo después de su /medio)
+   │           Contenido real del texto como unidad de medio (titulo_seccion + texto_completo);
+   │           la ruta .md del /medio no sirve para visualizar.
    │     /flujos/fluir/chiche <hora> <texto>   (0..N)
    │     /flujos/fluir/fin   <total>
    ▼
 /project2/
    ├── osc_in2           (OSC In DAT, puerto 9002)   ← NUEVO, independiente
    │   └── osc_in2_callbacks  ◄── File: td/fluir_callbacks.dat (Sync to File ON)
-   │           ├─ /resumen → fluir_estado     (total, loop_secs, image, video, audio, text)
-   │           ├─ /tabla+/medio → fluir_fotos / fluir_videos / fluir_sonidos / fluir_textos
+   │           ├─ /resumen → fluir_estado     (total, loop_secs, image, video, video360, audio, text)
+   │           ├─ /tabla+/medio (+/texto si type='text') → fluir_fotos / fluir_videos / fluir_videos_360 / fluir_sonidos / fluir_textos
    │           ├─ /chiche → fluir_chiches
-   │           └─ /fin      → fluir_estado.fin=1 + cotejo con td/spec_fluir.json
+   │           └─ /fin      → fluir_estado.fin=1 + cotejo y backfill de textos con td/spec_fluir.json
    ▼
    (consumo, opcional según etapa visual)
    ├── fluir_estado      (Table DAT clave-valor: total, loop_secs, por tipo, fin, recibidos/esperados)
-   ├── fluir_fotos / fluir_videos / fluir_sonidos / fluir_textos  (Tablas por tipo, misma estructura)
+   ├── fluir_fotos / fluir_videos / fluir_videos_360 / fluir_sonidos / fluir_textos  (Tablas por tipo; fluir_textos suma titulo/texto)
    ├── fluir_chiches     (Table DAT: hora, texto)
    ├── fluir_loop        (Timeline o Count CHOP en loop 0..loop_secs)
    └── fluir_movie       (Movie File In TOP) → reproducción del loop
@@ -69,13 +72,14 @@ Antes de armar ningún operador hay que fijar el wire — esto lo escribe
 
 | Orden | Address | Args | Significado |
 |---|---|---|---|
-| 1 | `/flujos/fluir/resumen` | `i:int total`, `f:float loop_secs`, `i:image`, `i:video`, `i:audio`, `i:text` | Resumen del lote: totales por tipo (de `spec["resumen"]`) |
+| 1 | `/flujos/fluir/resumen` | `i:int total`, `f:float loop_secs`, `i:image`, `i:video`, `i:audio`, `i:text`, `i:video360` | Resumen del lote: totales por tipo (de `spec["resumen"]`). `video` = videos **normales**; `video360` = videos 360° (separados) |
 | 2 (por filtro activo; 0..N) | `/flujos/fluir/filtro` | `s:clave`, `s:valor` | Un filtro puesto por el usuario → fila `[clave, valor]` en `fluir_estado`. Claves: `hora_inicio`, `hora_fin`, `horas_elegidas` (siempre); `municipios`, `colores`, `tags`, `dias`, `clima` (solo si vienen) |
-| 3 (por tipo, orden estable image → video → audio → text; **solo si tiene medios**) | `/flujos/fluir/tabla` | `s:tipo`, `i:cantidad` | Comienza una tabla para un tipo |
+| 3 (por tipo, orden estable image → video → video360 → audio → text; **solo si tiene medios**; el bloque `video360` solo se envía si hay videos 360°) | `/flujos/fluir/tabla` | `s:tipo`, `i:cantidad` | Comienza una tabla para un tipo |
 | 4 | `/flujos/fluir/medio` (×cantidad) | `i:media_id`, `s:ruta`, `f:keypoint`, `f:hora`, `s:tipo` | Un medio por mensaje; el tipo es el del bloque |
-| — (se repite tabla+medio para cada tipo con medios) | | | |
-| 5 | `/flujos/fluir/chiche` (0..N) | `f:hora`, `s:texto` | Un chiche climático/astronómico |
-| 6 | `/flujos/fluir/fin` | `i:int total` | Marca de finalización del lote |
+| 5 (solo type='text', justo después de su /medio) | `/flujos/fluir/texto` | `i:media_id`, `s:titulo`, `s:texto` | Contenido real del texto como unidad de medio: `titulo_seccion` + `texto_completo` (se escribe en las columnas `titulo`/`texto` de `fluir_textos`; la ruta `.md` del `/medio` no sirve para visualizar) |
+| — (se repite tabla+medio (+texto si type='text') para cada tipo con medios) | | | |
+| 6 | `/flujos/fluir/chiche` (0..N) | `f:hora`, `s:texto` | Un chiche climático/astronómico |
+| 7 | `/flujos/fluir/fin` | `i:int total` | Marca de finalización del lote |
 
 Puntos que conviene notar antes de programar:
 
@@ -91,14 +95,17 @@ Puntos que conviene notar antes de programar:
   el JSON.
 - **Tipos sin medios no se anuncian**: si `image` tiene 0 medios, el resumen
   reporta `image=0` y NO se envía `/tabla image` ni ningún `/medio` image.
+  Aplica igual a `video360`: su bloque solo se envía si hay videos 360°. En el
+  resumen, `video` cuenta **solo los videos normales** y `video360` los 360°;
+  la suma de ambos es el total de videos del lote.
 - **`/flujos/fluir/filtro` refleja la elección del usuario**: el estado del
   loop (tabla `fluir_estado`) no solo tiene totales sino también qué eligió el
   visitante (`hora_inicio`, `hora_fin`, `horas_elegidas` siempre; más
   `municipios`, `colores`, `tags`, `dias`, `clima` si vienen). El puente lo
   genera desde `spec["resumen"]["filtros"]` / `spec["resumen"]["rango_horas"]`.
 - **El archivo `td/spec_fluir.json` se escribe ANTES del primer mensaje OSC** y
-  ahora **no es la fuente única**: se lee solo para **cotejar** (debug de
-  pérdida UDP) en `fin`.
+  ahora **no es la fuente única**: se lee para **cotejar** (debug de pérdida
+  UDP) y para el **backfill anti-pérdida** de textos en `fin`.
 - Los mensajes son **best-effort** (UDP). El `fin` trae la cantidad esperada
   para detectar paquetes perdidos comparando contra las tablas recibidas.
 
@@ -141,7 +148,8 @@ Puntos que conviene notar antes de programar:
 
 **Objetivo**: implementar el cerebro de recepción: distribuir los mensajes del
 contrato **por tipo** en tablas separadas (`fluir_fotos`, `fluir_videos`,
-`fluir_sonidos`, `fluir_textos`), mantener `fluir_estado` y `fluir_chiches`, y
+`fluir_videos_360`, `fluir_sonidos`, `fluir_textos`), mantener `fluir_estado`
+y `fluir_chiches`, y
 en `fin` cotejar recibido vs esperado (+ el spec JSON).
 
 **Instrucción**:
@@ -164,10 +172,12 @@ el `.toe`.
 - **Idioma**: español (docstrings, variables `_snake_case`).
 - **`_ROOT`**: al inicio `_ROOT = op("/project2")`.
 - **Constantes**: `OSC_ADDR_FLUIR = "/flujos/fluir"` (la real del sender) y el
-  mapeo `TABLAS_POR_TIPO` image/video/audio/text → fotos/videos/sonidos/textos.
+  mapeo `TABLAS_POR_TIPO` image/video/video360/audio/text →
+  fotos/videos/videos_360/sonidos/textos.
 - **Helper central**: `_tabla_para_tipo(tipo)` devuelve el nombre de tabla
-  correcto (las 4 tablas de medios tienen **la misma estructura**).
-- **Router**: `_enrutar(address, args)` por **address absoluto** — los 5
+  correcto (4 tablas de medios con la misma estructura; `fluir_textos` suma
+  `titulo`/`texto` para el contenido real).
+- **Router**: `_enrutar(address, args)` por **address absoluto** — los 7
   addresses son fijos.
 - **Guardas**: si falta una tabla destino, advertencia clara y `return`.
 
@@ -178,39 +188,89 @@ mismo (docstring + handlers). Ver §4 y §8 para crear las tablas que consume.
 
 ```python
 """
-fluir_callbacks.dat — Callbacks del receptor de retorno del "Fluir" (OSC 9002).
+fluir_callbacks.dat - Callbacks del receptor de retorno del "Fluir" (OSC 9002).
 
-El cerebro Python (scripts/td/puente_td.py modo 'fluir') envía por el puerto
+El cerebro Python (`scripts/td/puente_td.py` modo 'fluir') envía por el puerto
 9002 un contrato POR TIPO, en este orden exacto:
 
-    /flujos/fluir/resumen <total> <loop_secs> <image> <video> <audio> <text>
-    /flujos/fluir/filtro <clave> <valor>  (0..N, filtros del usuario → fluir_estado)
-    Por tipo (image, video, audio, text; SOLO si tiene medios):
+    /flujos/fluir/resumen <total> <loop_secs> <image> <video> <audio> <text> <video360>
+        Resumen del lote: totales por tipo (vienen de spec['resumen']).
+    /flujos/fluir/filtro <clave> <valor>   (0..N, uno por filtro puesto por
+        el usuario): hora_inicio, hora_fin, horas_elegidas, municipios,
+        colores, tags, dias, clima. Se guardan como filas [clave, valor] en
+        fluir_estado (igual que los totales).
+    Por tipo (orden estable image, video, video360, audio, text; SOLO si tiene medios;
+    si un tipo tiene 0 medios NO se envían su /tabla ni /medio):
         /flujos/fluir/tabla  <tipo> <cantidad>
+            Anuncia el comienzo de la tabla para ese tipo.
         /flujos/fluir/medio  <media_id> <ruta> <keypoint> <hora> <tipo>  (x cantidad)
-    /flujos/fluir/chiche <hora> <texto>   (0..N)
-    /flujos/fluir/fin   <total>
+            Un medio por mensaje; el <tipo> es el del momento (el del bloque).
+        /flujos/fluir/texto <media_id> <titulo> <texto>   (solo para medios text, justo después de su /medio)
+            Contenido real del texto como unidad de medio (titulo_seccion + texto_completo).
+            Escribe titulo/texto en la fila del media_id en fluir_textos.
+    /flujos/fluir/chiche <hora> <texto>   (0..N, chiches climáticos/astronómicos)
+    /flujos/fluir/fin   <total>           (fin de lote)
 
-keypoint = t_loop: posición del medio dentro del loop (segundos en [0, loop_secs)).
-El OSC ya trae todo; el spec JSON solo se lee para cotejar (debug de pérdida UDP).
+keypoint = ubicación temporal del medio DENTRO del loop, en segundos sobre
+[0, loop_secs): es el mismo valor que el spec llama `t_loop`. `hora` es la
+hora decimal de los metadatos (0..24). El OSC ya trae todo esto: el archivo
+td/spec_fluir.json se escribe ANTES del primer mensaje y se lee SOLO para
+cotejar (debug de pérdida UDP), ya NO es fuente única de datos.
+
+Tablas destino (Table DAT en /project2). Las CINCO tablas de medios tienen la
+MISMA estructura [media_id, ruta, keypoint, hora, tipo] (fluir_textos suma
+titulo/texto para el contenido real del medio, ver abajo):
+  fluir_estado  [clave, valor]  total, loop_secs, image, video, video360,
+                                audio, text, fin (0/1), recibidos, esperados,
+                                + los filtros del usuario (hora_inicio,
+                                hora_fin, horas_elegidas, municipios,
+                                colores, tags, dias, clima si vienen)
+  fluir_fotos   [media_id, ruta, keypoint, hora, tipo]  <- image
+  fluir_videos  [media_id, ruta, keypoint, hora, tipo]  <- video
+  fluir_videos_360 [media_id, ruta, keypoint, hora, tipo]  <- video360
+  fluir_sonidos [media_id, ruta, keypoint, hora, tipo]  <- audio
+  fluir_textos  [media_id, ruta, keypoint, hora, tipo, titulo, texto]  <- text
+  fluir_chiches [hora, texto]
+
+Un único helper _tabla_para_tipo(tipo) resuelve el nombre de tabla correcto
+para cada tipo: image -> fluir_fotos, video -> fluir_videos, video360 ->
+fluir_videos_360, audio -> fluir_sonidos, text -> fluir_textos.
+
+Este callbacks es INDEPENDIENTE del canal 9000/osc_in1 (nubes de elecciones):
+solo escribe las tablas `fluir_*`. No toca `elec_*` ni `osc_out1`.
 """
 
 _ROOT = op("/project2")
+
 PREFIJO_LOG = "[fluir_callbacks]"
+
+# Address base del contrato "Fluir" (coincide con OSC_ADDR_FLUIR de
+# puente_td.py; verificado con osc_probe.py 9002).
 OSC_ADDR_FLUIR = "/flujos/fluir"
 
-# Nombre de tabla destino por tipo de medio.
+# Nombre de tabla destino por tipo de medio (única fuente del mapeo).
 TABLAS_POR_TIPO = {
     "image": "fluir_fotos",
     "video": "fluir_videos",
+    "video360": "fluir_videos_360",
     "audio": "fluir_sonidos",
     "text": "fluir_textos",
 }
+
 HEADER_MEDIO = ["media_id", "ruta", "keypoint", "hora", "tipo"]
 
+# Los medios type='text' reciben además el contenido real (titulo_seccion +
+# texto_completo) por /flujos/fluir/texto, que se escribe en las columnas 5 y 6.
+HEADER_TEXTO = ["media_id", "ruta", "keypoint", "hora", "tipo", "titulo", "texto"]
+
+# Tipo anunciado por el último /tabla (contexto para logs y debug).
 _tipo_actual = None
+
+# Total esperado reportado por /resumen (fallback si /fin no trae total).
 _total_esperado = 0
 
+
+# --------------------------------------------------------------------- Router
 def onReceiveOSC(dat, rowIndex, message, bytes, timeStamp, address, args, peer):
     """Entry point del callbacks interno del OSC In DAT (firma fija de TD)."""
     try:
@@ -218,8 +278,9 @@ def onReceiveOSC(dat, rowIndex, message, bytes, timeStamp, address, args, peer):
     except Exception as e:
         print(f"{PREFIJO_LOG} Error en {address}: {e}")
 
+
 def _enrutar(address, args):
-    """Despacha por address absoluto. Los seis mensajes del 'Fluir' son fijos."""
+    """Despacha por address absoluto. Los siete mensajes del 'Fluir' son fijos."""
     if address == OSC_ADDR_FLUIR + "/resumen":
         _recibir_resumen(args)
     elif address == OSC_ADDR_FLUIR + "/filtro":
@@ -228,6 +289,8 @@ def _enrutar(address, args):
         _recibir_tabla(args)
     elif address == OSC_ADDR_FLUIR + "/medio":
         _recibir_medio(args)
+    elif address == OSC_ADDR_FLUIR + "/texto":
+        _recibir_texto(args)
     elif address == OSC_ADDR_FLUIR + "/chiche":
         _recibir_chiche(args)
     elif address == OSC_ADDR_FLUIR + "/fin":
@@ -235,51 +298,75 @@ def _enrutar(address, args):
     else:
         print(f"{PREFIJO_LOG} Dirección desconocida: {address} {args}")
 
+
 def _tabla(nombre):
     """Devuelve una tabla del proyecto o imprime advertencia si no existe."""
-    t = _ROOT.op(nombre)
+    t = op("/project2").op(nombre)
     if t is None:
         print(f"{PREFIJO_LOG} Falta la tabla '{nombre}' (ver checklist)")
     return t
 
+
 def _tabla_para_tipo(tipo):
-    """Devuelve el nombre de tabla para un tipo (image->fluir_fotos, ...)."""
+    """Devuelve el nombre de la tabla que corresponde a un tipo de medio.
+
+    image -> fluir_fotos, video -> fluir_videos, video360 -> fluir_videos_360,
+    audio -> fluir_sonidos, text -> fluir_textos. Si el tipo es desconocido, imprime advertencia y
+    devuelve None.
+    """
     nombre = TABLAS_POR_TIPO.get(tipo)
     if nombre is None:
-        print(f"{PREFIJO_LOG} Tipo desconocido: '{tipo}'")
+        print(f"{PREFIJO_LOG} Tipo desconocido: '{tipo}' (esperado: "
+              f"{list(TABLAS_POR_TIPO.keys())})")
     return nombre
 
+
 def _filas_datos(tabla):
-    """Cantidad de filas de datos (descuenta la fila 0 header)."""
+    """Cantidad de filas de datos de una tabla (descuenta la fila 0 header)."""
     return max(0, tabla.numRows - 1)
 
+
 def _limpiar(tabla, header):
-    """Vacía una tabla y escribe su fila 0 (header)."""
+    """Vacía una tabla y escribe su fila 0 (header) con los nombres dados."""
     tabla.clear()
     tabla.appendRow(list(header))
 
+
+# ------------------------------------------------------------------- Handlers
 def _recibir_resumen(args):
-    """Resumen: total, loop_secs y conteos por tipo; reinicia tablas."""
+    """Guarda la metadata del lote en fluir_estado y reinicia las tablas.
+
+    Escribe total, loop_secs, image, video, video360, audio, text y fin=0. También vacía
+    las tablas por tipo y los chiches: cada lote nuevo arranca limpio. Los
+    filtros del usuario llegan después con /filtro y se agregan abajo.
+    """
     global _total_esperado, _tipo_actual
     tabla = _tabla("fluir_estado")
     if tabla is None:
         return
+
     total = int(args[0]) if len(args) > 0 and args[0] is not None else 0
     loop_secs = float(args[1]) if len(args) > 1 and args[1] is not None else 300.0
     n_image = int(args[2]) if len(args) > 2 and args[2] is not None else 0
     n_video = int(args[3]) if len(args) > 3 and args[3] is not None else 0
     n_audio = int(args[4]) if len(args) > 4 and args[4] is not None else 0
     n_text = int(args[5]) if len(args) > 5 and args[5] is not None else 0
+    n_video360 = int(args[6]) if len(args) > 6 and args[6] is not None else 0
+
     _total_esperado = total
     _tipo_actual = None
+
     _limpiar(tabla, ["clave", "valor"])
     tabla.appendRow(["total", total])
     tabla.appendRow(["loop_secs", loop_secs])
     tabla.appendRow(["image", n_image])
     tabla.appendRow(["video", n_video])
+    tabla.appendRow(["video360", n_video360])
     tabla.appendRow(["audio", n_audio])
     tabla.appendRow(["text", n_text])
     tabla.appendRow(["fin", 0])
+
+    # Lote nuevo: vaciar tablas por tipo y chiches con su header.
     for nombre in TABLAS_POR_TIPO.values():
         t = _tabla(nombre)
         if t is not None:
@@ -287,15 +374,24 @@ def _recibir_resumen(args):
     t_chiches = _tabla("fluir_chiches")
     if t_chiches is not None:
         _limpiar(t_chiches, ["hora", "texto"])
+
     print(f"{PREFIJO_LOG} Resumen: {total} medios (image={n_image}, "
-          f"video={n_video}, audio={n_audio}, text={n_text}), "
+          f"video={n_video}, video360={n_video360}, audio={n_audio}, text={n_text}), "
           f"loop de {loop_secs}s")
 
+
 def _recibir_filtro(args):
-    """Filtro del usuario → fila [clave, valor] en fluir_estado."""
+    """Guarda un filtro del usuario como fila [clave, valor] en fluir_estado.
+
+    El puente manda uno por filtro activo: hora_inicio, hora_fin,
+    horas_elegidas, municipios, colores, tags, dias, clima. Se escriben con el
+    mismo estilo que los totales para que el estado muestre qué eligió el
+    visitante.
+    """
     if len(args) < 2:
         print(f"{PREFIJO_LOG} Mensaje 'filtro' incompleto: {args}")
         return
+
     clave = str(args[0] or "").strip()
     valor = str(args[1] or "")
     if not clave:
@@ -305,46 +401,118 @@ def _recibir_filtro(args):
     if tabla is None:
         return
     _escribir_estado(tabla, clave, valor)
+
     print(f"{PREFIJO_LOG} Filtro: {clave} = {valor}")
 
+
 def _recibir_tabla(args):
-    """Anuncio del comienzo de una tabla por tipo."""
+    """Anuncia el comienzo de una tabla por tipo.
+
+    Guarda el tipo actual (contexto) y reinicia la tabla del tipo por si
+    quedaron filas de un lote anterior que no pasó por resumen. El conteo
+    real se verifica en /fin.
+    """
     global _tipo_actual
     tipo = str(args[0]) if len(args) > 0 and args[0] is not None else ""
     cantidad = int(args[1]) if len(args) > 1 and args[1] is not None else 0
     _tipo_actual = tipo
+
     nombre = _tabla_para_tipo(tipo)
-    if nombre is not None:
-        t = _tabla(nombre)
-        if t is not None:
-            _limpiar(t, HEADER_MEDIO)
+
+    t = _tabla(nombre)
+    if t is not None:
+        _limpiar(t, HEADER_TEXTO if tipo == "text" else HEADER_MEDIO)
+
     print(f"{PREFIJO_LOG} Tabla {tipo}: {cantidad} medios esperados")
+
 
 def _recibir_medio(args):
     """Acumula un medio en la tabla de su tipo (una fila por medio)."""
     if len(args) < 5:
         print(f"{PREFIJO_LOG} Mensaje 'medio' incompleto: {args}")
         return
+
     media_id = int(str(args[0])) if args[0] is not None else 0
     ruta = str(args[1] or "").replace("\\", "/")  # normaliza separadores para TD
     keypoint = float(args[2]) if args[2] is not None else 0.0
     hora = float(args[3]) if args[3] is not None else 0.0
     tipo = str(args[4]) if args[4] is not None else _tipo_actual
+
     nombre = _tabla_para_tipo(tipo)
     if nombre is None:
         return
     tabla = _tabla(nombre)
     if tabla is None:
         return
+
+    # Seguridad: si la tabla quedó vacía (resumen perdido), escribir header.
     if tabla.numRows == 0:
         tabla.appendRow(list(HEADER_MEDIO))
-    tabla.appendRow([media_id, ruta, keypoint, hora, tipo])
+    if tipo == "text":
+        # Si /tabla text se perdió (UDP), la tabla quedó en 5 columnas
+        # (la limpió /resumen con HEADER_MEDIO). Normalizar antes de escribir.
+        if tabla.numCols < 7:
+            _limpiar(tabla, HEADER_TEXTO)
+        tabla.appendRow([media_id, ruta, keypoint, hora, tipo, "", ""])
+    else:
+        tabla.appendRow([media_id, ruta, keypoint, hora, tipo])
+
+
+def _recibir_texto(args):
+    """Completa la fila de fluir_textos con el contenido REAL del texto.
+
+    El puente envía /flujos/fluir/texto justo después del /medio para cada
+    medio type='text' (titulo_seccion + texto_completo). Busca la fila que
+    ya creó el /medio (columna 0 == media_id) y escribe titulo/texto en las
+    columnas 5 y 6 (HEADER_TEXTO). Si la fila no existe (paquete /medio
+    perdido por UDP), crea la fila completa para no perder el contenido.
+    """
+    if len(args) < 3:
+        print(f"{PREFIJO_LOG} Mensaje 'texto' incompleto: {args}")
+        return
+
+    media_id = int(str(args[0])) if args[0] is not None else 0
+    titulo = str(args[1] or "")
+    texto = str(args[2] or "")
+
+    tabla = _tabla("fluir_textos")
+    if tabla is None:
+        return
+
+    # Seguridad: si la tabla quedó vacía (resumen perdido), escribir header.
+    if tabla.numRows == 0:
+        tabla.appendRow(list(HEADER_TEXTO))
+
+    # Si /tabla text se perdió (UDP), la tabla quedó en 5 columnas; normalizar.
+    if tabla.numCols < 7:
+        _limpiar(tabla, HEADER_TEXTO)
+
+    # Buscar la fila del media_id (los datos arrancan en la fila 1).
+    fila_encontrada = -1
+    for r in range(1, tabla.numRows):
+        fila = tabla.row(r)
+        if fila and str(fila[0]) == str(media_id):
+            fila_encontrada = r
+            break
+
+    if fila_encontrada >= 0:
+        tabla[fila_encontrada, 5] = titulo
+        tabla[fila_encontrada, 6] = texto
+    else:
+        # Paquete /medio perdido: crear la fila completa (7 celdas) para no
+        # perder el contenido real del texto.
+        print(f"{PREFIJO_LOG} /texto sin /medio previo para media_id={media_id}; creando fila")
+        tabla.appendRow([media_id, "", 0.0, 0.0, "text", titulo, texto])
+
+    print(f'{PREFIJO_LOG} Textos: {media_id} "{titulo}" ({len(texto)} chars)')
+
 
 def _recibir_chiche(args):
     """Acumula un chiche ambiental (clima/astronomía) en fluir_chiches."""
     if len(args) < 2:
         print(f"{PREFIJO_LOG} Mensaje 'chiche' incompleto: {args}")
         return
+
     hora = float(args[0]) if args[0] is not None else 0.0
     texto = str(args[1] or "")
     tabla = _tabla("fluir_chiches")
@@ -354,41 +522,120 @@ def _recibir_chiche(args):
         tabla.appendRow(["hora", "texto"])
     tabla.appendRow([hora, texto])
 
+
 def _recibir_fin(args):
-    """Finaliza el lote: marca fin=1 y valida recibidos vs esperados."""
+    """Finaliza el lote: marca fin=1 y valida recibidos vs esperados.
+
+    Compara el total esperado (args[0] o el de /resumen) contra la suma real
+    de filas de las 5 tablas por tipo y guarda received/esperados en
+    fluir_estado para debug de pérdida UDP. Luego coteja (opcional) contra
+    td/spec_fluir.json - que ya NO es fuente única de datos. Al final
+    completa los textos faltantes en fluir_textos desde el spec JSON.
+    """
     global _tipo_actual
     tabla_estado = _tabla("fluir_estado")
     if tabla_estado is None:
         return
+
     esperado = int(args[0]) if args else _total_esperado
+
     recibido = 0
     for nombre in TABLAS_POR_TIPO.values():
         t = _tabla(nombre)
         if t is not None:
             recibido += _filas_datos(t)
+
     if esperado >= 0 and esperado != recibido:
-        print(f"{PREFIJO_LOG} ¡Ojo! fin dice {esperado} medios, recibí {recibido} "
-              "(posible pérdida de paquetes OSC)")
+        print(f"{PREFIJO_LOG} ¡Ojo! fin dice {esperado} medios, recibí "
+              f"{recibido} (posible pérdida de paquetes OSC)")
+
+    # Marcar fin = 1 para que el motor no arranque a mitad de carga.
     _escribir_estado(tabla_estado, "fin", 1)
     _escribir_estado(tabla_estado, "recibidos", recibido)
     _escribir_estado(tabla_estado, "esperados", esperado)
     _tipo_actual = None
+
     print(f"{PREFIJO_LOG} Fin de lote: {recibido} medios cargados "
           f"(esperados {esperado}).")
+
+    # Cotejo opcional contra el spec JSON (ya NO puebla tablas).
     _cotejar_spec(recibido)
+    _completar_textos_desde_spec()
+
 
 def _escribir_estado(tabla, clave, valor):
     """Agrega o actualiza una fila [clave, valor] en fluir_estado."""
     for r in range(1, tabla.numRows):
         fila = tabla.row(r)
         if fila and str(fila[0]).lower() == clave:
-            tabla.setCell(r, 1, valor)
+            tabla[r, 1] = valor
             return
     tabla.appendRow([clave, valor])
 
+
+# ----------------------------------------------------------------- Spec JSON
+def _completar_textos_desde_spec():
+    """Backfill defensivo de titulo/texto en fluir_textos desde el spec.
+
+    Bajo ráfagas grandes el paquete /texto (separado del /medio) puede
+    perderse por UDP: la fila existe pero titulo/texto quedan vacíos.
+    Reutiliza la misma fuente que _cotejar_spec (spec_fluir.json): para
+    cada item de por_tipo["text"] con media_id, si la fila en fluir_textos
+    tiene el texto vacío copia item.titulo -> col 5 e item.desc -> col 6.
+    Si la fila no existe, el /medio tampoco llegó y el cotejo de /fin ya
+    reporta esa pérdida (no hacemos nada).
+    """
+    try:
+        import json as _json
+        ruta = "{}/spec_fluir.json".format(project.folder)
+        with open(ruta, "r", encoding="utf-8") as f:
+            spec = _json.load(f)
+    except Exception as e:
+        print(f"{PREFIJO_LOG} Error al leer el spec JSON para backfill: {e}")
+        return
+
+    tabla = _tabla("fluir_textos")
+    if tabla is None:
+        return
+
+    if tabla.numCols < 7:
+        _limpiar(tabla, HEADER_TEXTO)
+
+    items_texto = (spec.get("por_tipo") or {}).get("text") or []
+    completados = 0
+    for item in items_texto:
+        media_id = item.get("media_id")
+        if media_id is None:
+            continue
+        fila_encontrada = -1
+        for r in range(1, tabla.numRows):
+            fila = tabla.row(r)
+            if fila and str(fila[0]) == str(media_id):
+                fila_encontrada = r
+                break
+        if fila_encontrada < 0:
+            # El /medio tampoco llegó; lo reporta el cotejo de /fin.
+            continue
+        fila = tabla.row(fila_encontrada)
+        if fila is None:
+            continue
+        texto_actual = fila[6] if len(fila) > 6 else ""
+        if texto_actual is None or str(texto_actual).strip() == "":
+            tabla[fila_encontrada, 5] = item.get("titulo") or ""
+            tabla[fila_encontrada, 6] = item.get("desc") or ""
+            completados += 1
+
+    print(f"{PREFIJO_LOG} Textos completados desde spec: {completados}")
+
+
 def _cotejar_spec(recibido):
-    """Lee td/spec_fluir.json y coteja totales por tipo (solo debug)."""
+    """Lee td/spec_fluir.json y coteja totales/por tipo contra lo recibido.
+
+    Solo informa (debug de pérdida UDP); NO puebla tablas: el OSC ya trae
+    todo (keypoint, hora, tipo). Devuelve el dict del spec o None.
+    """
     import json as _json
+
     try:
         ruta = "{}/spec_fluir.json".format(project.folder)
         with open(ruta, "r", encoding="utf-8") as f:
@@ -396,18 +643,28 @@ def _cotejar_spec(recibido):
     except Exception as e:
         print(f"{PREFIJO_LOG} Error al leer el spec JSON: {e}")
         return None
+
     resumen = spec.get("resumen") or {}
     total_spec = resumen.get("total", len(spec.get("medios", [])))
     if total_spec != recibido:
-        print(f"{PREFIJO_LOG} Cotejo: spec dice {total_spec} medios, recibí {recibido}")
+        print(f"{PREFIJO_LOG} Cotejo: spec dice {total_spec} medios, recibí "
+              f"{recibido} (revisar pérdida UDP)")
+
     por_tipo = spec.get("por_tipo") or {}
     for tipo, nombre in TABLAS_POR_TIPO.items():
-        esperados_tipo = len(por_tipo.get(tipo, []))
+        if tipo == "video360":
+            # El spec JSON mantiene TODOS los videos bajo por_tipo["video"],
+            # con el campo es_360 por item (lo agrega el Python). Los esperados
+            # de video360 salen de ahí, no de una clave por_tipo["video360"].
+            esperados_tipo = sum(1 for m in (por_tipo.get("video") or []) if m.get("es_360"))
+        else:
+            esperados_tipo = len(por_tipo.get(tipo, []) or [])
         t = _tabla(nombre)
         recibidos_tipo = _filas_datos(t) if t is not None else 0
         if esperados_tipo != recibidos_tipo:
             print(f"{PREFIJO_LOG} Cotejo {tipo}: spec dice {esperados_tipo}, "
                   f"recibí {recibidos_tipo}")
+
     print(f"{PREFIJO_LOG} Spec leído: {total_spec} medios, "
           f"{len(spec.get('chiches', []))} chiches")
     return spec
@@ -429,17 +686,21 @@ parsear código dentro de los operadores de renderizado.
 
 | Op | Tipo | Columnas / uso |
 |---|---|---|
-| `fluir_estado` | Table DAT | pares clave-valor → filas `total`, `loop_secs`, `image`, `video`, `audio`, `text`, `fin` (0/1), `recibidos`, `esperados` + **filtros del usuario** (`hora_inicio`, `hora_fin`, `horas_elegidas`, `municipios`, `colores`, `tags`, `dias`, `clima` si vienen) |
+| `fluir_estado` | Table DAT | pares clave-valor → filas `total`, `loop_secs`, `image`, `video`, `video360`, `audio`, `text`, `fin` (0/1), `recibidos`, `esperados` + **filtros del usuario** (`hora_inicio`, `hora_fin`, `horas_elegidas`, `municipios`, `colores`, `tags`, `dias`, `clima` si vienen) |
 | `fluir_fotos` | Table DAT | `media_id`, `ruta`, `keypoint`, `hora`, `tipo` — medios `image` desde OSC |
-| `fluir_videos` | Table DAT | `media_id`, `ruta`, `keypoint`, `hora`, `tipo` — medios `video` desde OSC |
+| `fluir_videos` | Table DAT | `media_id`, `ruta`, `keypoint`, `hora`, `tipo` — medios `video` (normales) desde OSC |
+| `fluir_videos_360` | Table DAT | `media_id`, `ruta`, `keypoint`, `hora`, `tipo` — medios `video360` (videos 360°) desde OSC |
 | `fluir_sonidos` | Table DAT | `media_id`, `ruta`, `keypoint`, `hora`, `tipo` — medios `audio` desde OSC |
-| `fluir_textos` | Table DAT | `media_id`, `ruta`, `keypoint`, `hora`, `tipo` — medios `text` desde OSC |
+| `fluir_textos` | Table DAT | `media_id`, `ruta`, `keypoint`, `hora`, `tipo`, `titulo`, `texto` — medios `text` desde OSC; **única tabla de medios con 7 columnas** (`titulo` + `texto` = contenido real del texto) |
 | `fluir_chiches` | Table DAT | `hora`, `texto` — eventos ambientales desde OSC |
 
-**Por qué**: las 4 tablas por tipo comparten estructura y el callbacks las
-llena con un único helper `_tabla_para_tipo()`. Separar por tipo deja que el
-motor lea solo la clase que le toca reproducir (fotos → TOP + Text, videos →
-Movie, sonidos → Audio/Text, textos → Text), sin recorrer una lista mixta.
+**Por qué**: 4 de las 5 tablas por tipo comparten estructura (`[media_id,
+ruta, keypoint, hora, tipo]`) y el callbacks las llena con un único helper
+`_tabla_para_tipo()`; **`fluir_textos` es la excepción**: suma `titulo`/`texto`
+porque lleva el contenido real del texto (la ruta `.md` no es visualizable
+directamente). Separar por tipo deja que el motor lea solo la clase que le
+toca reproducir (fotos → TOP + Text, videos → Movie, sonidos → Audio/Text,
+textos → Text), sin recorrer una lista mixta.
 
 ---
 
@@ -448,8 +709,10 @@ Movie, sonidos → Audio/Text, textos → Text), sin recorrer una lista mixta.
 **Objetivo**: primera iteración funcional: con el wire solo (sin parsear
 `spec_fluir.json`) ya se puede posicionar todo.
 
-**Instrucción**: usar `fluir_fotos` / `fluir_videos` / `fluir_sonidos` /
-`fluir_textos` llena por `/medio` (cada fila trae `keypoint` y `hora`) +
+**Instrucción**: usar `fluir_fotos` / `fluir_videos` / `fluir_videos_360` /
+`fluir_sonidos` / `fluir_textos` llenas por `/medio` (cada fila trae
+`keypoint` y `hora`; para `fluir_textos` el contenido real llega por
+`/flujos/fluir/texto`) +
 `fin` de `fluir_estado`.
 
 - **Ventaja**: no necesita el archivo; funciona aunque el JSON tarde en salir;
@@ -482,7 +745,7 @@ Según `docs/motor_loop.md` (§3 y §6), el spec define un reloj de **loop de
 
 - Opción: `fluir_engine` — un **Script DAT / Execute DAT** que cada frame
   calcula `t = fluir_loop[0] % loop_secs` y, con **las tablas por tipo**
-  (`fluir_fotos`, `fluir_videos`, `fluir_sonidos`, `fluir_textos`), decide qué
+  (`fluir_fotos`, `fluir_videos`, `fluir_videos_360`, `fluir_sonidos`, `fluir_textos`), decide qué
   medio está activo:
   - tipo `image`: mostrar si `t ∈ [keypoint, keypoint + duracion_efectiva]`
     (la spec da `duracion = 0` en imágenes → **decisión de diseño**: duración
@@ -536,20 +799,27 @@ de pipeline visual, pero los nombres y tablas quedan disponibles.
       `td/fluir_callbacks.dat`, **Sync to File = ON**.
 - [ ] **`fluir_callbacks.dat`** — archivo en `td/`, con el contenido de §3.2 (nuevo por tipos).
 - [ ] **`fluir_estado`** — Table DAT (clave-valor: total, loop_secs, image, video,
-      audio, text, fin, recibidos, esperados + filtros del usuario: hora_inicio,
-      hora_fin, horas_elegidas, municipios, colores, tags, dias, clima si vienen).
+      video360, audio, text, fin, recibidos, esperados + filtros del usuario:
+      hora_inicio, hora_fin, horas_elegidas, municipios, colores, tags, dias,
+      clima si vienen).
 - [ ] **`fluir_fotos`** — Table DAT (media_id, ruta, keypoint, hora, tipo).
 - [ ] **`fluir_videos`** — Table DAT (media_id, ruta, keypoint, hora, tipo).
+- [ ] **`fluir_videos_360`** — Table DAT (media_id, ruta, keypoint, hora, tipo);
+      videos 360° separados (se crea con `crear_tablas_fluir.dat`, igual que el resto).
 - [ ] **`fluir_sonidos`** — Table DAT (media_id, ruta, keypoint, hora, tipo).
-- [ ] **`fluir_textos`** — Table DAT (media_id, ruta, keypoint, hora, tipo).
+- [ ] **`fluir_textos`** — Table DAT (media_id, ruta, keypoint, hora, tipo,
+      **titulo, texto**) — única tabla de medios con 7 columnas (contenido
+      real del texto); si ya existe con 5 columnas, re-correr
+      `crear_tablas_fluir.dat` la normaliza a 7.
 - [ ] **`fluir_chiches`** — Table DAT (hora, texto).
 - [ ] (Opcional, etapa visual) **`fluir_loop`** Timeline CHOP; **`fluir_movie`**
       Movie File In TOP; **`fluir_engine`** Script DAT con el planificador (scheduler).
 - [ ] Verificación de punta a punta (3 terminales):
       `python scripts/td/puente_td.py fluir --una-vez`, un terminal con
       `python scripts/td/osc_probe.py 9002 5`, y en TD chequear que
-      `fluir_fotos/fluir_videos/fluir_sonidos/fluir_textos` se llenan y
-      `fluir_estado.fin = 1` al terminar (y `recibidos` == `esperados`).
+      `fluir_fotos/fluir_videos/fluir_videos_360/fluir_sonidos/fluir_textos`
+      se llenan y `fluir_estado.fin = 1` al terminar (y `recibidos` ==
+      `esperados`).
 
 ---
 
@@ -566,6 +836,9 @@ de pipeline visual, pero los nombres y tablas quedan disponibles.
 | 7 | Tabla de audio: `fluir_sonidos` vs `fluir_audios` | **Resuelta** → `fluir_sonidos` | consistente con español del proyecto (un docstring de `puente_td.py` dice `audios`, pero la decisión es `sonidos`) |
 | 8 | Significado de `keypoint` | **Resuelta** | `keypoint` = `t_loop`: posición en segundos dentro del loop (0..loop_secs) — se usa tal cual del wire |
 | 9 | El estado refleja el filtro del usuario | **Resuelta** | `spec["resumen"]["filtros"]` + mensaje `/flujos/fluir/filtro <clave> <valor>` → filas en `fluir_estado` (hora_inicio, hora_fin, horas_elegidas, municipios, colores, tags, dias, clima). Así TD muestra qué eligió el visitante, no solo totales |
+| 10 | Videos 360° separados del resto | **Resuelta** | tabla propia `fluir_videos_360` (misma estructura `[media_id, ruta, keypoint, hora, tipo]`); el marker es `media.subtype='360'`, escrito por `improve_db --step video_metadata`; el puente los separa en el bloque `video360` (orden image → video → video360 → audio → text) y el resumen lleva **7 args** con `video360` al final (`video` = solo normales). El spec JSON mantiene TODOS los videos bajo `por_tipo["video"]` con el campo `es_360` por ítem (lo agrega `loop_db.py`); el cotejo TD espera los video360 desde ahí, no de una clave `por_tipo["video360"]` |
+| 11 | Contenido real de los textos en TD | **Resuelta** | mensaje separado `/flujos/fluir/texto <media_id> <titulo> <texto>` justo después de `/medio`, solo para type='text'; lleva el contenido real como unidad de medio (`titulo_seccion` + `texto_completo`, truncado de seguridad a 8000 chars); sin ubicación/tags en las tablas — lo resuelve el servidor de DB; guard `numCols` en `_recibir_medio`/`_recibir_texto` ante pérdida de `/tabla text` (UDP) |
+| 12 | Backfill anti-pérdida de textos + fix de API Table DAT | **Resuelta** | al `/fin`, `_completar_textos_desde_spec()` completa `titulo`/`texto` en `fluir_textos` desde `td/spec_fluir.json` cuando el mensaje `/flujos/fluir/texto` se pierde por UDP (ráfagas grandes); celdas de Table DAT se escriben con `tabla[fila, col] = valor` (`setCell` no existe en `td.tableDAT`) |
 
 ---
 

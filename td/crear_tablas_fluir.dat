@@ -7,14 +7,17 @@
 #     fluir_videos   [media_id, ruta, keypoint, hora, tipo]
 #     fluir_videos_360 [media_id, ruta, keypoint, hora, tipo]
 #     fluir_sonidos  [media_id, ruta, keypoint, hora, tipo]
-#     fluir_textos   [media_id, ruta, keypoint, hora, tipo]
+#     fluir_textos   [media_id, ruta, keypoint, hora, tipo, titulo, texto]
 #     fluir_chiches  [hora, texto]
 #
 # Los headers son EXACTOS a los que escribe fluir_callbacks.dat
-# (HEADER_MEDIO, ["clave","valor"], ["hora","texto"]). No cambiarlos.
+# (HEADER_MEDIO para las tablas de medios, HEADER_TEXTO para fluir_textos,
+# ["clave","valor"], ["hora","texto"]). No cambiarlos.
 #
 # IDEMPOTENTE: si la tabla ya existe NO se pisa; solo se normaliza la fila 0
 # (header). Se puede volver a correr en un toe ya armado sin romper nada.
+# Al re-correrlo, la normalización actualiza el header de fluir_textos al de
+# 7 columnas (titulo/texto) aunque la tabla ya existiera con 5 columnas.
 #
 # CÓMO USARLO EN EL TOE
 # ---------------------
@@ -46,7 +49,7 @@ TABLAS = {
     "fluir_videos": ["media_id", "ruta", "keypoint", "hora", "tipo"],
     "fluir_videos_360": ["media_id", "ruta", "keypoint", "hora", "tipo"],
     "fluir_sonidos": ["media_id", "ruta", "keypoint", "hora", "tipo"],
-    "fluir_textos": ["media_id", "ruta", "keypoint", "hora", "tipo"],
+    "fluir_textos": ["media_id", "ruta", "keypoint", "hora", "tipo", "titulo", "texto"],
     "fluir_chiches": ["hora", "texto"],
 }
 

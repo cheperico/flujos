@@ -7,6 +7,19 @@ Las versiones corresponden a entregas funcionales, no a releases semánticas.
 
 ---
 
+## [Entrega 31] — 2026-08-16
+
+### Añadido
+- **Videos 360° separados en el flujo "Fluir" (OSC 9002)**: loop_db.py marca cada video del spec con es_360 (True si media.subtype='360', escrito por improve_db --step video_metadata); puente_td.py separa video (normales) de video360 y los envía en bloques image → video → video360 → audio → text; el resumen ahora lleva 7 args (... <audio> <text> <video360>). Lado TD: tabla nueva fluir_videos_360 (misma estructura) en fluir_callbacks.dat y crear_tablas_fluir.dat; fluir_estado gana la fila video360; cotejo con es_360. Con la DB actual hay 0 videos 360° (la tabla queda vacía hasta que se ingiera material 360 y corra `--step video_metadata`).
+- **Textos con contenido real en el "Fluir" (OSC 9002)**: para cada medio type='text', puente_td.py envía /flujos/fluir/texto <media_id> <titulo> <texto> justo después de su /medio, con el texto completo como unidad de medio (titulo_seccion + texto_completo; truncado de seguridad a 8000 chars); TD lo guarda en fluir_textos (nuevas columnas titulo/texto, HEADER_TEXTO) vía _recibir_texto (tabla[fila, col] por media_id, con fallback y guard de columnas ante pérdida de /tabla text). Sin ubicación/tags en las tablas (los resuelve el servidor de la DB).
+- **Corrección de API Table DAT y backfill anti-pérdida en el "Fluir" (OSC 9002)**: setCell no existe en td.tableDAT — las celdas se escriben con tabla[fila, col] = valor (afectaba a _recibir_texto, _escribir_estado y _completar_textos_desde_spec); fix de fila[6].val → fila[6]. Nuevo backfill: al /fin, TD completa titulo/texto de fluir_textos desde td/spec_fluir.json cuando el mensaje /flujos/fluir/texto se pierde por UDP en ráfagas grandes.
+
+### Cambiado
+- **Prompt de duración del loop en el Fluir clarificado** (`flujos.py`): la intro del submenú FLUIR y el prompt `_preguntar_loop_secs` ahora explican que cada ráfaga arma un loop de 300 s por defecto y que el número define la ventana temporal [0..N] donde se reparten los medios (más segundos = más aire; menos = más ritmo). Sin cambios de comportamiento ni del default.
+- **Título del proyecto: "Flujos y Diacronías"** (antes "Flujos"): actualizado el banner del TUI (`mostrar_bienvenida` y `AYUDA` — arte ASCII `ansi_shadow` de dos líneas "FLUJOS Y DIACRONÍAS"), el docstring de `flujos.py` y los títulos de README.md/VISION.md. Identificadores (`flujos.py`, `flujos.db`, comando `flujos`) sin cambios por convención.
+
+---
+
 ## [Entrega 30] — 2026-08-14
 
 ### Añadido

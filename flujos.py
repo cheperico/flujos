@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Flujos - Punto de entrada unificado
+Flujos y Diacronías - Punto de entrada unificado
 
 Uso:
   python flujos.py                                  -> Menu interactivo
@@ -41,12 +41,18 @@ if _scripts_dir not in sys.path:
 # ── Ayuda ────────────────────────────────────────────────────────────────────
 
 AYUDA = """
-███████╗██╗     ██╗   ██╗     ██╗ ██████╗ ███████╗
-██╔════╝██║     ██║   ██║     ██║██╔═══██╗██╔════╝
-█████╗  ██║     ██║   ██║     ██║██║   ██║███████╗
-██╔══╝  ██║     ██║   ██║██   ██║██║   ██║╚════██║
-██║     ███████╗╚██████╔╝╚█████╔╝╚██████╔╝███████║
-╚═╝     ╚══════╝ ╚═════╝  ╚════╝  ╚═════╝ ╚══════╝
+███████╗██╗     ██╗   ██╗     ██╗ ██████╗ ███████╗    ██╗   ██╗
+██╔════╝██║     ██║   ██║     ██║██╔═══██╗██╔════╝    ╚██╗ ██╔╝
+█████╗  ██║     ██║   ██║     ██║██║   ██║███████╗     ╚████╔╝
+██╔══╝  ██║     ██║   ██║██   ██║██║   ██║╚════██║      ╚██╔╝
+██║     ███████╗╚██████╔╝╚█████╔╝╚██████╔╝███████║       ██║
+╚═╝     ╚══════╝ ╚═════╝  ╚════╝  ╚═════╝ ╚══════╝       ╚═╝
+██████╗ ██╗ █████╗  ██████╗██████╗  ██████╗ ███╗   ██╗██╗ █████╗ ███████╗
+██╔══██╗██║██╔══██╗██╔════╝██╔══██╗██╔═══██╗████╗  ██║██║██╔══██╗██╔════╝
+██║  ██║██║███████║██║     ██████╔╝██║   ██║██╔██╗ ██║██║███████║███████╗
+██║  ██║██║██╔══██║██║     ██╔══██╗██║   ██║██║╚██╗██║██║██╔══██║╚════██║
+██████╔╝██║██║  ██║╚██████╗██║  ██║╚██████╔╝██║ ╚████║██║██║  ██║███████║
+╚═════╝ ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝╚═╝  ╚═╝╚══════╝
 
   Buenos Aires -> Tucuman                           
 
@@ -176,12 +182,18 @@ def _buscar_gpx_disponibles() -> list[str]:
 
 def mostrar_bienvenida():
     limpiar_pantalla()
-    print("███████╗██╗     ██╗   ██╗     ██╗ ██████╗ ███████╗")
-    print("██╔════╝██║     ██║   ██║     ██║██╔═══██╗██╔════╝")
-    print("█████╗  ██║     ██║   ██║     ██║██║   ██║███████╗")
-    print("██╔══╝  ██║     ██║   ██║██   ██║██║   ██║╚════██║")
-    print("██║     ███████╗╚██████╔╝╚█████╔╝╚██████╔╝███████║")
-    print("╚═╝     ╚══════╝ ╚═════╝  ╚════╝  ╚═════╝ ╚══════╝")
+    print("███████╗██╗     ██╗   ██╗     ██╗ ██████╗ ███████╗    ██╗   ██╗")
+    print("██╔════╝██║     ██║   ██║     ██║██╔═══██╗██╔════╝    ╚██╗ ██╔╝")
+    print("█████╗  ██║     ██║   ██║     ██║██║   ██║███████╗     ╚████╔╝")
+    print("██╔══╝  ██║     ██║   ██║██   ██║██║   ██║╚════██║      ╚██╔╝")
+    print("██║     ███████╗╚██████╔╝╚█████╔╝╚██████╔╝███████║       ██║")
+    print("╚═╝     ╚══════╝ ╚═════╝  ╚════╝  ╚═════╝ ╚══════╝       ╚═╝")
+    print("██████╗ ██╗ █████╗  ██████╗██████╗  ██████╗ ███╗   ██╗██╗ █████╗ ███████╗")
+    print("██╔══██╗██║██╔══██╗██╔════╝██╔══██╗██╔═══██╗████╗  ██║██║██╔══██╗██╔════╝")
+    print("██║  ██║██║███████║██║     ██████╔╝██║   ██║██╔██╗ ██║██║███████║███████╗")
+    print("██║  ██║██║██╔══██║██║     ██╔══██╗██║   ██║██║╚██╗██║██║██╔══██║╚════██║")
+    print("██████╔╝██║██║  ██║╚██████╗██║  ██║╚██████╔╝██║ ╚████║██║██║  ██║███████║")
+    print("╚═════╝ ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝╚═╝  ╚═╝╚══════╝")
     print()
     print("  Buenos Aires -> Tucuman")
     print()
@@ -1888,7 +1900,7 @@ def opcion_exportar_visualizacion(db_path: str | None = None):
 
     Paso 1: exportar_visualizacion.py (snapshot SQLite de flujos.db; deploy
     genérico por defecto a deploy/, con copia de medios y transcode opcional).
-    Paso 2: loop_db.py --salida deploy/spec.json (spec del motor de loop portable).
+    Paso 2: loop_db.py --salida pruebas/spec.json (spec del motor de loop portable).
     """
     base = os.path.dirname(__file__)
     exportador = os.path.join(base, "scripts", "exportar_visualizacion.py")
@@ -1935,7 +1947,7 @@ def opcion_exportar_visualizacion(db_path: str | None = None):
         env["PYTHONIOENCODING"] = "utf-8"
         subprocess.run([sys.executable, loop_db,
                         "--horas", "7", "16", "13", "18",
-                        "--salida", os.path.join(base, "deploy", "spec.json")],
+                        "--salida", os.path.join(base, "pruebas", "spec.json")],
                        env=env)
         pausa()
 
@@ -1947,7 +1959,7 @@ def opcion_exportar_visualizacion(db_path: str | None = None):
         "1": ("Deploy a deploy/ (pregunta si transcodificar)", _deploy_default),
         "2": ("Deploy a otra carpeta (pregunta si transcodificar)", _deploy_custom),
         "3": ("Re-exportar snapshot local (deploy/db, sin copiar medios)", _snapshot),
-        "4": ("Regenerar spec del loop (deploy/spec.json)", _spec_loop),
+        "4": ("Regenerar spec del loop (pruebas/spec.json)", _spec_loop),
         "5": ("Previsualizar deploy (dry-run)", _deploy_dry),
     }, db_path, intro=(
         "Exporta un snapshot de flujos.db para una visualizacion web\n"
@@ -1990,7 +2002,10 @@ def opcion_touchdesigner(db_path: str | None = None):
         pausa()
 
     def _preguntar_loop_secs() -> list[str]:
-        """Pregunta la duración del loop; args extra si es float."""
+        """Pregunta la duración del arco del loop (default 300 s); explica qué implica."""
+        print("  Duración del arco del loop (0..N segundos): es la ventana temporal")
+        print("  donde se reparten los medios (el keypoint de cada pieza cae dentro).")
+        print("  Más segundos = más aire entre piezas; menos = más ritmo. Enter = 300 s.")
         texto = input("  Duración del loop en segundos [300]: ").strip()
         try:
             return ["--loop-secs", str(float(texto))]
@@ -2033,8 +2048,10 @@ def opcion_touchdesigner(db_path: str | None = None):
         }, db_path, intro=(
             "  Recibe la ráfaga del botón 'Fluir' de TouchDesigner por 9001,\n"
             "  la acumula por grupo, genera el spec del loop y lo envía por 9002.\n"
-            "  El modo instalación escucha sin límite de tiempo: queda activo\n"
-            "  hasta que presiones Enter para detenerlo."
+            "  Cada ráfaga arma un loop de 300 s por defecto: los medios se\n"
+            "  reparten dentro de esa ventana temporal (0..300 s). El modo\n"
+            "  instalación escucha sin límite de tiempo: queda activo hasta\n"
+            "  que presiones Enter para detenerlo."
         ), cerrar_al_ejecutar=True)
 
     _menu("TOUCHDESIGNER (puente OSC)", {

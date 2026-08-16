@@ -1,4 +1,4 @@
-# Flujos
+# Flujos y Diacronías
 
 Instalación interactiva basada en un viaje en bicicleta de Buenos Aires a
 Tucumán. Procesamiento, gestión y flujo de medios audiovisuales (video 360°,
@@ -224,7 +224,7 @@ Al ejecutar `python flujos.py` sin argumentos se ingresa al menú TUI:
       ├─ 1. Deploy a deploy/ (pregunta si transcodificar)
       ├─ 2. Deploy a otra carpeta (pregunta si transcodificar)
       ├─ 3. Re-exportar snapshot local (deploy/db, sin copiar medios)
-      ├─ 4. Regenerar spec del loop (deploy/spec.json)
+      ├─ 4. Regenerar spec del loop (pruebas/spec.json)
       ├─ 5. Previsualizar deploy (dry-run)
       └─ 0. Volver
   └─ 3. TouchDesigner (puente OSC)

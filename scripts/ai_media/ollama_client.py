@@ -48,6 +48,7 @@ MODELOS_VISION = [
 
 # Modelos de texto disponibles
 MODELOS_TEXTO = [
+    "gemma3:latest",
     "qwen3.5:9b",
     "qwen3.5:4b",
     "deepseek-r1:latest",

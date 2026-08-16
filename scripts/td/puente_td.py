@@ -229,6 +229,10 @@ Contrato de salida por 9002 (rediseño: el spec trae `por_tipo` y `resumen`):
          `/flujos/fluir/medio <media_id> <ruta> <keypoint> <hora> <tipo>` — uno
          por medio (keypoint + hora posicionan temporalmente sin leer el archivo).
          Los videos 360 van con `tipo=video360` a su propia tabla.
+         `/flujos/fluir/texto <media_id> <titulo> <texto>` — uno por medio
+         tipo=text, justo después de su `/medio`, con el contenido completo
+         (titulo_seccion + texto_completo) para que TD lo visualice (la ruta
+         .md que viaja en `/medio` no sirve para mostrar el texto).
       4. `/flujos/fluir/chiche <hora> <texto>` — uno por chiche ambiental.
       5. `/flujos/fluir/fin <total>` — marca de finalización.
       6. La spec completa se escribe a `spec_salida` (TD puede leerla).
@@ -343,6 +347,19 @@ Contrato de salida por 9002 (rediseño: el spec trae `por_tipo` y `resumen`):
                                 media_id)
                 enviar(cli, f"{OSC_ADDR_FLUIR}/medio",
                        media_id, ruta, keypoint, hora, tipo)
+                # Textos: el contenido completo (texto_completo + titulo_seccion)
+                # no viaja en /medio (solo la ruta .md, inútil para TD). Se envía
+                # DESPUÉS del /medio del mismo item: TD ubica la fila por
+                # media_id, la fila debe existir antes de llegar el /texto.
+                if tipo == "text":
+                    titulo = str(medio.get("titulo") or "")
+                    texto = str(medio.get("desc") or "")
+                    if len(texto) > 8000:
+                        log.warning("  texto truncado a 8000 chars para media_id "
+                                    "%s (len=%d)", media_id, len(texto))
+                        texto = texto[:8000]
+                    enviar(cli, f"{OSC_ADDR_FLUIR}/texto",
+                           media_id, titulo, texto)
 
         for chich in spec.get("chiches", []):
             hora_chiche = chich.get("hora")

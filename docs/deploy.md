@@ -5,8 +5,9 @@
 > contenido se movió a `deploy/`, que es ahora **la** ubicación definitiva de la
 > visualización web (sin sufijo de versión). `deploy/` es a la vez la **fuente**
 > del sitio (HTML/PHP/JS versionados en git) y el **destino** del exportador
-> (medios copiados, snapshot `visualizacion.db` y `spec.json` generados —
-> ignorados por git).
+> (medios copiados y snapshot `visualizacion.db` generados — ignorados por git).
+> Las herramientas de prueba del motor de loop (`prueba_loop.html`, `loop.php`,
+> `spec.json`) viven en `pruebas/`, separadas del deploy.
 
 ## Propósito
 
@@ -17,8 +18,9 @@ DB real del pipeline — es un snapshot desacoplado para la web.
 
 - Lienzo interactivo (`index.html` + `app.js`): bloques en coordenadas mundo,
   paletas por hora, nube de tags, slideshow de medios, mensajes Telegram.
-- Reproductor del loop (`prueba_loop.html`): valida `spec.json` sin TouchDesigner.
-- 7 endpoints PHP que sirven el snapshot (`visualizacion.db`) a la SPA.
+- 6 endpoints PHP que sirven el snapshot (`visualizacion.db`) a la SPA.
+- Herramienta de prueba del motor de loop (`pruebas/prueba_loop.html`): valida
+  `spec.json` sin TouchDesigner (fuera de `deploy/`).
 
 ---
 
@@ -27,23 +29,25 @@ DB real del pipeline — es un snapshot desacoplado para la web.
 ```
 deploy/
 ├── index.html                 # Página "Lienzo" (SPA)
-├── prueba_loop.html           # Reproductor de prueba del motor de loop
 ├── .htaccess                  # Seguridad Apache (protege .db/.json/.md/.py)
-├── spec.json                  # Spec compilada del motor de loop (generada)
 ├── includes/
 │   └── db.php                 # Conexión PDO a deploy/db/visualizacion.db
-├── api/                       # 7 endpoints JSON
-│   ├── medios_filtrados.php   # Medios con filtros (municipio/color/provincia/tipo)
+├── api/                       # 6 endpoints JSON
+│   ├── medios_filtrados.php   # Medios con filtros (municipio/color/provincia/tag/tipo)
 │   ├── servir_medio.php       # Archivo binario del medio (con thumbnails GD)
 │   ├── tags.php               # Nube de tags desde keywords (ia_keywords), no descripciones
 │   ├── recorrido.php          # Puntos + colores del recorrido
 │   ├── puntos.php             # Embeddings del lienzo (⚠️ hoy vacío, ver "Gaps")
-│   ├── mensajes_telegram.php   # Mensajes de Telegram de un municipio
-│   └── loop.php               # Sirve spec.json en crudo
+│   └── mensajes_telegram.php   # Mensajes de Telegram de un municipio
 ├── css/estilos.css
 ├── js/app.js                   # Lógica del lienzo (bloques, paletas, FLOW)
 ├── db/visualizacion.db         # SNAPSHOT exportado (generado, no versionar)
-├── media/                      # Medios copiados por el deploy (generado)
+└── media/                      # Medios copiados por el deploy (generado)
+
+pruebas/                        # Herramientas de prueba del motor de loop (fuera de deploy)
+├── prueba_loop.html            # Reproductor de prueba del motor de loop (consume spec.json)
+├── loop.php                    # Sirve pruebas/spec.json en crudo (para prueba_loop.html)
+└── spec.json                   # Spec compilada del motor de loop (generada, no versionar)
 ```
 > El exportador es **genérico** (sirve a cualquier implementación web, no solo
 > esta) y vive en `scripts/exportar_visualizacion.py` (fuera de `deploy/`). El
@@ -77,11 +81,13 @@ El snapshot se genera desde `db/flujos.db` (FUENTE de verdad). Pasos:
    caracteres de caja `─`):
    ```powershell
    $env:PYTHONIOENCODING='utf-8'
-   python scripts/ai_media/loop_db.py --horas 7 16 13 18 --salida deploy/spec.json
+   python scripts/ai_media/loop_db.py --horas 7 16 13 18 --salida pruebas/spec.json
    ```
    `loop_db.py` lee `db/flujos.db` (solo lectura), calcula la hora de día de cada
-   medio, genera los chiches y produce `spec.json` (portable: web y TouchDesigner).
-   Los `--horas` definen los arcos; los del prototipo actual son `7 16 13 18`.
+   medio, genera los chiches y produce `spec.json` (portable: web de prueba y
+   TouchDesigner). Los `--horas` definen los arcos; los del prototipo actual son
+   `7 16 13 18`. La spec la consume `pruebas/prueba_loop.html` (vía
+   `pruebas/loop.php`); TD genera la suya propia en `td/spec_fluir.json`.
 
 > Al regenerar con los datos limpios (translategemma aplicado en la DB principal)
 > se propagan las descripciones ES correctas y los 1522 medios completos a la web
@@ -116,7 +122,9 @@ El snapshot se genera desde `db/flujos.db` (FUENTE de verdad). Pasos:
 | `recorrido.php` | — | `{total, puntos, colores}` (colores = UNION de color_1..3) |
 | `puntos.php` | — | `{total, puntos}` (embeddings) — **hoy 0 puntos** |
 | `mensajes_telegram.php` | `municipio` (obligatorio), `limite` (def 200), `fotos` (bool) | `{total, rango, mensajes + fotos JSON}` |
-| `loop.php` | — | Contenido crudo de `deploy/spec.json` (503 si falta) |
+
+> `loop.php` (que servía `spec.json`) se movió a `pruebas/` junto con
+> `prueba_loop.html`: la SPA del deploy NO consume la spec del motor.
 
 ---
 
@@ -144,10 +152,11 @@ El snapshot se genera desde `db/flujos.db` (FUENTE de verdad). Pasos:
 
 Cualquier Apache con PHP (PDO SQLite) apuntando a `deploy/`. El `.htaccess`:
 - `Options -Indexes`
-- Deniega `.db|sqlite|sqlite3|json` (protege `visualizacion.db` y `spec.json`)
+- Deniega `.db|sqlite|sqlite3|json` (protege `visualizacion.db`)
 - Deniega `.htaccess|htpasswd|md|py|sh`
-El snapshot y el spec son lo único que se sirve (vía PHP), los fuentes `.py/.md`
-quedan fuera de alcance por HTTP.
+El snapshot es lo único que se sirve (vía PHP), los fuentes `.py/.md` quedan
+fuera de alcance por HTTP. La spec del motor vive en `pruebas/` (herramienta de
+prueba, no parte del deploy).
 
 ---
 

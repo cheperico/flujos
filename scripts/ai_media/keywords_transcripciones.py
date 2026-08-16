@@ -14,7 +14,7 @@ clave de salida en `media_metadata` y (4) el encabezado del prompt.
   - `texto`: lee directo el valor de `texto_completo` de los medios
     `type='text'` y guarda en `ia_keywords_texto`.
 
-En ambos casos llama a un modelo de texto de Ollama (qwen2.5:3b) para extraer
+En ambos casos llama a un modelo de texto de Ollama (gemma3:latest) para extraer
 las keywords del SENTIDO en español (5-8: temas, conceptos, lugares, personas,
 clima, emociones... no solo palabras literales). Las claves de salida NO se
 mezclan con `ia_keywords`, que es de visión para imágenes.
@@ -27,7 +27,7 @@ Uso:
     python scripts/ai_media/keywords_transcripciones.py --dry-run --origen texto  # previsualiza los textos sin escribir
     python scripts/ai_media/keywords_transcripciones.py --dry-run --origen texto --probar-ollama  # además llama al modelo
     python scripts/ai_media/keywords_transcripciones.py --limit 5                 # procesa solo 5 registros
-    python scripts/ai_media/keywords_transcripciones.py --modelo qwen3.5:4b
+    python scripts/ai_media/keywords_transcripciones.py --modelo gemma3:latest
 
 Modos:
     skip    → solo los del origen que aún NO tienen su clave de salida (default)
@@ -56,7 +56,9 @@ CLAVE_TEXTO_COMPLETO = "texto_completo"        # clave de entrada (textos .md)
 CLAVE_SALIDA_TEXTO = "ia_keywords_texto"       # salida (keywords textos)
 
 # ── Modelo de texto para extracción de keywords ──────────────────────────────
-MODELO_TEXTO_DEFAULT = "qwen2.5:3b"
+# gemma3:latest ganó el A/B (93 llamadas, Ago 2026) contra qwen2.5:3b con el
+# prompt endurecido P2 (ver PROMPT_KEYWORDS_TRANSCRIPCION / PROMPT_KEYWORDS_TEXTO).
+MODELO_TEXTO_DEFAULT = "gemma3:latest"
 
 # ── Umbrales ─────────────────────────────────────────────────────────────────
 MIN_TEXTO_LEN = 40            # menos de N caracteres → no hay contenido útil
@@ -65,37 +67,60 @@ MAX_KEYWORDS = 8              # recortar a 8 keywords como máximo
 TIMEOUT_SEG = 120             # timeout de la llamada a Ollama
 
 # ── Prompts de extracción (mismas reglas; cambia la cabecera) ────────────────
+# Prompt endurecido P2 (ganador del A/B contra qwen2.5:3b, Ago 2026):
+# reglas explícitas de formato, significado, palabras prohibidas, fidelidad,
+# artefactos de voz y keywords compuestas. El terminador ("Transcripción:\n" /
+# "Texto:\n") y la estructura de concatenación NO cambian: `extraer_keywords_*`
+# concatena prompt + texto fuente, por lo que el parseo queda intacto.
 PROMPT_KEYWORDS_TRANSCRIPCION = (
-    "Leé esta transcripción de audio/video y entendé el SENTIDO GENERAL de lo que "
-    "se está diciendo (de qué trata realmente, el contexto, la situación).\n"
-    "Reglas:\n"
-    "1. Devolvé SOLO entre 5 y 8 keywords, en ESPAÑOL, separadas por comas.\n"
-    "2. Las keywords deben capturar el SIGNIFICADO, no solo palabras literales: "
-    "temas centrales, conceptos, lugares, actividades, personas, clima, emociones, "
-    "objetos, transporte, comida, sensaciones. Si se habla de 'la subida al cerro "
-    "fue dura, las piernas no daban más', sirve 'esfuerzo' o 'cansancio' aunque no "
-    "sean palabras textuales.\n"
-    "3. Filtrá el ruido del habla: muletillas ('mmm', 'este', 'eh', 'bueno', "
-    "'digamos', repeticiones), fragmentos sin contenido y nombres propios sueltos "
-    "sin contexto.\n"
-    '4. Respondé SOLO con la lista de keywords, sin texto adicional ni explicaciones.\n\n'
+    "Leé esta transcripción de audio/video y extraé las keywords del SENTIDO de lo que se dice "
+    "(de qué trata realmente, no de las palabras sueltas).\n"
+    "Reglas OBLIGATORIAS:\n"
+    "1. Formato: SOLO entre 5 y 8 keywords en ESPAÑOL, separadas por comas. Sin texto adicional, "
+    "sin numeración, sin explicaciones.\n"
+    "2. Las keywords salen del SIGNIFICADO: temas, conceptos, lugares, actividades, personas, "
+    "emociones, clima, objetos, transporte, comida, sensaciones. Si dice 'la subida al cerro fue "
+    "dura, las piernas no daban más', sirve 'esfuerzo' o 'cansancio' aunque no sean palabras "
+    "textuales.\n"
+    "3. PROHIBIDO usar como keyword palabras vacías o muletillas: bien, buen, buena, bueno, "
+    "finalmente, falta, tranquilo, cuidado, solo, siempre, después, ya, cosa, algo, 'luz' (salvo "
+    "que la luz sea el tema central). Cada keyword debe aportar información concreta.\n"
+    "4. NO copies errores de transcripción: si una palabra es un artefacto de voz (palabra "
+    "inventada, fragmento sin sentido, nombre suelto), ignorala. Quedate con la idea de la frase "
+    "completa, no con el sonido.\n"
+    "5. Sé FIEL: no agregues interpretaciones, juicios ni opiniones que el texto no sostenga. Si "
+    "alguien cuenta que se ayudaron entre todos, la keyword es 'solidaridad' o 'ayuda mutua' — "
+    "nunca 'sociedad individualista'.\n"
+    "6. Escribí bien las keywords compuestas: respetá género y número ('instalaciones religiosas', "
+    "'sal viva', 'actitudes samaritanas').\n"
+    "7. Preferí palabras de contenido concreto (actividades, lugares, objetos, personas, emociones, "
+    "clima, transporte, comida) antes que adverbios o adjetivos genéricos.\n\n"
     "Transcripción:\n"
 )
 
 PROMPT_KEYWORDS_TEXTO = (
-    "Leé este **texto** y entendé el SENTIDO GENERAL de lo que se dice "
-    "(de qué trata realmente, el contexto, la situación).\n"
-    "Reglas:\n"
-    "1. Devolvé SOLO entre 5 y 8 keywords, en ESPAÑOL, separadas por comas.\n"
-    "2. Las keywords deben capturar el SIGNIFICADO, no solo palabras literales: "
-    "temas centrales, conceptos, lugares, actividades, personas, clima, emociones, "
-    "objetos, transporte, comida, sensaciones. Si se habla de 'la subida al cerro "
-    "fue dura, las piernas no daban más', sirve 'esfuerzo' o 'cansancio' aunque no "
-    "sean palabras textuales.\n"
-    "3. Filtrá el ruido del texto: muletillas ('mmm', 'este', 'eh', 'bueno', "
-    "'digamos', repeticiones), fragmentos sin contenido y nombres propios sueltos "
-    "sin contexto.\n"
-    '4. Respondé SOLO con la lista de keywords, sin texto adicional ni explicaciones.\n\n'
+    "Leé este **texto** y extraé las keywords del SENTIDO de lo que se dice "
+    "(de qué trata realmente, no de las palabras sueltas).\n"
+    "Reglas OBLIGATORIAS:\n"
+    "1. Formato: SOLO entre 5 y 8 keywords en ESPAÑOL, separadas por comas. Sin texto adicional, "
+    "sin numeración, sin explicaciones.\n"
+    "2. Las keywords salen del SIGNIFICADO: temas, conceptos, lugares, actividades, personas, "
+    "emociones, clima, objetos, transporte, comida, sensaciones. Si dice 'la subida al cerro fue "
+    "dura, las piernas no daban más', sirve 'esfuerzo' o 'cansancio' aunque no sean palabras "
+    "textuales.\n"
+    "3. PROHIBIDO usar como keyword palabras vacías o muletillas: bien, buen, buena, bueno, "
+    "finalmente, falta, tranquilo, cuidado, solo, siempre, después, ya, cosa, algo, 'luz' (salvo "
+    "que la luz sea el tema central). Cada keyword debe aportar información concreta.\n"
+    "4. NO copies errores de transcripción: si una palabra es un artefacto de voz (palabra "
+    "inventada, fragmento sin sentido, nombre suelto), ignorala. Quedate con la idea de la frase "
+    "completa, no con el sonido.\n"
+    "5. Sé FIEL: no agregues interpretaciones, juicios ni opiniones que el texto no sostenga. Si "
+    "alguien cuenta que se ayudaron entre todos, la keyword es 'solidaridad' o 'ayuda mutua' — "
+    "nunca 'sociedad individualista'.\n"
+    "6. Escribí bien las keywords compuestas: respetá género y número ('instalaciones religiosas', "
+    "'sal viva', 'actitudes samaritanas').\n"
+    "7. Preferí palabras de contenido concreto (actividades, lugares, objetos, personas, emociones, "
+    "clima, transporte, comida) antes que adverbios o adjetivos genéricos.\n\n"
     "Texto:\n"
 )
 
@@ -289,7 +314,7 @@ def extraer_keywords_transcripcion(
     Args:
         cliente: ollama.Client
         texto: Texto fuente (transcripción combinada o texto_completo directo).
-        modelo: Nombre del modelo de texto (ej: qwen2.5:3b).
+        modelo: Nombre del modelo de texto (ej: gemma3:latest).
         prompt: Template del prompt. Si no se pasa, se usa el de transcripciones.
 
     Returns:

@@ -1,4 +1,4 @@
-# Flujos — Visión del proyecto
+# Flujos y Diacronías — Visión del proyecto
 
 ## El origen
 

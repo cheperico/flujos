@@ -38,6 +38,7 @@ Etapa 5: INSTALACIÓN          →  TouchDesigner + motor de deriva
 | Keywords IPTC en JSON (hoy string Python) | Media | ❌ |
 | Content hash de video **eliminado** (frame a 0.5s era débil): quitada la opción CLI de hash de video, la función de hash de video y la notificación de duplicados por hash de contenido para video (para imágenes se mantiene con phash) | Baja | ✅ Hecho (Fase 0, 2026-08-11) |
 | **Detección de repetidos (video/sonido)**: pipeline ligero de sospecha N1-N4 — N1 duración idéntica (±0.5s), N2 file_hash (tamaño+fecha, ya se calcula), N3 **banda sonora** (cross-correlación RMS, local — `repetir_contenido.py`), N4 **confirmación visual veloz** (aún pendiente). Mismo pipeline para sonidos. No marca automático: genera lista de candidatos para revisión humana | Alta | ✅ Parcial (Fase 1, 2026-08-11): `repetir_contenido.py` + `detectar_contenedores.py` + `audio_frame_crossref.py`; N4 visual pendiente |
+| **Inferencia de hora de textos por posición en track GPX** (posición → tiempo; textos sin fecha obtienen su timestamp interpolando su punto contra el track, corte `--umbral`) | Media | ✅ `inferir_hora_textos.py` (2026-08-16); extensión multi-ubicación (textos que narran trayectoria más allá del punto) pendiente |
 
 ---
 
@@ -153,6 +154,21 @@ Etapa 5: INSTALACIÓN          →  TouchDesigner + motor de deriva
 ---
 
 ## Historial
+
+- **2026-08-16:** **Inferencia de hora de textos por interpolación en el track GPX.**
+  - Los textos (`type='text'`) sin fecha solo obtienen su fecha/hora interpolando
+    su posición (lat/lon) contra el track GPX (posición → tiempo): los 2 puntos
+    del track más cercanos con ponderación por distancia inversa y corte
+    `--umbral` (default 2000 m; más lejos se skipea). Script:
+    `inferir_hora_textos.py` (marca `geolocation_source='track_interpolado'`).
+  - Fix previo: `ingest_textos.py` guardaba la cadena literal `'None'`
+    (`str(None)`) en campos vacíos de frontmatter/metadata de sección; limpieza
+    one-time en la DB (23 timestamps + 49 filas `media_metadata`).
+  - **Pendiente de diseño**: algunos textos narran una trayectoria MÁS ALLÁ de
+    su punto (ej: "De Saladillo a Bell Ville"); hoy la hora se infiere en el
+    punto único. A futuro los textos deberían soportar MÚLTIPLES ubicaciones
+    (inicio/fin del segmento narrado) para que la interpolación (y la futura
+    línea de tiempo/visualización) abarque toda la trayectoria narrada.
 
 - **2026-08-15:** **Nota de dirección para el rediseño de embeddings.**
   - Motivación: pares de ideas distintas pero cercanas que el léxico no unifica
