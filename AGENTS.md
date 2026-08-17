@@ -55,7 +55,8 @@ referenciados en **Dónde está la información** (al final) — consultar bajo 
 │   │   fix_gps_sign.py, mover_descartadas.py, ingest_textos.py,
 │   │   keypoints_contexto.py, detectar_contenedores.py,
 │   │   repetir_contenido.py, audio_frame_crossref.py, exportar_visualizacion.py,
-│   │   limpiar_descripciones.py, limpiar_stickers.py, inferir_hora_textos.py
+│   │   limpiar_descripciones.py, limpiar_stickers.py, inferir_hora_textos.py,
+│   │   diagnosticar_camaras_360.py
 │   ├── check_db.py, check_gps.py, check_db_data.py, test_gradiente.py
 │   ├── ai_media/
 │   │   ├── ollama_client.py, image_analysis.py, transcribe.py, transcribe_media.py,
@@ -203,6 +204,7 @@ Detalle de args CLI de cada script en su **docstring** (o `python script.py --he
 | `audio_frame_crossref.py` | Correlaciona audio (CED-mini) con frames de video (solo reporta, no escribe) | TUI Mantenimiento Hoja 2→2; CLI `flujos.py audio-frame` / `crossref` |
 | `limpiar_descripciones.py` | Recorta meta-intros (eco del prompt) en `ia_description_en`/`ia_description`; determinista, sin IA, backup automático + `--dry-run`; invariante: ningún registro con apertura legítima modificado | TUI Mantenimiento Hoja 3→1; CLI `flujos.py limpiar-descripciones` / `descripciones` |
 | `limpiar_stickers.py` | Elimina stickers de Telegram mal ingeridos en `media` (dry-run + backup automático en `db/backups/`) | Standalone: `python scripts/limpiar_stickers.py [--dry-run]` |
+| `diagnosticar_camaras_360.py` | Diagnóstico de relojes de cámaras Insta360 en videos 360°: identifica cámara A/B por bitrate+fps, deduce hora real (embebido `QuickTime:CreateDate`=UTC → −3h), flaggea relojes reconfigurados y filenames atrasados 30 min. Ver `docs/discrepancia_horarios_camaras.md` | Standalone: `python scripts/diagnosticar_camaras_360.py --root <carpeta> [--solo-resumen] [--json]`; **NO TUI** (decisión usuario 2026-08-17) |
 | `inferir_hora_textos.py` | Infiere timestamp de textos `type='text'` sin fecha interpolando su posición contra el track GPX (posición → tiempo; `--umbral` default 2000 m) | Standalone: `python scripts/inferir_hora_textos.py [--mode] [--umbral N]` |
 | `ai_media/tag_images.py` | Taggear imágenes (DB o sidecar) | Standalone |
 | `ai_media/batch_selector.py` | Selecciona mejor imagen de tanda (moondream; criterio `nitidez` sin IA) | Usado por `limpiar_tandas` |
@@ -338,6 +340,7 @@ Se consulta bajo demanda según la necesidad:
 | Retorno "Fluir" en TD | `docs/retorno_fluir_td.md` | Contrato OSC 9002, tablas `fluir_*`, armado del receptor en TD |
 | Videos 360° en web | `docs/videos_360_web.md` | Opciones de renderer 360° (Three.js, A-Frame...), requisitos de pipeline |
 | Rediseño de embeddings | `docs/embeddings_rediseno.md` | Dirección de diseño de la capa semántica (desactivada) |
+| Relojes de cámaras Insta360 desincronizados (videos 360° del viaje) | `docs/discrepancia_horarios_camaras.md` | Identificación de cámara (A=LA +7h / B=UTC+1 −1h / B reconfigurada), cómo deducir la hora real (embebido=UTC−3h), procedimiento reutilizable para videos nuevos |
 | Geocodificación / por qué localidad es NULL | `docs/geocodificacion_reversa.md` | Estrategias y alternativas |
 | Documentos de diseño | `docs/` (arquitectura_motor, flujo_de_medios, linea_de_tiempo, semantica_color, calculo_astronomico, visualizaciones, limpieza_tandas_resultados, ideas_externas, lecciones_elecciones_td, inferencia_autor, armado_de_tandas) | Entender el "por qué" del diseño |
 | Concepto / roadmap / config OpenCode | `VISION.md`, `ROADMAP.md`, `opencode.json` | Visión de la instalación, prioridades, configuración |
@@ -373,3 +376,7 @@ Si la PC entra en suspensión (S3 Sleep o Modern Standby S0) durante un proceso 
 ### Otros riesgos operativos
 
 Archivos movidos externamente (solución: `relocate.py` / `mover_media.py`), timeouts de APIs externas y espacio en disco (~50 GB de modelos) → detalle en @README.md.
+
+### 2. Relojes desincronizados en cámaras Insta360 (videos 360°)
+
+Los videos 360° del viaje provienen de **dos cámaras Insta360 con relojes mal sincronizados** (cámara A = hora Los Ángeles UTC−7; cámara B = UTC+1, y a veces reconfigurada). El `QuickTime:CreateDate` embebido es **UTC** y la hora real local = `CreateDate − 3 h`. Los `filename` `VID_YYYYMMDD_HHMMSS` **NO son confiables** (muestran el reloj de la cámara). Procedimiento de diagnóstico completo (identificación por bitrate/fps, tabla de offsets por fecha, validación GPX/luz) en `docs/discrepancia_horarios_camaras.md` — consultar antes de ingerir cualquier video 360°.
