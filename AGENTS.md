@@ -56,7 +56,7 @@ referenciados en **Dónde está la información** (al final) — consultar bajo 
 │   │   keypoints_contexto.py, detectar_contenedores.py,
 │   │   repetir_contenido.py, audio_frame_crossref.py, exportar_visualizacion.py,
 │   │   limpiar_descripciones.py, limpiar_stickers.py, inferir_hora_textos.py,
-│   │   diagnosticar_camaras_360.py
+│   │   diagnosticar_camaras_360.py, ubicar_videos_gpx.py
 │   ├── check_db.py, check_gps.py, check_db_data.py, test_gradiente.py
 │   ├── ai_media/
 │   │   ├── ollama_client.py, image_analysis.py, transcribe.py, transcribe_media.py,
@@ -142,6 +142,9 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 | **KEYPOINTS CONTEXTO** | `keypoints_contexto.py` | Keypoints de contexto (devenir geográfico): F1 interpola track GPX, F2 transiciones elevación/astronomía/movimiento, F3 georef+clima con cache, F4 escribe cambios | `media_keypoints` | key=`contexto_elevacion`, `contexto_astronomia`, `contexto_ubicacion`, `contexto_clima`, `contexto_movimiento`; value=descripción ES; source=`track_interpolado`\|`estimado`\|`gps_propio` |
 | | | Sentinel de procesado (evita reprocesar medios sin posición en skip) | `media_metadata` | key=`keypoints_contexto_estado`, value=ok\|sin_datos |
 | **AUDITORÍA CONTENEDORES** | `detectar_contenedores.py` | Estado del contenedor de video/audio con ffprobe (streams faltantes) | `media_metadata` | key=`contenedor_estado`, value=ok\|sin_video\|sin_audio\|sin_contenido\|error_ffprobe\|archivo_faltante; key=`contenedor_streams` (JSON detalle de streams) |
+| **UBICAR VIDEOS GPX** | `ubicar_videos_gpx.py` | Ubica videos 360° interpolando su intervalo temporal contra el track GPX (colapsa momentos detenidos: umbral 5 km/h + distancia mínima 100 m; muestreo cada `--intervalo` s) | `media` | latitude, longitude, altitude (posición inicial del video), geolocation_source='track_interpolado' |
+| | | Keypoints por tramo muestreado | `media_keypoints` | key=`ubicacion_video`, value=`lat,lon[,ele]` (6 decimales), source='track_interpolado' |
+| | | Sentinel de procesado | `media_metadata` | key=`ubicacion_video_estado`, value=ok\|sin_datos\|fuera_rango\|sin_track; key=`ubicacion_video_gaps` (JSON lista de gaps) |
 | **AUDIO REPETIDO** | `repetir_contenido.py` | Detecta pasajes de audio repetidos entre pares de medios (cross-correlación RMS; **solo reporta**, no escribe) | — | — (reporte por consola / `--json`) |
 | **CROSSREF AUDIO-FRAME** | `audio_frame_crossref.py` | Correlaciona sonidos (CED-mini) con frames del video (**solo reporta**, no escribe) | — | — (reporte por consola) |
 | **LIMPIEZA DESCRIPCIONES** | `limpiar_descripciones.py` | Recorta meta-intros (eco del prompt) en descripciones; determinista, sin IA; backup automático + `--dry-run`; invariante: ningún registro con apertura legítima modificado | `media_metadata` | keys `ia_description_en` / `ia_description` (recorta PREFIJOS_META_EN de image_analysis.py + PREFIJOS_META_ES local); NO escribe claves nuevas |
@@ -206,6 +209,7 @@ Detalle de args CLI de cada script en su **docstring** (o `python script.py --he
 | `limpiar_stickers.py` | Elimina stickers de Telegram mal ingeridos en `media` (dry-run + backup automático en `db/backups/`) | Standalone: `python scripts/limpiar_stickers.py [--dry-run]` |
 | `diagnosticar_camaras_360.py` | Diagnóstico de relojes de cámaras Insta360 en videos 360°: identifica cámara A/B por bitrate+fps, deduce hora real (embebido `QuickTime:CreateDate`=UTC → −3h), flaggea relojes reconfigurados y filenames atrasados 30 min. Ver `docs/discrepancia_horarios_camaras.md` | Standalone: `python scripts/diagnosticar_camaras_360.py --root <carpeta> [--solo-resumen] [--json]`; **NO TUI** (decisión usuario 2026-08-17) |
 | `inferir_hora_textos.py` | Infiere timestamp de textos `type='text'` sin fecha interpolando su posición contra el track GPX (posición → tiempo; `--umbral` default 2000 m) | Standalone: `python scripts/inferir_hora_textos.py [--mode] [--umbral N]` |
+| `ubicar_videos_gpx.py` | Ubica videos 360° (y videos en general) interpolando su intervalo temporal contra el track GPX: colapsa momentos detenidos (umbral 5 km/h + distancia mínima 100 m), muestrea cada `--intervalo` s, guarda lat/lon/alt inicial + keypoints `ubicacion_video` por tramo y sentinel `ubicacion_video_estado`/`ubicacion_video_gaps`. Ver `docs/discrepancia_horarios_camaras.md` (convención: track GPX = UTC real, videos 360 con `timestamp_utc` corregido) | Standalone: `python scripts/ubicar_videos_gpx.py [--solo-360] [--mode skip|update|replace] [--intervalo N] [--umbral-movimiento kmh] [--distancia-minima m] [--umbral-gap s] [--sobrescribir-gps] [--dry-run]`; **NO TUI** (decisión usuario 2026-08-17) |
 | `ai_media/tag_images.py` | Taggear imágenes (DB o sidecar) | Standalone |
 | `ai_media/batch_selector.py` | Selecciona mejor imagen de tanda (moondream; criterio `nitidez` sin IA) | Usado por `limpiar_tandas` |
 | `ai_media/clustering.py` | Agrupa por tags/embeddings (moondream, prompts EN) | Usado por `limpiar_tandas` |
