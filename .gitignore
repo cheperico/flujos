@@ -22,5 +22,5 @@ deploy/db/
 pruebas/spec.json
 td/spec_fluir.json
 td/Backup/
-td/flujos.15.toe
-td/flujos.17.toe
+td/flujos.*.toe
+!td/flujos.toe
