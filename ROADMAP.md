@@ -155,6 +155,21 @@ Etapa 5: INSTALACIÓN          →  TouchDesigner + motor de deriva
 
 ## Historial
 
+- **2026-08-17:** **Backfill de municipio rural + decisión E híbrida (departamento + municipio) pendiente.**
+  - Contexto: 502 medios rurales tienen `departamento` pero `municipio` NULL (el polígono del
+    municipio cubre solo el ejido urbano; el punto en ruta cae dentro del departamento pero
+    fuera de todo municipio). Ver `docs/geocodificacion_reversa.md`.
+  - Decisión inmediata: **backfill** asignando a cada medio sin municipio el **municipio más
+    cercano DENTRO del mismo departamento** (fuente: API Georef `/api/municipios` con
+    centroides, no los puntos de la DB — hay departamentos con 0 municipios de referencia).
+  - Decisión futura: **E híbrida** — departamento como unidad de elección/filtro (cobertura
+    100%) + municipio como detalle cuando exista. **PENDIENTE de estudio** (cambia la lógica
+    de DB/elecciones/loop de forma considerable). Estar listos: el backfill debe marcar el
+    origen del municipio (`georef_api` vs `inferido_vecino`) para poder revertir/re-calcular.
+  - Pendiente de conversar: qué mostrar en la instalación para rurales, impacto en
+    `elecciones.py`/`loop_db.py`/`puente_td.py`, y si el departamento reemplaza al municipio
+    en las nubes de elecciones TD.
+
 - **2026-08-16:** **Inferencia de hora de textos por interpolación en el track GPX.**
   - Los textos (`type='text'`) sin fecha solo obtienen su fecha/hora interpolando
     su posición (lat/lon) contra el track GPX (posición → tiempo): los 2 puntos
