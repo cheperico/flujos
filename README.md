@@ -96,6 +96,7 @@ python flujos.py --help         # Ayuda general
 | `reset-db` / `reset` | Resetear la DB (con backup previo) |
 | `export-csv [--table] [--output]` | Exportar tablas de la DB a CSV |
 | `import-telegram` / `tg` | Importar export de Telegram a la DB |
+| `ingest-textos` / `textos` | Ingerir textos `.md` de `textos/` como medios type='text' |
 | `mover --new-root X --mode mover` | Mover/copiar medios y actualizar rutas en DB |
 | `detectar-contenedores` / `contenedores` | Auditar contenedores de video/audio con ffprobe (streams faltantes) → `contenedor_estado` |
 | `limpiar-descripciones` / `descripciones` | Limpiar descripciones con eco del prompt (meta-intros) → recorta prefijos en `ia_description_en`/`ia_description` |
@@ -265,7 +266,10 @@ Todas las operaciones que modifican la DB preguntan el modo
 | `scripts/astronomia.py` | Posición del sol (NOAA), clasificación twilight | Enriquecimiento |
 | `scripts/limpiar_tandas.py` | Selección de mejor imagen por tanda | Curación |
 | `scripts/mover_descartadas.py` | Mueve imágenes descartadas a carpeta excluir/ | Curación |
-| `scripts/td/puente_td.py` | Puente BD → TouchDesigner vía OSC | Instalación |
+| `scripts/td/puente_td.py` | Puente BD → TouchDesigner vía OSC (9000→TD, 9001←TD). Modos: `elecciones` (default) y `fluir` — el modo instalación escucha sin límite de tiempo hasta Enter | Instalación |
+| `scripts/td/elecciones.py` | Nubes de elecciones (horas, municipios, colores, tags, días, clima) → TD vía OSC | Instalación |
+| `scripts/td/osc_probe.py` | Eco OSC: escucha lo que llega a un puerto y lo imprime (test rápido TD→Python) | Instalación |
+| `scripts/td/util_enter.py` | Helper compartido: `detener_con_enter()` devuelve un `threading.Event` (salida limpia con Enter) | Instalación |
 | `scripts/mapa_ruta.py` | Mapa interactivo con Folium | Consulta |
 | `scripts/check_db.py` | Inspección de la DB | Consulta |
 | `scripts/check_gps.py` | Verifica GPS en archivos via ExifTool | Consulta |
@@ -275,6 +279,10 @@ Todas las operaciones que modifican la DB preguntan el modo
 | `scripts/repetir_contenido.py` | Detecta contenido repetido por audio (cross-correlación RMS; solo reporta, no escribe) | Auditoría |
 | `scripts/audio_frame_crossref.py` | Correlaciona sonidos (CED-mini) con frames de video (solo reporta, no escribe) | Auditoría |
 | `scripts/limpiar_descripciones.py` | Recorta meta-intros (eco del prompt) en `ia_description_en`/`ia_description` — determinista, sin IA, backup automático | Mantenimiento |
+| `scripts/limpiar_stickers.py` | Elimina stickers de Telegram mal ingeridos en `media` (dry-run + backup automático) | Mantenimiento |
+| `scripts/inferir_hora_textos.py` | Infiere timestamp de textos `type='text'` interpolando su posición contra el track GPX (posición → tiempo, `--umbral`) | Enriquecimiento |
+| `scripts/exportar_visualizacion.py` | Exporta snapshot de la DB → visualizacion.db; deploy genérico a deploy/ (por defecto) con copia de medios y transcode web | Visualización |
+| `scripts/ingest_textos.py` | Ingiere textos `.md` de `textos/` como medios type='text' (frontmatter + subtítulos `##` = textos individuales) | Ingesta |
 | `scripts/fix_gps_sign.py` | Corrección de signo GPS (herramienta de mantenimiento) | Mantenimiento |
 | `scripts/test_gradiente.py` | Tests unitarios de gradiente.py | — |
 
@@ -293,7 +301,10 @@ Todas las operaciones que modifican la DB preguntan el modo
 | `clustering.py` | Agrupamiento por tags o embeddings |
 | `generate_embeddings.py` | Embeddings vectoriales (nomic-embed-text) — retirado del TUI, rediseño pendiente (ver ROADMAP) |
 | `refinar_keywords.py` | Refina y unifica keywords IA por familia (léxico + sinónimos, sin género) — `--clave` (imágenes/transcripciones/textos) |
-| `traducir_metadata.py` | Traduce metadata de IA EN → ES sobre la DB (keywords/descripciones) |
+| `traducir_metadata.py` | Traduce metadata de IA EN → ES sobre la DB (keywords/descripciones) — **NO-AI** por defecto: glosario + motor clásico (`--motor google` default vía `deep_translator`, `argos` offline, `ollama` legacy translategemma) |
+| `glosario.py` | Glosario EN→ES persistente (JSON `glosario_keywords.json`) + motores clásicos (Google `deep_translator` default / Argos offline); reemplazos rioplatenses post-traducción |
+| `generar_glosario.py` | Genera/amplía el glosario desde fuentes manuales + DB (pares alineados `ia_keywords_en`/`ia_keywords`) y opcional `--extender --motor google|argos` |
+| `generar_sinonimos_localidades.py` | Propone sinónimos de localidades cruzando tags observados en `--clave` (default `ia_keywords`) contra georef/contexto |
 | `keywords_transcripciones.py` | Keywords del sentido (qwen2.5:3b): `--origen transcripcion` → `ia_keywords_transcripcion`; `--origen texto` → `ia_keywords_texto` |
 | `audio_tagging.py` | Sonidos ambientales (sherpa-onnx CED-mini, local) → `ia_keywords_sonido` |
 | `proxy.py` | Redimensiona imágenes a ~800px para IA |
@@ -369,9 +380,20 @@ Metadatos variables en formato clave-valor:
 
 | Clave | Valor | Escrito por |
 |-------|-------|-------------|
-| `ia_keywords` | JSON array de 5-7 palabras clave libres (sin género comodín) | improve-db keywords |
-| `ia_description` | Texto: descripción breve generada por IA | improve-db descriptions |
-| `transcript` | Texto: transcripción completa de audio/video | improve-db transcribe |
+| `ia_keywords_en` | JSON array de keywords libres generadas por IA (EN, intermedio) | improve-db keywords / image_analysis |
+| `ia_keywords` | JSON array de 5-7 palabras clave libres (ES definitivo, sin género comodín) | improve-db keywords / traducir_metadata |
+| `ia_description_en` | Texto: descripción breve generada por IA (EN, intermedio) | improve-db descriptions |
+| `ia_description` | Texto: descripción breve generada por IA (ES definitivo) | improve-db descriptions / traducir_metadata |
+| `whisper_segments` | JSON de segmentos de transcripción [{inicio, fin, texto, promedio_logprob, no_hay_habla_prob, ratio_compresion}] | improve-db transcribe |
+| `whisper_info` | JSON {language, language_probability} de la transcripción | improve-db transcribe |
+| `whisper_estado` | `ok`\|`sin_voz` — marcador de procesado (un `sin_voz` no tiene segmentos) | improve-db transcribe |
+| `ia_keywords_transcripcion` | Keywords del SENTIDO de la transcripción (ES, coma-separado) | keywords_transcripciones.py |
+| `ia_keywords_texto` | Keywords del SENTIDO de los textos .md (ES, coma-separado) | keywords_transcripciones.py --origen texto |
+| `ia_keywords_sonido` | Sonidos ambientales (ES, coma-separado) | audio_tagging.py |
+| `ia_sonido_raw` | JSON [{name, prob}] de audio tagging | audio_tagging.py |
+| `texto_completo` | Contenido completo del texto .md | ingest_textos.py |
+| `titulo_seccion` / `indice_seccion` / `origen_seccion` | Título, índice y origen (archivo::índice) de la sección del texto | ingest_textos.py |
+| `texto_tags` / `texto_ubicacion` | Tags y ubicación del texto | ingest_textos.py |
 | `dia_semana` | lunes\|martes\|...\|domingo | dia_semana.py |
 | `weather_temp_c` | Temperatura en °C | fetch_weather.py |
 | `weather_humidity_pct` | Humedad relativa % | fetch_weather.py |
@@ -462,6 +484,15 @@ Todos soportan `--mode skip|update|replace`.
 | `geocode.py` | Provincia, municipio, localidad en `media` | Coordenadas GPS (NEGATIVAS) |
 | `gradiente.py` | Distancia, elevación, pendiente entre puntos GPS en `media` | Coordenadas GPS + 2+ puntos |
 | `astronomia.py` | Posición del sol (elevación, azimut) y clasificación twilight en `media` | Coordenadas GPS + `timestamp_utc` |
+| `keywords_transcripciones.py` | Keywords del SENTIDO (`ia_keywords_transcripcion` / `ia_keywords_texto`, qwen2.5:3b) | `whisper_segments` o `texto_completo` |
+| `audio_tagging.py` | Sonidos ambientales (`ia_keywords_sonido`, sherpa-onnx CED-mini local) | Audio/video |
+| `keypoints_contexto.py` | Keypoints de contexto (`contexto_*` en `media_keypoints`) interpolando track GPX + georef/clima | Track GPX + posición |
+| `inferir_hora_textos.py` | Timestamp de textos `type='text'` sin fecha (posición → tiempo contra el track GPX) | Textos con lat/lon |
+| `detectar_contenedores.py` | Auditoría de contenedores (`contenedor_estado`/`contenedor_streams`) | Video/audio |
+| `repetir_contenido.py` | Detecta contenido repetido por audio (solo reporta, no escribe) | Audio/video |
+| `audio_frame_crossref.py` | Correlaciona sonidos (CED-mini) con frames de video (solo reporta, no escribe) | Video |
+| `limpiar_descripciones.py` | Recorta meta-intros (eco del prompt) en descripciones (determinista, backup) | `ia_description_en`/`ia_description` |
+| `traducir_metadata.py` | Traduce EN→ES sobre la DB (glosario + motor clásico google/argos; `--motor ollama` legacy) | `ia_keywords_en`/`ia_description_en` |
 
 ---
 
@@ -491,6 +522,7 @@ Todos soportan `--mode skip|update|replace`.
 | **tqdm** | 4.68+ | Barras de progreso |
 | **webcolors** | 25.10+ | Nombres de colores CSS en español |
 | **python-osc** | 1.8+ | Comunicación OSC con TouchDesigner |
+| **deep-translator** | 1.11+ | Motor de traducción clásico (Google) del pipeline NO-AI EN→ES |
 | **ollama** | 0.3+ | Cliente Python para Ollama (visión/texto/embeddings) |
 | **faster-whisper** | 1.2+ | Transcripción de audio con timestamps |
 | **numpy** | 1.24+ | Clustering y similitud de embeddings |
@@ -501,29 +533,33 @@ Todos soportan `--mode skip|update|replace`.
 
 ### Modelos Ollama
 
+El pipeline usa modelos por tarea (ver AGENTS.md). Los relevantes:
+
 ```powershell
-# Modelos de visión
-ollama pull moondream:latest          # 1.7 GB — rápido y pequeño
-ollama pull qwen2.5vl:3b              # 3.2 GB — más preciso, liviano
-ollama pull qwen2.5vl:latest          # 6.0 GB — buena calidad
-ollama pull llama3.2-vision:latest    # 7.8 GB — buena calidad general
+# Visión (keywords/descripciones, FLUJO IA)
+ollama pull minicpm-v4.6:latest      # 1.6 GB — GANADOR de la comparativa, default (MODELO_VISION_DEFAULT)
+ollama pull qwen2.5vl:3b             # 3.2 GB — liviano, sigue bien prompts complejos
+ollama pull qwen2.5vl:latest         # 6.0 GB — buena calidad
+ollama pull llama3.2-vision:latest   # 7.8 GB — buena calidad general
 
-# Modelos de texto
-ollama pull qwen3.5:9b                # 6.6 GB — análisis de texto
-ollama pull qwen3.5:4b                # 3.4 GB — liviano
-ollama pull deepseek-r1:latest        # 5.2 GB — razonamiento
-ollama pull llama3.1:8b               # 4.9 GB — propósito general
-ollama pull llama3.2:3b               # 2.0 GB — liviano
+# Curación/limpieza de tandas (moondream, ~15x más rápida que minicpm)
+ollama pull moondream:latest         # 1.7 GB — rápido y pequeño (responde MAL en español → prompts EN)
 
-# Modelos de código
-ollama pull deepseek-coder-v2:16b     # 8.9 GB — código
-ollama pull qwen3-coder:latest        # 18 GB — código (grande)
+# Texto (keywords del SENTIDO de transcripciones/textos)
+ollama pull qwen2.5:3b               # 3.2 GB — keywords del sentido
 
-# Embeddings
-ollama pull nomic-embed-text           # 274 MB — embeddings / búsquedas semánticas
-ollama pull nomic-embed-text-v2-moe    # 957 MB — embeddings mejorados
+# Embeddings (retirado del TUI, rediseño pendiente)
+ollama pull nomic-embed-text         # 274 MB — embeddings / búsquedas semánticas
+
+# Traducción EN→ES LEGACY (ya NO es el default)
+ollama pull translategemma:latest    # 3.3 GB — solo con --motor ollama
 ```
 
+> **Traducción EN→ES = NO-AI por defecto**: `glosario.py` + motor clásico (Google vía
+> `deep_translator` por defecto, Argos offline opcional). NO usar Ollama para
+> traducir (qwen2.5:3b produce chino/checklist/slash; translategemma quedó como
+> legacy con `--motor ollama`).
+>
 > **RAM:** con `moondream:latest` el uso de RAM sube ~40% sobre el idle.
 > Modelos más grandes requieren más RAM.
 > Usar `--list-models` en los scripts para ver los modelos instalados.
@@ -597,7 +633,7 @@ curl http://localhost:11434/api/tags
 #### Instalación rápida (todo junto)
 
 ```powershell
-pip install Pillow webcolors tqdm python-osc ollama faster-whisper numpy folium imagehash
+pip install Pillow webcolors tqdm python-osc ollama faster-whisper numpy folium imagehash deep-translator
 ```
 
 #### Instalación detallada (por librería)
@@ -608,6 +644,7 @@ pip install Pillow webcolors tqdm python-osc ollama faster-whisper numpy folium 
 | **webcolors** | `pip install webcolors` | >=1.13 | Nombres de color CSS3 en español |
 | **tqdm** | `pip install tqdm` | >=4.60 | Barras de progreso en terminal |
 | **python-osc** | `pip install python-osc` | >=1.8 | Comunicación OSC con TouchDesigner |
+| **deep-translator** | `pip install deep-translator` | >=1.11 | Motor de traducción clásico (Google) del pipeline NO-AI EN→ES |
 | **ollama** | `pip install ollama` | >=0.3 | Cliente Python para Ollama (modelos de visión/texto/embeddings) |
 | **faster-whisper** | `pip install faster-whisper` | >=1.0 | Transcripción de audio/video (local, GPU si hay CUDA) |
 | **numpy** | `pip install numpy` | >=1.24 | Clustering y similitud de embeddings |
@@ -679,6 +716,14 @@ pip install torch --index-url https://download.pytorch.org/whl/cu121
 | `docs/calculo_astronomico.md` | Cálculo astronómico de posición de sol y luna |
 | `docs/visualizaciones.md` | Decisiones de diseño de la visualización web (deploy) |
 | `docs/diseno_instalacion.md` | Diseño de la instalación: flujo DB → elecciones → loop |
+| `docs/motor_loop.md` | Spec del motor de loop (arcos horarios, posicionamiento, chiches, spec JSON) |
+| `docs/deploy.md` | Exportador genérico de deploy (snapshot, transcode web, snapshot local vs deploy) |
+| `docs/retorno_fluir_td.md` | Retorno "Fluir" en TD: contrato OSC 9002, tablas `fluir_*`, armado del receptor |
+| `docs/lecciones_elecciones_td.md` | Lecciones del armado de elecciones en TD (mapa real de operadores, canales OSC) |
+| `docs/videos_360_web.md` | Opciones de renderer 360° en web (Three.js, A-Frame...) y requisitos de pipeline |
+| `docs/embeddings_rediseno.md` | Dirección de diseño de la capa semántica (desactivada) |
+| `docs/inferencia_autor.md` | Inferencia de autor desde EXIF/carpeta |
+| `docs/armado_de_tandas.md` | Estrategias de armado de tandas y limpieza |
 | `docs/ideas_externas.md` | Ideas de terceros para la instalación |
 
 ---
@@ -721,15 +766,19 @@ pip install torch --index-url https://download.pytorch.org/whl/cu121
 │   ├── color_utils.py         # Colores dominantes
 │   ├── limpiar_tandas.py      # Limpieza de tandas de fotografías
 │   ├── mover_descartadas.py   # Mover descartadas
-│   ├── puente_td.py           # Puente BD → TouchDesigner (OSC)
 │   ├── mapa_ruta.py           # Mapa interactivo (Folium)
 │   ├── check_db.py            # Inspección de DB
 │   ├── check_gps.py           # Verificación GPS
 │   ├── check_db_data.py       # Helper: clima, día, geocode
+│   ├── ingest_textos.py       # Ingesta de textos .md como medios type='text'
+│   ├── inferir_hora_textos.py # Timestamp de textos interpolando track GPX
 │   ├── keypoints_contexto.py  # Keypoints de contexto (devenir geográfico)
 │   ├── detectar_contenedores.py  # Auditoría de contenedores (ffprobe)
 │   ├── repetir_contenido.py   # Contenido repetido por audio
 │   ├── audio_frame_crossref.py  # Correlación audio ↔ frames
+│   ├── exportar_visualizacion.py # Exportador genérico de deploy web
+│   ├── limpiar_descripciones.py  # Recorta meta-intros (eco del prompt)
+│   ├── limpiar_stickers.py    # Elimina stickers de Telegram mal ingeridos
 │   ├── fix_gps_sign.py        # Corrección de signo GPS
 │   ├── test_gradiente.py      # Tests de gradiente
 │   ├── ai_media/              # Scripts de IA
@@ -742,23 +791,33 @@ pip install torch --index-url https://download.pytorch.org/whl/cu121
 │       ├── transcribe.py
 │       ├── transcribe_media.py
 │       ├── traducir_metadata.py
+│       ├── glosario.py            # Glosario EN→ES persistente (JSON)
+│       ├── generar_glosario.py    # Genera/amplía el glosario (manual + DB)
+│       ├── generar_sinonimos_localidades.py  # Sinónimos de localidades desde tags
 │       ├── batch_selector.py
 │       ├── clustering.py
 │       ├── generate_embeddings.py
 │       ├── refinar_keywords.py
 │       ├── keywords_transcripciones.py
 │       ├── audio_tagging.py
+│       ├── checkpoint.py
 │       ├── loop_engine.py          # Motor de loop: núcleo puro
 │       ├── loop_db.py              # Motor de loop: integración con DB
+│       ├── test_motor_loop.py      # Tests del motor de loop
 │       └── proxy.py
 │   └── td/                    # Scripts TouchDesigner (Python)
 │       ├── puente_td.py       # Puente BD → TouchDesigner (OSC)
 │       ├── elecciones.py      # Nubes de elecciones (DB → TD)
-│       └── osc_probe.py       # Eco OSC de diagnóstico
+│       ├── osc_probe.py       # Eco OSC de diagnóstico
+│       └── util_enter.py      # Helper: detener escuchas continuas con Enter
 │
 ├── td/                        # Archivos TouchDesigner (.dat/.toe)
 │   ├── osc_callbacks.dat      # Callbacks OSC In DAT
-│   └── elecciones_ui.dat      # Generación de UI de elecciones (botones)
+│   ├── fluir_callbacks.dat    # Callbacks OSC In DAT canal 9002 (retorno Fluir)
+│   ├── crear_tablas_fluir.dat # Crea las tablas fluir_* en TD
+│   ├── elecciones_ui.dat      # Generación de UI de elecciones (botones)
+│   ├── flujos.toe             # Proyecto TouchDesigner
+│   └── spec_fluir.json        # Spec del loop (ejemplo real en disco)
 │
 ├── docs/                      # Documentos de diseño
 └── .opencode/

@@ -18,13 +18,14 @@ referenciados en **Dónde está la información** (al final) — consultar bajo 
 | ffmpeg / ffprobe | Transcode y análisis de medios |
 | ExifTool | EXIF/IPTC/XMP |
 | Ollama | Servicio en background; modelos de visión, texto y embeddings |
+| deep-translator (Google) / argos-translate (offline) | Motores clásicos del pipeline NO-AI de traducción EN→ES (`glosario.py`) |
 | faster-whisper | Transcripción de audio/video |
 | sherpa-onnx + onnxruntime | Audio tagging local (CED-mini, 527 clases AudioSet) |
 | Pillow + webcolors | Colores dominantes, thumbnails, naming CSS → español |
 | numpy | Cross-correlación de audio (`repetir_contenido.py`, `audio_frame_crossref.py`) y clustering de embeddings |
 | SQLite | Base embebida (`db/flujos.db`) |
 
-**Modelos por tarea**: visión=`minicpm-v4.6:latest`, traducción=`translategemma`, curación/limpieza=`moondream:latest`, embeddings=`nomic-embed-text`, transcripción=`faster-whisper` (modelo `small`), audio tagging=`sherpa-onnx CED-mini` (local).
+**Modelos por tarea**: visión=`minicpm-v4.6:latest`, traducción EN→ES=**NO-AI** (`glosario.py` + motor clásico — Google vía `deep_translator` por defecto, Argos offline opcional; `--motor ollama` conserva el pipeline legacy `translategemma`), curación/limpieza=`moondream:latest`, embeddings=`nomic-embed-text`, transcripción=`faster-whisper` (modelo `small`), audio tagging=`sherpa-onnx CED-mini` (local), keywords del sentido (texto)=`qwen2.5:3b` (Ollama).
 
 **Audio tagging**: `pip install onnxruntime sherpa-onnx`; el modelo CED-mini se auto-descarga en el primer uso de `audio_tagging.py` (`--no-descargar` para deshabilitar). Detalle en @README.md.
 
@@ -54,13 +55,14 @@ referenciados en **Dónde está la información** (al final) — consultar bajo 
 │   │   fix_gps_sign.py, mover_descartadas.py, ingest_textos.py,
 │   │   keypoints_contexto.py, detectar_contenedores.py,
 │   │   repetir_contenido.py, audio_frame_crossref.py, exportar_visualizacion.py,
-│   │   limpiar_descripciones.py
+│   │   limpiar_descripciones.py, limpiar_stickers.py, inferir_hora_textos.py
 │   ├── check_db.py, check_gps.py, check_db_data.py, test_gradiente.py
 │   ├── ai_media/
 │   │   ├── ollama_client.py, image_analysis.py, transcribe.py, transcribe_media.py,
 │   │   │   traducir_metadata.py, analyze_video.py, keypoints_video.py, tag_images.py,
 │   │   │   batch_selector.py, clustering.py, generate_embeddings.py, refinar_keywords.py,
-│   │   │   keywords_transcripciones.py, audio_tagging.py, checkpoint.py, proxy.py
+│   │   │   keywords_transcripciones.py, audio_tagging.py, checkpoint.py, proxy.py,
+│   │   │   glosario.py, generar_glosario.py, generar_sinonimos_localidades.py
 │   │   └── loop_engine.py, loop_db.py, test_motor_loop.py
 │   └── td/
 │       └── puente_td.py, elecciones.py, osc_probe.py, util_enter.py
@@ -69,7 +71,8 @@ referenciados en **Dónde está la información** (al final) — consultar bajo 
 ├── docs/
 │   ├── diseno_instalacion.md, motor_loop.md, arquitectura_motor.md, flujo_de_medios.md,
 │   │   linea_de_tiempo.md, geocodificacion_reversa.md, semantica_color.md, calculo_astronomico.md,
-│   │   visualizaciones.md, limpieza_tandas_resultados.md, ideas_externas.md, lecciones_elecciones_td.md, inferencia_autor.md, armado_de_tandas.md
+│   │   visualizaciones.md, limpieza_tandas_resultados.md, ideas_externas.md, lecciones_elecciones_td.md, inferencia_autor.md, armado_de_tandas.md,
+│   │   deploy.md, retorno_fluir_td.md, videos_360_web.md, embeddings_rediseno.md
 ├── models/audio/
 │   └── sherpa-onnx-ced-mini-audio-tagging-2024-04-19/   # Modelo auto-descargado
 └── .opencode/
@@ -118,7 +121,7 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 | **KEYWORDS** | `improve_db.py --step keywords` | Palabras clave IA (visión EN → traducción ES, 2 fases) | `media_metadata` | key=`ia_keywords` (ES definitivo), value=texto coma-separado; key=`ia_keywords_en` (intermedio EN) |
 | **DESCRIPTION** | `improve_db.py --step descriptions` | Descripción IA (visión EN → traducción ES, 2 fases) | `media_metadata` | key=`ia_description` (ES definitivo); key=`ia_description_en` (intermedio EN) |
 | **COMBINADO** | `improve_db.py --step combinado` | Keywords + descripción en UNA llamada de visión (EN) + 1 de traducción (ES) | `media_metadata` | keys `ia_keywords_en`/`ia_description_en` + `ia_keywords`/`ia_description` (ES) |
-| **TRANSLATE** | `traducir_metadata.py` | Traducción EN→ES independiente sobre la DB (re-ejecutable sin re-correr visión) | `media_metadata` | `ia_keywords`/`ia_description` desde `ia_keywords_en`/`ia_description_en` |
+| **TRANSLATE** | `traducir_metadata.py` | Traducción EN→ES independiente sobre la DB (re-ejecutable sin re-correr visión); **NO-AI** por defecto: glosario (`glosario.py`) + motor clásico (Google `deep_translator` | Argos offline); `--motor ollama` conserva el legacy translategemma | `media_metadata` | `ia_keywords`/`ia_description` desde `ia_keywords_en`/`ia_description_en` |
 | **TRANSCRIBE** | `improve_db.py --step transcribe` | Transcripción completa de audio/video con **VAD** (detecta persona hablando, descarta ruido/silencio) + filtro de confianza | `media_metadata` | keys `whisper_segments` (JSON [{inicio, fin, texto, promedio_logprob, no_hay_habla_prob, ratio_compresion}]), `whisper_info` ({language, language_probability}), `whisper_estado` (ok\|sin_voz) |
 | **KEYPOINTS** | `improve_db.py --step keypoints` | Segmentos individuales de transcripción con timestamp | `media_keypoints` | media_id, timestamp_offset_secs, timestamp_absolute, key=`transcription`, value=texto, source |
 | **TIMESTAMPS** | `improve_db.py --step timestamps` | Timestamps inferidos desde EXIF/ExifTool | `media` | timestamp_original, timestamp_utc, timezone_note, updated_at |
@@ -152,6 +155,7 @@ Cada script del pipeline escribe datos específicos en la DB. Esta tabla central
 | | | | `media` | telegram_message_id (FK), columna agregada vía ALTER TABLE |
 | **TEXTOS** | `ingest_textos.py` | Ingiere textos `.md` de la carpeta `textos/` como medios type='text' (cada subtítulo `##` = un texto; sin subtítulos = un solo texto; plantilla en `textos/textos.md`) | `media` | filename_original, filepath_absoluto, filepath_relativo, carpeta, type='text', subtype='md', size_bytes, file_hash (SHA-256 del FRAGMENTO, único por texto), content_hash, timestamp_original, timestamp_utc, author |
 | | | | `media_metadata` | keys: `texto_completo`, `titulo_seccion`, `indice_seccion`, `origen_seccion` (archivo::índice, clave estable de identidad), `texto_tags`, `texto_ubicacion` |
+| **INFERIR HORA TEXTOS** | `inferir_hora_textos.py` | Timestamp de textos `type='text'` sin fecha interpolando SU PUNTO (lat/lon) contra el track GPX (posición → tiempo, ponderación por distancia inversa); `--umbral` (default 2000 m) descarta textos lejos de la ruta | `media` | timestamp_original, timestamp_utc, geolocation_source='track_interpolado' |
 
 > **Nota**: todas las operaciones que modifican la DB soportan `--mode skip|update|replace`.
 > - `skip`: solo procesa registros donde el dato es NULL
@@ -190,7 +194,7 @@ Detalle de args CLI de cada script en su **docstring** (o `python script.py --he
 | `ai_media/ollama_client.py` | Cliente Ollama compartido (visión/texto/embeddings) + auto-inicio `asegurar_ollama()` | Usado por todos los scripts IA |
 | `ai_media/image_analysis.py` | Keywords + descripción de imágenes (visión minicpm, prompts EN) | Usado por `improve_db --step keywords/descriptions` |
 | `ai_media/transcribe.py` / `transcribe_media.py` | Transcripción faster-whisper (independiente / desde DB) | `transcribe_media` usado por `--step transcribe` |
-| `ai_media/traducir_metadata.py` | Traduce EN→ES sobre la DB (translategemma) | Standalone re-ejecutable |
+| `ai_media/traducir_metadata.py` | Traduce EN→ES sobre la DB (re-ejecutable sin re-correr visión); **NO-AI** por defecto — glosario + motor clásico (`--motor google` default vía `deep_translator`, `argos` offline, `glosario` solo léxico; `--motor ollama` = legacy translategemma) | Standalone: `python scripts/ai_media/traducir_metadata.py --paso keywords --mode update` |
 | `ai_media/analyze_video.py` | Análisis de videos con IA: scene detection → ~10 imgs/escena → nitidez → 1 llamada PROMPT_COMBINADO por escena (máx 20 tags); flags `--por-escena`/`--mejores-por-escena` (eliminado `--interval`) | TUI Hoja 3→1; CLI `flujos.py analizar-video` / `analizar` |
 | `ai_media/keypoints_video.py` | Keypoints semánticos de video: `media_keypoints` key=`escena`/`keyword`, source='ollama' (desde `video_analysis`); sentinel `keypoints_video_estado` | Standalone (post-`analyze_video`): `python scripts/ai_media/keypoints_video.py [--mode]` |
 | `keypoints_contexto.py` | Keypoints de contexto (devenir geográfico): F1 interpola track GPX, F2 transiciones (elevación/astronomía/movimiento), F3 georef+clima con cache, F4 escribe `contexto_*` | TUI Hoja 3→2; CLI `flujos.py keypoints-contexto` / `keypoints` |
@@ -198,6 +202,8 @@ Detalle de args CLI de cada script en su **docstring** (o `python script.py --he
 | `repetir_contenido.py` | Detecta contenido repetido por audio (cross-correlación RMS; solo reporta, no escribe) | TUI Mantenimiento Hoja 2→1; CLI `flujos.py repetir-contenido` / `repetidos` |
 | `audio_frame_crossref.py` | Correlaciona audio (CED-mini) con frames de video (solo reporta, no escribe) | TUI Mantenimiento Hoja 2→2; CLI `flujos.py audio-frame` / `crossref` |
 | `limpiar_descripciones.py` | Recorta meta-intros (eco del prompt) en `ia_description_en`/`ia_description`; determinista, sin IA, backup automático + `--dry-run`; invariante: ningún registro con apertura legítima modificado | TUI Mantenimiento Hoja 3→1; CLI `flujos.py limpiar-descripciones` / `descripciones` |
+| `limpiar_stickers.py` | Elimina stickers de Telegram mal ingeridos en `media` (dry-run + backup automático en `db/backups/`) | Standalone: `python scripts/limpiar_stickers.py [--dry-run]` |
+| `inferir_hora_textos.py` | Infiere timestamp de textos `type='text'` sin fecha interpolando su posición contra el track GPX (posición → tiempo; `--umbral` default 2000 m) | Standalone: `python scripts/inferir_hora_textos.py [--mode] [--umbral N]` |
 | `ai_media/tag_images.py` | Taggear imágenes (DB o sidecar) | Standalone |
 | `ai_media/batch_selector.py` | Selecciona mejor imagen de tanda (moondream; criterio `nitidez` sin IA) | Usado por `limpiar_tandas` |
 | `ai_media/clustering.py` | Agrupa por tags/embeddings (moondream, prompts EN) | Usado por `limpiar_tandas` |
@@ -205,6 +211,9 @@ Detalle de args CLI de cada script en su **docstring** (o `python script.py --he
 | `ai_media/refinar_keywords.py` | Refina/unifica keywords (léxico + diccionario de sinónimos) | TUI Hoja 2→2; standalone |
 | `ai_media/keywords_transcripciones.py` | Keywords del SENTIDO desde transcripciones (`--origen transcripcion`, default → `ia_keywords_transcripcion`) o desde textos .md ingresados (`--origen texto` → `ia_keywords_texto`) | TUI Hoja 2→1; standalone |
 | `ai_media/audio_tagging.py` | Sonidos ambientales (sherpa-onnx CED-mini, local) | TUI Hoja 1→7 |
+| `ai_media/glosario.py` | Glosario EN→ES persistente (JSON en raíz: `glosario_keywords.json`) + motores clásicos (`deep_translator` Google default / Argos offline). Traducción NO-AI de keywords/descripciones; reemplazos rioplatenses post-traducción | Usado por `traducir_metadata.py` e `improve_db.py` (pipeline NO-AI) |
+| `ai_media/generar_glosario.py` | Genera/amplía el glosario desde fuentes manuales + DB (pares alineados `ia_keywords_en`/`ia_keywords`) y opcional `--extender --motor google|argos` | Standalone: `python scripts/ai_media/generar_glosario.py [--extender --motor google]` |
+| `ai_media/generar_sinonimos_localidades.py` | Propone sinónimos de localidades cruzando tags observados en `--clave` (default `ia_keywords`) contra georef/contexto | Standalone: `python scripts/ai_media/generar_sinonimos_localidades.py [--clave ia_keywords]` |
 | `ai_media/checkpoint.py` | Checkpoint + detención limpia para procesos IA | Usado por improve_db y otros |
 | `ai_media/proxy.py` | Redimensiona imágenes a ~800px | Usado por limpiar_tandas/clustering/batch_selector |
 | `ai_media/loop_engine.py` / `loop_db.py` | Motor de loop: arcos horarios, posicionamiento, spec JSON | CLI: `python scripts/ai_media/loop_db.py --horas ... --salida spec.json` |
@@ -269,7 +278,7 @@ El modo `replace` vía `_preguntar_modo()` (flujos.py) crea backup automático e
 
 1. **Signo GPS**: ExifTool sin `-n` devuelve `"South"`/`"West"`; las coordenadas argentinas son SIEMPRE negativas (lat < 0, lon < 0).
 2. **moondream responde MAL en español** (regurgita basura tipo "irtiville") → usar prompts EN en clustering/selección (`batch_selector.py`, `clustering.py`).
-3. **Traductor = translategemma** (NO `qwen2.5:3b`, que produce chino/checklist/slash). Sin glosario: era decorativo y degradaba.
+3. **Traducción EN→ES = NO-AI por defecto** (`glosario.py` + motor clásico: Google `deep_translator` default, Argos offline opcional). NO usar Ollama/`qwen2.5:3b` (produce chino/checklist/slash). El legacy `translategemma` queda disponible solo con `--motor ollama`. El glosario es léxico del dominio + reemplazos rioplatenses post-traducción; nunca traducir por IA sin motivo.
 4. **No usar `--workers 2+`** en improve_db: Ollama serializa la inferencia, compiten por memoria y desestabilizan el modelo (síntoma `@@@@@` y tags vacíos; medido 25x más lento).
 5. **Transcripción**: usar VAD + `whisper_estado` como marcador de pendiente (no `whisper_segments`, un `sin_voz` no tiene segmentos). NO forzar idioma español (`language=None`).
 6. **No usar capa semántica de embeddings en refinar_keywords**: produce falsos sinónimos (`ciclismo→deporte`, `nublado→soleado`). Eliminada por completo.
@@ -325,6 +334,10 @@ Se consulta bajo demanda según la necesidad:
 | Migraciones de schema | `db/migrate.py` | Versiones v1→v4 |
 | Diseño de la instalación | `docs/diseno_instalacion.md` | Flujo DB → elecciones → filtros → loop |
 | Motor de loop | `docs/motor_loop.md` | Spec del cerebro Python (arcos horarios, chiches, spec JSON) |
+| Deploy / visualización web | `docs/deploy.md` | Exportador genérico `exportar_visualizacion.py`, transcode web, snapshot local vs deploy |
+| Retorno "Fluir" en TD | `docs/retorno_fluir_td.md` | Contrato OSC 9002, tablas `fluir_*`, armado del receptor en TD |
+| Videos 360° en web | `docs/videos_360_web.md` | Opciones de renderer 360° (Three.js, A-Frame...), requisitos de pipeline |
+| Rediseño de embeddings | `docs/embeddings_rediseno.md` | Dirección de diseño de la capa semántica (desactivada) |
 | Geocodificación / por qué localidad es NULL | `docs/geocodificacion_reversa.md` | Estrategias y alternativas |
 | Documentos de diseño | `docs/` (arquitectura_motor, flujo_de_medios, linea_de_tiempo, semantica_color, calculo_astronomico, visualizaciones, limpieza_tandas_resultados, ideas_externas, lecciones_elecciones_td, inferencia_autor, armado_de_tandas) | Entender el "por qué" del diseño |
 | Concepto / roadmap / config OpenCode | `VISION.md`, `ROADMAP.md`, `opencode.json` | Visión de la instalación, prioridades, configuración |

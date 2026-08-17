@@ -7,6 +7,23 @@ Las versiones corresponden a entregas funcionales, no a releases semánticas.
 
 ---
 
+## [Entrega 32] — 2026-08-17
+
+Registra trabajo ya commiteado (2026-08-14/16) que quedó sin entrada en el changelog.
+
+### Añadido
+- **Pipeline de traducción EN→ES NO-AI** (`scripts/ai_media/glosario.py`): glosario persistente en JSON (`glosario_keywords.json` en la raíz del proyecto, 100% independiente de la DB) + motores clásicos — **Google vía `deep_translator` por defecto** y **Argos offline** opcional. Reemplaza la capa de traducción por IA (Ollama) como default del pipeline. Adaptación rioplatense de primera clase: viene del glosario (léxico manual del dominio) y de `reemplazos_descripcion` (reglas post-traducción tipo "coche"→"auto"), NO del motor. Prioridad de origen: manual > db_seed > auto.
+- **`traducir_metadata.py` con `--motor`**: `google` (default, vía `deep_translator`), `argos` (offline), `glosario` (solo léxico) y `ollama` (conserva el pipeline legacy `translategemma`). `improve_db.py` (pasos keywords/descriptions/combinado) traduce con el pipeline NO-AI por defecto.
+- **`generar_glosario.py`**: genera/amplía el glosario desde fuentes manuales + DB (pares alineados `ia_keywords_en`/`ia_keywords`, origen `db_seed`) y opcional `--extender --motor google|argos` (palabras del corpus ausentes → origen `auto`). `--dry-run` para previsualizar.
+- **`generar_sinonimos_localidades.py`**: propone sinónimos de localidades cruzando los tags observados en `--clave` (default `ia_keywords`) contra georef/contexto.
+- **`inferir_hora_textos.py`**: infiere timestamp de textos `type='text'` sin fecha interpolando SU PUNTO (lat/lon) contra el track GPX (posición → tiempo, ponderación por distancia inversa); `--umbral` (default 2000 m) descarta textos lejos de la ruta (`fuera_umbral`). Marca `media.geolocation_source = 'track_interpolado'`. Modos skip (solo NULL) / update. Diseño pendiente documentado en ROADMAP: textos que narran trayectorias más allá de su punto (ej: "De Saladillo a Bell Ville").
+
+### Cambiado
+- **Requisito nuevo**: `deep-translator` (`pip install deep-translator`) para el motor Google del pipeline NO-AI; Argos (`argos-translate`) es opcional/offline.
+- **Docs sincronizadas**: AGENTS.md (modelos por tarea, mapa de datos TRANSLATE/INFERIR HORA TEXTOS, catálogo de scripts, lección "traducción = NO-AI"), README.md (modelos Ollama, tabla de scripts, `media_metadata`, enriquecimiento, documentos de diseño, estructura, dependencias, subcomando `ingest-textos`).
+
+---
+
 ## [Entrega 31] — 2026-08-16
 
 ### Añadido
