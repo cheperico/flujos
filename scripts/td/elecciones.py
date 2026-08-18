@@ -31,6 +31,7 @@ import argparse
 import logging
 import sqlite3
 import sys
+import unicodedata
 from typing import Any, Callable, Optional
 
 log = logging.getLogger(__name__)
@@ -45,6 +46,22 @@ from db.util import abrir, resolver_db  # noqa: E402
 
 OSC_HOST = "127.0.0.1"
 OSC_PUERTO_TD = 9000
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Ordenación alfabética (case-insensitive, sin acentos)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _clave_alfabetica(valor: str) -> str:
+    """Normaliza un valor para ordenación alfabética: sin acentos, minúsculas."""
+    nfkd = unicodedata.normalize("NFD", valor or "")
+    return "".join(c for c in nfkd if unicodedata.combining(c) == 0).lower().strip()
+
+
+def _ordenar_alfabetico(pares: list[tuple[str, int]]) -> list[tuple[str, int]]:
+    """Ordena pares (valor, frecuencia) alfabéticamente por valor (estable)."""
+    return sorted(pares, key=lambda vf: _clave_alfabetica(vf[0]))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -65,34 +82,37 @@ def _consulta_horas(conn: sqlite3.Connection) -> list[tuple[str, int]]:
 
 
 def _consulta_municipios(conn: sqlite3.Connection) -> list[tuple[str, int]]:
-    """Municipios con más medios (todos, ordenados por frecuencia)."""
+    """Municipios con medios, en orden alfabético (case-insensitive, sin acentos)."""
     filas = conn.execute("""
         SELECT municipio, COUNT(*) AS n
         FROM media
         WHERE municipio IS NOT NULL AND municipio != ''
         GROUP BY municipio
-        ORDER BY n DESC
     """).fetchall()
-    return [(str(fila[0]), int(fila[1])) for fila in filas]
+    pares = [(str(fila[0]), int(fila[1])) for fila in filas]
+    return _ordenar_alfabetico(pares)
 
 
 def _consulta_colores(conn: sqlite3.Connection) -> list[tuple[str, int]]:
-    """Colores básicos dominantes (slot 1, todos)."""
+    """Colores básicos dominantes (slot 1, todos), en orden alfabético."""
     filas = conn.execute("""
         SELECT color_1_name_basic AS color, COUNT(*) AS n
         FROM media
         WHERE color_1_name_basic IS NOT NULL
         GROUP BY color_1_name_basic
-        ORDER BY n DESC
     """).fetchall()
-    return [(str(fila[0]), int(fila[1])) for fila in filas]
+    pares = [(str(fila[0]), int(fila[1])) for fila in filas]
+    return _ordenar_alfabetico(pares)
 
 
 def _consulta_tags(conn: sqlite3.Connection) -> list[tuple[str, int]]:
     """Keywords de ia_keywords (plano o JSON) contadas individualmente.
 
-    Se conserva el cuarto más significativo: el top 25% por frecuencia
-    (elimina el ruido de keywords que aparecen una sola vez).
+    Se conserva el cuarto más significativo por frecuencia (top 25%), que
+    elimina el ruido de keywords que aparecen una sola vez. El cuarto está
+    capado a MAX_TAGS para que el mensaje OSC completo quepa en el parser
+    de TouchDesigner (~250 args). Dentro del conjunto seleccionado, el orden
+    es alfabético.
     """
     filas = conn.execute(
         "SELECT value FROM media_metadata WHERE key='ia_keywords'"
@@ -116,7 +136,8 @@ def _consulta_tags(conn: sqlite3.Connection) -> list[tuple[str, int]]:
     top = sorted(contador.items(), key=lambda x: -x[1])
     # Cuarto más significativo: ceil(len / 4), mínimo 1 (cociente entero: (n+3)//4)
     n_cuarto = max(1, (len(top) + 3) // 4)
-    return [(str(v), int(f)) for v, f in top[:n_cuarto]]
+    seleccion = [(str(v), int(f)) for v, f in top[:min(n_cuarto, MAX_TAGS)]]
+    return _ordenar_alfabetico(seleccion)
 
 
 KEYWORDS_A_IGNORAR = [
@@ -131,6 +152,10 @@ KEYWORDS_A_IGNORAR = [
 # muestra en la nube de tags (muerte). Match exacto tras normalizar a
 # minúsculas. No confundir con muerte vegetal benigna (árbol muerto, etc.).
 KEYWORDS_SENSIBLES = {"cadáver", "perro muerto", "cuerpo muerto", "muerto"}
+
+# Límite seguro de items: TouchDesigner muestra exactamente 200 tags en pantalla.
+# 200 items = 402 args OSC (2 + 2×200), que llegan completos al parser de TD.
+MAX_TAGS = 200
 
 
 def _partes_keywords(texto: str) -> list[str]:
@@ -149,28 +174,38 @@ def _partes_keywords(texto: str) -> list[str]:
     return [p.strip().strip("'\"") for p in texto.split(",") if p.strip()]
 
 
+_ORDEN_DIAS: dict[str, int] = {
+    "lunes": 0, "martes": 1, "miércoles": 2, "jueves": 3,
+    "viernes": 4, "sábado": 5, "domingo": 6,
+}
+
+
 def _consulta_dias(conn: sqlite3.Connection) -> list[tuple[str, int]]:
-    """Días de la semana presentes en media_metadata."""
+    """Días de la semana presentes, en orden natural (lunes→domingo);
+    valores desconocidos al final.
+    """
     filas = conn.execute("""
         SELECT value, COUNT(*) AS n
         FROM media_metadata
         WHERE key='dia_semana'
         GROUP BY value
-        ORDER BY n DESC
     """).fetchall()
-    return [(str(fila[0]), int(fila[1])) for fila in filas]
+    pares = [(str(fila[0]), int(fila[1])) for fila in filas]
+    return sorted(pares, key=lambda vf: (
+        _ORDEN_DIAS.get(vf[0].lower(), 99), _clave_alfabetica(vf[0])
+    ))
 
 
 def _consulta_clima(conn: sqlite3.Connection) -> list[tuple[str, int]]:
-    """Etiquetas de clima (weather_label)."""
+    """Etiquetas de clima (weather_label), en orden alfabético."""
     filas = conn.execute("""
         SELECT value, COUNT(*) AS n
         FROM media_metadata
         WHERE key='weather_label'
         GROUP BY value
-        ORDER BY n DESC
     """).fetchall()
-    return [(str(fila[0]), int(fila[1])) for fila in filas]
+    pares = [(str(fila[0]), int(fila[1])) for fila in filas]
+    return _ordenar_alfabetico(pares)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -234,9 +269,11 @@ def obtener_items_grupo(conn: sqlite3.Connection, grupo: dict) -> list[dict]:
     """
     Evalúa la consulta de un grupo y normaliza los pesos a 0..1.
 
+    El orden de los items depende de cada grupo: horas en orden numérico 0..23,
+    días en orden natural (lunes→domingo), y los demás grupos en orden alfabético.
+
     Returns:
-        Lista de {"valor": str, "freq": int, "peso": float} ordenada por
-        frecuencia descendente (el orden del query se respeta para horas).
+        Lista de {"valor": str, "freq": int, "peso": float}.
     """
     query_fn: Callable = grupo["query"]
     pares = query_fn(conn)
