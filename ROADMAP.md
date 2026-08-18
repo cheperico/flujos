@@ -38,7 +38,7 @@ Etapa 5: INSTALACIÓN          →  TouchDesigner + motor de deriva
 | Keywords IPTC en JSON (hoy string Python) | Media | ❌ |
 | Content hash de video **eliminado** (frame a 0.5s era débil): quitada la opción CLI de hash de video, la función de hash de video y la notificación de duplicados por hash de contenido para video (para imágenes se mantiene con phash) | Baja | ✅ Hecho (Fase 0, 2026-08-11) |
 | **Detección de repetidos (video/sonido)**: pipeline ligero de sospecha N1-N4 — N1 duración idéntica (±0.5s), N2 file_hash (tamaño+fecha, ya se calcula), N3 **banda sonora** (cross-correlación RMS, local — `repetir_contenido.py`), N4 **confirmación visual veloz** (aún pendiente). Mismo pipeline para sonidos. No marca automático: genera lista de candidatos para revisión humana | Alta | ✅ Parcial (Fase 1, 2026-08-11): `repetir_contenido.py` + `detectar_contenedores.py` + `audio_frame_crossref.py`; N4 visual pendiente |
-| **Inferencia de hora de textos por posición en track GPX** (posición → tiempo; textos sin fecha obtienen su timestamp interpolando su punto contra el track, corte `--umbral`) | Media | ✅ `inferir_hora_textos.py` (2026-08-16); extensión multi-ubicación (textos que narran trayectoria más allá del punto) pendiente |
+| **Inferencia de hora de textos por posición en track GPX** (posición → tiempo; textos sin fecha obtienen su timestamp interpolando su punto contra el track, corte `--umbral`) | Media | ⚠️ Aplicado y REVERTIDO (2026-08-17): los textos de viajeros.md son crónicas históricas (1729–2024), no parte del viaje 2025 — no llevan timestamp. `inferir_hora_textos.py` queda como utilidad para textos que sí pertenezcan al viaje. Extensión multi-ubicación sigue pendiente |
 
 ---
 
@@ -154,6 +154,20 @@ Etapa 5: INSTALACIÓN          →  TouchDesigner + motor de deriva
 ---
 
 ## Historial
+
+- **2026-08-17:** **Revert: textos históricos sin timestamp.**
+  - La inferencia de timestamp aplicada el 2026-08-16 con `inferir_hora_textos.py`
+    fue revertida la misma semana: los textos de `textos/viajeros.md` son crónicas
+    históricas (Gillespie 1806-07, Gervasoni 1729, Concolorcorvo 1771, Mac Cann 1853,
+    Sarmiento 1845, Tschiffely 1925, Di Fazio 2024, etc.) que NO pertenecen al
+    viaje 2025 — interpolarlos contra el track GPX asignaba fechas falsas.
+  - Se limpiaron `timestamp_original`/`timestamp_utc`/`geolocation_source` (12 registros).
+    `inferir_hora_textos.py` queda disponible para textos que sí pertenezcan al viaje.
+  - Los textos sin hora son seguros: elecciones horas los excluye
+    (`timestamp_utc IS NOT NULL`) y el loop usa `HORA_DEFECTO_TEXTO=12.0`.
+  - Pendiente de diseño: cómo tratar textos históricos en el eje temporal (pueden
+    necesitar un plano de "era histórica" separado o narración multi-ubicación, no
+    timestamps del viaje).
 
 - **2026-08-17:** **Backfill de municipio rural + decisión E híbrida (departamento + municipio) pendiente.**
   - Contexto: 502 medios rurales tienen `departamento` pero `municipio` NULL (el polígono del

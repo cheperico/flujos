@@ -22,6 +22,9 @@ Registra trabajo ya commiteado (2026-08-14/16) que quedó sin entrada en el chan
 - **Requisito nuevo**: `deep-translator` (`pip install deep-translator`) para el motor Google del pipeline NO-AI; Argos (`argos-translate`) es opcional/offline.
 - **Docs sincronizadas**: AGENTS.md (modelos por tarea, mapa de datos TRANSLATE/INFERIR HORA TEXTOS, catálogo de scripts, lección "traducción = NO-AI"), README.md (modelos Ollama, tabla de scripts, `media_metadata`, enriquecimiento, documentos de diseño, estructura, dependencias, subcomando `ingest-textos`).
 
+### Corregido
+- **Revert de timestamps inferidos en textos históricos**: la inferencia aplicada el 2026-08-16 con `inferir_hora_textos.py` se revirtió el 2026-08-17 — los textos de `viajeros.md` son crónicas históricas (1729–2024), no parte del viaje 2025, y no deben llevar timestamp. Se limpiaron `timestamp_original`/`timestamp_utc`/`geolocation_source` (12 registros). `inferir_hora_textos.py` queda disponible para textos que sí pertenezcan al viaje. La nube de horas de elecciones ya los excluye (filtro `timestamp_utc IS NOT NULL`) y el loop usa `HORA_DEFECTO_TEXTO` para textos sin hora.
+
 ---
 
 ## [Entrega 31] — 2026-08-16
