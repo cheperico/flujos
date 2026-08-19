@@ -1,12 +1,8 @@
 # Flujos y Diacronías
 
-Instalación interactiva basada en un viaje en bicicleta de Buenos Aires a
+Proceso de archivos y formas de visualización de un viaje en bicicleta de Buenos Aires a
 Tucumán. Procesamiento, gestión y flujo de medios audiovisuales (video 360°,
 imágenes, audio, texto) con SQLite como base de datos central.
-
-**Concepto curatorial:** la deriva. No hay algoritmo fijo. El sistema ofrece
-medios según filtros (color, tiempo, lugar, autor) y la navegación emerge de
-condiciones externas (un pico de ruido, un grito, el momento presente).
 
 ---
 
