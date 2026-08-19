@@ -104,6 +104,7 @@ python flujos.py --help         # Ayuda general
 | `audio-frame` / `crossref` | Correlacionar contenido de audio con frames de video |
 | `analizar-video` / `analizar` | Analizar videos con IA: escenas + keywords (scene detection → muestreo → visión) |
 | `keypoints-contexto` / `keypoints` | Keypoints de contexto (devenir geográfico) contra los tracks GPX |
+| `mapa` | Generar mapa interactivo Folium de la ruta |
 
 Cada subcomando acepta `--help` para ver sus opciones específicas.
 
@@ -281,6 +282,8 @@ Todas las operaciones que modifican la DB preguntan el modo
 | `scripts/limpiar_descripciones.py` | Recorta meta-intros (eco del prompt) en `ia_description_en`/`ia_description` — determinista, sin IA, backup automático | Mantenimiento |
 | `scripts/limpiar_stickers.py` | Elimina stickers de Telegram mal ingeridos en `media` (dry-run + backup automático) | Mantenimiento |
 | `scripts/inferir_hora_textos.py` | Infiere timestamp de textos `type='text'` interpolando su posición contra el track GPX (posición → tiempo, `--umbral`) | Enriquecimiento |
+| `scripts/diagnosticar_camaras_360.py` | Diagnostica relojes de cámaras Insta360 en videos 360°: identifica cámara A/B (bitrate+fps), deduce hora real (embebido=UTC−3h), flaggea relojes reconfigurados (solo lectura, NO escribe en DB; ver `docs/discrepancia_horarios_camaras.md`) | Diagnóstico |
+| `scripts/ubicar_videos_gpx.py` | Ubica videos 360° interpolando su intervalo temporal contra el track GPX (colapsa momentos detenidos, muestreo `--intervalo` s): lat/lon/alt inicial + keypoints `ubicacion_video` por tramo + sentinels `ubicacion_video_estado`/`ubicacion_video_gaps` (NO TUI) | Enriquecimiento |
 | `scripts/exportar_visualizacion.py` | Exporta snapshot de la DB → visualizacion.db; deploy genérico a deploy/ (por defecto) con copia de medios y transcode web | Visualización |
 | `scripts/ingest_textos.py` | Ingiere textos `.md` de `textos/` como medios type='text' (frontmatter + subtítulos `##` = textos individuales) | Ingesta |
 | `scripts/fix_gps_sign.py` | Corrección de signo GPS (herramienta de mantenimiento) | Mantenimiento |
@@ -305,7 +308,7 @@ Todas las operaciones que modifican la DB preguntan el modo
 | `glosario.py` | Glosario EN→ES persistente (JSON `glosario_keywords.json`) + motores clásicos (Google `deep_translator` default / Argos offline); reemplazos rioplatenses post-traducción |
 | `generar_glosario.py` | Genera/amplía el glosario desde fuentes manuales + DB (pares alineados `ia_keywords_en`/`ia_keywords`) y opcional `--extender --motor google|argos` |
 | `generar_sinonimos_localidades.py` | Propone sinónimos de localidades cruzando tags observados en `--clave` (default `ia_keywords`) contra georef/contexto |
-| `keywords_transcripciones.py` | Keywords del sentido (qwen2.5:3b): `--origen transcripcion` → `ia_keywords_transcripcion`; `--origen texto` → `ia_keywords_texto` |
+| `keywords_transcripciones.py` | Keywords del sentido (gemma3:latest): `--origen transcripcion` → `ia_keywords_transcripcion`; `--origen texto` → `ia_keywords_texto` |
 | `audio_tagging.py` | Sonidos ambientales (sherpa-onnx CED-mini, local) → `ia_keywords_sonido` |
 | `proxy.py` | Redimensiona imágenes a ~800px para IA |
 | `loop_engine.py` | Motor de loop: núcleo puro (arcos horarios N→N−1, cruce de medianoche, posición de medios `t_loop`) |
@@ -412,6 +415,8 @@ Metadatos variables en formato clave-valor:
 | `contenedor_streams` | JSON con el detalle de los streams detectados | detectar_contenedores.py |
 | `keypoints_video_estado` | `ok`\|`sin_datos` — sentinel de procesado de keypoints de video | keypoints_video.py |
 | `keypoints_contexto_estado` | `ok`\|`sin_datos` — sentinel de procesado de keypoints de contexto | keypoints_contexto.py |
+| `ubicacion_video_estado` | `ok`\|`sin_datos`\|`fuera_rango`\|`sin_track` — sentinel de ubicación de videos por GPX | ubicar_videos_gpx.py |
+| `ubicacion_video_gaps` | JSON con gaps GPX grandes detectados al ubicar videos | ubicar_videos_gpx.py |
 
 ### Tabla `media_keypoints`
 
@@ -422,7 +427,7 @@ Segmentos temporales con timestamp (ej: segmentos de transcripción):
 | `media_id` | Referencia a media(id) |
 | `timestamp_offset_secs` | Offset desde inicio del medio |
 | `timestamp_absolute` | timestamp_utc + offset |
-| `key` | Tipo de keypoint: `transcription` (whisper), `contexto_*` (contexto geográfico), `escena`/`keyword` (análisis de video) |
+| `key` | Tipo de keypoint: `transcription` (whisper), `contexto_*` (contexto geográfico), `escena`/`keyword` (análisis de video), `ubicacion_video` (posición por tramo) |
 | `value` | Contenido del segmento |
 | `source` | Origen (faster-whisper, ollama, track_interpolado, estimado, gps_propio, etc.) |
 
@@ -484,7 +489,7 @@ Todos soportan `--mode skip|update|replace`.
 | `geocode.py` | Provincia, municipio, localidad en `media` | Coordenadas GPS (NEGATIVAS) |
 | `gradiente.py` | Distancia, elevación, pendiente entre puntos GPS en `media` | Coordenadas GPS + 2+ puntos |
 | `astronomia.py` | Posición del sol (elevación, azimut) y clasificación twilight en `media` | Coordenadas GPS + `timestamp_utc` |
-| `keywords_transcripciones.py` | Keywords del SENTIDO (`ia_keywords_transcripcion` / `ia_keywords_texto`, qwen2.5:3b) | `whisper_segments` o `texto_completo` |
+| `keywords_transcripciones.py` | Keywords del SENTIDO (`ia_keywords_transcripcion` / `ia_keywords_texto`, gemma3:latest) | `whisper_segments` o `texto_completo` |
 | `audio_tagging.py` | Sonidos ambientales (`ia_keywords_sonido`, sherpa-onnx CED-mini local) | Audio/video |
 | `keypoints_contexto.py` | Keypoints de contexto (`contexto_*` en `media_keypoints`) interpolando track GPX + georef/clima | Track GPX + posición |
 | `inferir_hora_textos.py` | Timestamp de textos `type='text'` sin fecha (posición → tiempo contra el track GPX) | Textos con lat/lon |
@@ -546,7 +551,7 @@ ollama pull llama3.2-vision:latest   # 7.8 GB — buena calidad general
 ollama pull moondream:latest         # 1.7 GB — rápido y pequeño (responde MAL en español → prompts EN)
 
 # Texto (keywords del SENTIDO de transcripciones/textos)
-ollama pull qwen2.5:3b               # 3.2 GB — keywords del sentido
+ollama pull gemma3:latest            # — ganó A/B Ago 2026 contra qwen2.5:3b (MODELO_TEXTO_DEFAULT)
 
 # Embeddings (retirado del TUI, rediseño pendiente)
 ollama pull nomic-embed-text         # 274 MB — embeddings / búsquedas semánticas
@@ -721,6 +726,7 @@ pip install torch --index-url https://download.pytorch.org/whl/cu121
 | `docs/retorno_fluir_td.md` | Retorno "Fluir" en TD: contrato OSC 9002, tablas `fluir_*`, armado del receptor |
 | `docs/lecciones_elecciones_td.md` | Lecciones del armado de elecciones en TD (mapa real de operadores, canales OSC) |
 | `docs/videos_360_web.md` | Opciones de renderer 360° en web (Three.js, A-Frame...) y requisitos de pipeline |
+| `docs/discrepancia_horarios_camaras.md` | Relojes desincronizados de cámaras Insta360 (A=LA +7h / B=UTC+1 −1h / B reconfigurada); cómo deducir la hora real (embebido=UTC−3h); procedimiento reutilizable para videos nuevos |
 | `docs/embeddings_rediseno.md` | Dirección de diseño de la capa semántica (desactivada) |
 | `docs/inferencia_autor.md` | Inferencia de autor desde EXIF/carpeta |
 | `docs/armado_de_tandas.md` | Estrategias de armado de tandas y limpieza |
@@ -772,6 +778,8 @@ pip install torch --index-url https://download.pytorch.org/whl/cu121
 │   ├── check_db_data.py       # Helper: clima, día, geocode
 │   ├── ingest_textos.py       # Ingesta de textos .md como medios type='text'
 │   ├── inferir_hora_textos.py # Timestamp de textos interpolando track GPX
+│   ├── diagnosticar_camaras_360.py # Diagnóstico de relojes Insta360 (solo lectura)
+│   ├── ubicar_videos_gpx.py   # Ubica videos 360° por interpolación GPX
 │   ├── keypoints_contexto.py  # Keypoints de contexto (devenir geográfico)
 │   ├── detectar_contenedores.py  # Auditoría de contenedores (ffprobe)
 │   ├── repetir_contenido.py   # Contenido repetido por audio

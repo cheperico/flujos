@@ -7,6 +7,28 @@ Las versiones corresponden a entregas funcionales, no a releases semánticas.
 
 ---
 
+## [Entrega 33] — 2026-08-18
+
+Registra trabajo ya commiteado (2026-08-17) que quedó sin entrada en el changelog.
+
+### Añadido
+- **Diagnóstico de relojes Insta360** (`scripts/diagnosticar_camaras_360.py`): para cada .mp4 360° extrae `QuickTime:CreateDate` (UTC), bitrate, fps y timestamp del filename; clasifica cámara A (LA, +7h) / B (UTC+1, −1h) / B reconfigurada / desconocida y deduce la hora real argentina (CreateDate −3h). **Solo lectura, no escribe en DB.** NO TUI (decisión usuario 2026-08-17). Procedimiento completo en `docs/discrepancia_horarios_camaras.md`.
+- **Ubicación de videos 360° por interpolación GPX** (`scripts/ubicar_videos_gpx.py`): los videos Insta360 remuxados perdieron su GPS embebido; el script muestrea su intervalo temporal cada `--intervalo` s, interpola (lat, lon, ele) contra el track GPX y colapsa momentos detenidos (umbral 5 km/h + distancia mínima 100 m). Escribe `media.latitude/longitude/altitude` (posición inicial, source `track_interpolado`), `media_keypoints` key=`ubicacion_video` por tramo y sentinels `ubicacion_video_estado` (`ok`|`sin_datos`|`fuera_rango`|`sin_track`) + `ubicacion_video_gaps` (JSON). Flags: `--solo-360`, `--mode skip|update|replace`, `--intervalo`, `--umbral-movimiento`, `--distancia-minima`, `--umbral-gap`, `--sobrescribir-gps`, `--dry-run`. NO TUI.
+- **Ingesta de videos 360° con horas reales UTC**: la ingesta ya aplica la corrección de reloj documentada (embebido = UTC − 3h real).
+
+### Cambiado
+- **Modelo de keywords del SENTIDO: `gemma3:latest`** (`MODELO_TEXTO_DEFAULT` en `keywords_transcripciones.py`): ganó el A/B (93 llamadas, Ago 2026) contra `qwen2.5:3b` con el prompt endurecido P2 — reglas de formato, palabras prohibidas, fidelidad, artefactos de voz y keywords compuestas. Aplica a `--origen transcripcion` (`ia_keywords_transcripcion`) y `--origen texto` (`ia_keywords_texto`).
+- **Nubes de elecciones ordenadas** (`scripts/td/elecciones.py`): municipios/tags/colores/clima en orden alfabético (case-insensitive, sin acentos), días en orden natural lunes→domingo, horas 0..23; `MAX_TAGS=200` (el parser OSC de TD corta mensajes con demasiados args) — la selección se hace por frecuencia (top cuartil acotado) y luego se ordena alfabéticamente.
+- **`flujos.py`**: el texto del TUI que describe "Keywords desde transcripciones" menciona el modelo correcto (gemma3:latest).
+
+### Corregido
+- **`--transcode` en `exportar_visualizacion.py`**: el flag real es `--transcode` (action=store_true); la documentación previa mencionaba `--no-transcode` (inexistente). El TUI agrega `--transcode` solo si el usuario confirma transcodificar.
+
+### Documentación
+- **AGENTS.md/README.md sincronizadas**: catálogo de scripts (`diagnosticar_camaras_360.py`, `ubicar_videos_gpx.py`), mapa de datos (UBICAR VIDEOS GPX), claves `media_metadata` (`ubicacion_video_estado`/`ubicacion_video_gaps`), keypoint `ubicacion_video`, modelos por tarea (`gemma3:latest`), tabla de documentos (`docs/discrepancia_horarios_camaras.md`), subcomando `mapa`, estructura del proyecto.
+
+---
+
 ## [Entrega 32] — 2026-08-17
 
 Registra trabajo ya commiteado (2026-08-14/16) que quedó sin entrada en el changelog.
@@ -99,7 +121,7 @@ Registra trabajo ya commiteado (2026-08-14/16) que quedó sin entrada en el chan
 - **Fase 4 — Keypoints de contexto (devenir geográfico)** (`scripts/keypoints_contexto.py`): F1 interpola la posición del medio contra los tracks GPX (multi-track con prioridad contiene → solapa → cercano → sin_rango; muestreo cada `--intervalo` 30 s), F2 transiciones baratas (elevación ±50 m, día/crepúsculo/noche, movimiento ≤5 km/h), F3 enriquece con Georef + clima en frecuencia gruesa (300 s) con cache en memoria y JSON, F4 escribe `media_keypoints` key=`contexto_*` (`contexto_elevacion`, `contexto_astronomia`, `contexto_ubicacion`, `contexto_clima`, `contexto_movimiento`) con source `track_interpolado` | `estimado` | `gps_propio`. Sentinel `media_metadata.keypoints_contexto_estado` (`ok` | `sin_datos`). TUI Mejorar DB Hoja 3 → 2; CLI `flujos.py keypoints-contexto` / `keypoints`.
 - **TUI Mejorar DB → Hoja 3 "Analisis de video"**: opción 1) Analizar video (escenas + IA), 2) Keypoints de contexto. La Hoja 2 pasa a tener navegación bidireccional (p Anterior / n Siguiente).
 - **TUI Visualizaciones → opción 2 "Exportar visualización web (deploy)"**: submenú con deploy a `deploy/` (default) o a otra carpeta — en ambos casos **pregunta si transcodificar** videos grandes/360° a MP4 web (S/n) —, re-exportar snapshot local (`--snapshot-local`, `deploy/db/visualizacion.db` sin copiar medios), regenerar spec del loop (`loop_db.py --salida deploy/spec.json`) y previsualizar deploy (`--dry-run`).
-- **Exportador genérico de deploy** (`scripts/exportar_visualizacion.py`, movido desde la web prototipo): el script ya no pertenece a la web prototipo sino al pipeline — sirve a **cualquier implementación web** (deploy es solo un destino posible). Deploy por defecto a `deploy/` (raíz del proyecto) con copia de medios a `<dir>/media/...` y transcode opcional (`--no-transcode`, `--transcode-box`, `--transcode-360-largo`, `--dry-run`); `--snapshot-local` conserva el comportamiento dev local (rutas absolutas, sin copiar). Documentado en `docs/deploy.md`.
+- **Exportador genérico de deploy** (`scripts/exportar_visualizacion.py`, movido desde la web prototipo): el script ya no pertenece a la web prototipo sino al pipeline — sirve a **cualquier implementación web** (deploy es solo un destino posible). Deploy por defecto a `deploy/` (raíz del proyecto) con copia de medios a `<dir>/media/...` y transcode opcional (`--transcode`, `--transcode-box`, `--transcode-360-largo`, `--dry-run`); `--snapshot-local` conserva el comportamiento dev local (rutas absolutas, sin copiar). Documentado en `docs/deploy.md`.
 
 ### Cambiado
 - **Fase 0 — `content_hash_video` eliminado de la ingesta** (`scripts/ingest.py`): el hash de contenido para videos (frame a 0.5 s, débil) desaparece — `content_hash` = `file_hash` para videos; se quitó la opción `--compute-video-hash` y la notificación de duplicados por content_hash en video (imágenes mantienen phash). ROADMAP Etapa 2 actualizado a Hecho.

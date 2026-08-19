@@ -1345,7 +1345,7 @@ def opcion_keywords_transcripciones(db_path: str | None = None):
     _menu("KEYWORDS DESDE TEXTOS Y TRANSCRIPCIONES", {
         "1": ("Desde transcripciones (audio/video)", lambda db: _submenu_origen(db, "transcripcion", "TRANSCRIPCIONES (audio/video)")),
         "2": ("Desde textos (.md ingresados)", lambda db: _submenu_origen(db, "texto", "TEXTOS (.md)")),
-    }, db_path, intro="  Extrae keywords del SENTIDO de las transcripciones de audio/video\n  o de los textos ingresados (.md). Usa Ollama (qwen2.5:3b).")
+    }, db_path, intro="  Extrae keywords del SENTIDO de las transcripciones de audio/video\n  o de los textos ingresados (.md). Usa Ollama (gemma3:latest).")
 
 
 def opcion_audio_tagging(db_path: str | None = None):

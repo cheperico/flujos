@@ -55,7 +55,7 @@ Etapa 5: INSTALACIÓN          →  TouchDesigner + motor de deriva
 | **Inferencia de timestamps faltantes** | Alta | ✅ | `improve-db --steps timestamps --mode` |
 | Pipeline unificado (10 pasos) con skip/update/replace | Alta | ✅ | `improve_db.py` + flujos.py TUI |
 | Etiquetado combinado (keywords + descripción en 1 llamada de visión) | Media | ✅ | `improve-db --steps combinado --mode` |
-| Pipeline IA EN → ES (visión genera EN, traducción ES con qwen2.5:3b) | Alta | ✅ | `improve_db.py` + `traducir_metadata.py` |
+| Pipeline IA EN → ES (visión genera EN, traducción ES con pipeline NO-AI glosario+motor clásico) | Alta | ✅ | `improve_db.py` + `traducir_metadata.py` |
 | Refinar/unificar keywords (sinónimos) | Media | ✅ | `refinar_keywords.py` |
 | Audio tagging (sonidos ambientales, sherpa-onnx local) | Media | ✅ | `audio_tagging.py` |
 | Verificación de Ollama antes de pasos IA | Alta | ✅ | `_verificar_ollama()` en flujos.py |
